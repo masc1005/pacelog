@@ -16,6 +16,7 @@ const envSchema = z.object({
   SENTRY_DSN: z.string().optional(),
   SENTRY_ENVIRONMENT: z.string().optional(),
   SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional(),
+  GEMINI_API_KEY: z.string().optional(),
 });
 
 const _env = envSchema.safeParse(process.env);

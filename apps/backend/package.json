@@ -14,6 +14,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@google/genai": "^2.18.0",
     "@pacelog/shared": "workspace:*",
     "@sentry/node": "^9.3.0",
     "@sentry/profiling-node": "^9.3.0",

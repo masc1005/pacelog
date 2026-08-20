@@ -227,3 +227,53 @@ export interface ProgressOverviewDTO {
   sportsBreakdown: SportSummaryStats[];
   recentPersonalRecords: PersonalRecordItem[];
 }
+
+// ==========================================
+// MÓDULO DE NOTIFICAÇÕES & ALERTAS
+// ==========================================
+
+export const NOTIFICATION_TYPES = [
+  'goal_achieved',
+  'acwr_danger',
+  'acwr_warning',
+  'streak_broken',
+  'streak_milestone',
+  'pr_set',
+] as const;
+
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export interface NotificationDTO extends BaseEntity {
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  payload?: Record<string, any>;
+  readAt: Date | string | null;
+}
+
+// ==========================================
+// MÓDULO DE EXPORTAÇÃO
+// ==========================================
+
+export interface WeeklyReportDTO {
+  weekLabel: string;
+  startDate: string;
+  endDate: string;
+  acwr: AcwrReadout;
+  totalDurationSeconds: number;
+  totalSessionalLoad: number;
+  sessionsCount: number;
+  goalsAchieved: number;
+  prsSet: number;
+}
+
+// ==========================================
+// MÓDULO DE INSIGHTS COM IA (GEMINI)
+// ==========================================
+
+export interface AIInsightDTO extends BaseEntity {
+  userId: string;
+  content: string;
+  type: 'daily_coach' | 'recovery_warning' | 'milestone_celebration';
+}

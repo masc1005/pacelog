@@ -11,6 +11,8 @@ import type {
 } from './session.schemas.js';
 import { scopedFilter } from '../../utils/scopedQuery.js';
 import { HttpError } from '../../utils/httpError.js';
+import { notificationService } from '../notifications/notification.service.js';
+import { progressService } from '../progress/progress.service.js';
 import type { SessionSummaryDTO, SportKey, SportSummaryStats } from '@pacelog/shared';
 
 export class SessionService {
@@ -69,12 +71,34 @@ export class SessionService {
           runValidators: true,
         }
       );
+      
+      // Disparar hooks assíncronos
+      setImmediate(() => {
+        this.dispatchAlerts(userId);
+      });
+      
       return session;
     }
 
     // 5. Caso contrário, criar nova sessão
     const newSession = await SessionModel.create(sessionPayload);
+    
+    // Disparar hooks assíncronos
+    setImmediate(() => {
+      this.dispatchAlerts(userId);
+    });
+
     return newSession;
+  }
+
+  private async dispatchAlerts(userId: string) {
+    try {
+      await notificationService.checkAndDispatchGoalAlerts(userId);
+      const overview = await progressService.getOverview(userId);
+      await notificationService.checkAndDispatchAcwrAlerts(userId, overview.acwr);
+    } catch (error) {
+      console.error('[SessionService] Error dispatching alerts:', error);
+    }
   }
 
   /**
@@ -177,6 +201,12 @@ export class SessionService {
     );
 
     await existingSession.save();
+    
+    // Disparar hooks assíncronos
+    setImmediate(() => {
+      this.dispatchAlerts(userId);
+    });
+
     return existingSession;
   }
 

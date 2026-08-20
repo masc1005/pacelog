@@ -13,6 +13,9 @@ import { profileRoutes } from './modules/profile/profile.routes.js';
 import { sessionRoutes } from './modules/sessions/session.routes.js';
 import { goalRoutes } from './modules/goals/goal.routes.js';
 import { progressRoutes } from './modules/progress/progress.routes.js';
+import notificationRoutes from './modules/notifications/notification.routes.js';
+import exportRoutes from './modules/export/export.routes.js';
+import insightRoutes from './modules/insights/insight.routes.js';
 
 export const app = express();
 
@@ -60,6 +63,9 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/goals', goalRoutes);
 app.use('/api/progress', progressRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/export', exportRoutes);
+app.use('/api/insights', insightRoutes);
 
 // Health check para Railway, Docker e monitoramento
 app.get('/health', (_req, res) => {
