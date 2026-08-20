@@ -1,0 +1,29 @@
+{
+  "name": "pacelog-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:backend": "pnpm --filter @pacelog/backend dev",
+    "dev:frontend": "pnpm --filter @pacelog/frontend dev",
+    "build": "turbo build",
+    "build:backend": "pnpm --filter @pacelog/backend build",
+    "build:frontend": "pnpm --filter @pacelog/frontend build",
+    "test": "turbo test",
+    "test:backend": "pnpm --filter @pacelog/backend test",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3",
+    "turbo": "^2.4.4",
+    "typescript": "^5.8.2"
+  },
+  "packageManager": "pnpm@11.22.0",
+  "onlyBuiltDependencies": [
+    "@sentry-internal/node-cpu-profiler",
+    "@sentry/profiling-node",
+    "esbuild",
+    "mongodb-memory-server"
+  ]
+}

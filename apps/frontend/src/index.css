@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: 'Archivo Narrow', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --color-tactical-neon: #39ff14;
+  --color-tactical-amber: #ffb800;
+  --color-tactical-red: #ff3b30;
+  --color-tactical-dark: #0d0e11;
+  --color-tactical-card: #15181e;
+  --color-tactical-border: #232730;
+}

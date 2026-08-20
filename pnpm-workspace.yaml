@@ -1,0 +1,7 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+allowBuilds:
+  '@sentry-internal/node-cpu-profiler': true
+  esbuild: true
+  mongodb-memory-server: true
