@@ -8,6 +8,7 @@ const db = client.db();
 
 export const auth = betterAuth({
   database: mongodbAdapter(db, { client }),
+  baseURL: env.BETTER_AUTH_URL || 'http://localhost:3333',
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
@@ -29,6 +30,7 @@ export const auth = betterAuth({
     env.APP_ORIGIN,
     'https://pacelog-staging.pages.dev',
     'http://localhost:5173',
+    'http://127.0.0.1:5173',
     'http://localhost:3000',
   ],
 });
