@@ -3,11 +3,13 @@ import './instrument.js';
 import { app } from './app.js';
 import { env } from './config/env.js';
 import { connectDatabase } from './config/database.js';
+import { seedSports } from './modules/sports/sport.seed.js';
 import { logger } from './utils/logger.js';
 
 async function start() {
   try {
     await connectDatabase();
+    await seedSports();
     app.listen(env.PORT, () => {
       logger.info(`🚀 Servidor PACELOG API rodando na porta ${env.PORT} [${env.NODE_ENV}]`);
       logger.info(`🔗 Health check: http://localhost:${env.PORT}/health`);

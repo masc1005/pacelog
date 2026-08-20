@@ -8,6 +8,8 @@ import { auth } from './config/auth.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { env } from './config/env.js';
 import { HttpError } from './utils/httpError.js';
+import { sportRoutes } from './modules/sports/sport.routes.js';
+import { profileRoutes } from './modules/profile/profile.routes.js';
 
 export const app = express();
 
@@ -40,6 +42,10 @@ app.use(limiter);
 app.all('/api/auth/*', toNodeHandler(auth));
 
 app.use(express.json({ limit: '5mb' }));
+
+// Rotas de Domínio
+app.use('/api/sports', sportRoutes);
+app.use('/api/profile', profileRoutes);
 
 // Health check para Railway, Docker e monitoramento
 app.get('/health', (_req, res) => {
