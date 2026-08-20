@@ -35,8 +35,9 @@ export const NewSessionPage: React.FC = () => {
     if (step === 1 && sportKey) {
       // Setup initial metrics defaults
       if (sportKey === 'running') setMetrics({ distanceKm: 5, paceMin: 5, paceSec: 30 });
-      if (sportKey === 'boxing') setMetrics({ roundsCount: 12, punchesThrownEstimate: 0 });
-      if (sportKey === 'football' || sportKey === 'futevolei') setMetrics({ matchResult: 'win' });
+      if (sportKey === 'boxing') setMetrics({ roundsCount: 12, punchesThrownEstimate: 0, roundDurationSeconds: 180, restDurationSeconds: 60 });
+      if (sportKey === 'football') setMetrics({ matchResult: 'win' });
+      if (sportKey === 'futevolei') setMetrics({ setsCount: 3, setsWon: 2, setsLost: 1 });
       if (sportKey === 'strength') setMetrics({ totalVolumeKg: 0, totalSets: 10 });
       
       setStep(2);
@@ -57,6 +58,10 @@ export const NewSessionPage: React.FC = () => {
     try {
       // Pre-process metrics
       const finalMetrics = { ...metrics };
+      
+      // Injeta durationSeconds dentro de metrics, já que vários schemas (como futevolei e football) exigem isso
+      finalMetrics.durationSeconds = durationMinutes * 60;
+      
       if (sportKey === 'running' && finalMetrics.distanceKm) {
         finalMetrics.distanceMeters = finalMetrics.distanceKm * 1000;
         finalMetrics.paceSecondsPerKm = (finalMetrics.paceMin * 60) + finalMetrics.paceSec;
@@ -199,12 +204,24 @@ export const NewSessionPage: React.FC = () => {
             )}
 
             {sportKey === 'boxing' && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <Input
                   label="Qtd. Rounds"
                   type="number"
                   value={metrics.roundsCount || ''}
                   onChange={e => setMetrics({...metrics, roundsCount: Number(e.target.value)})}
+                />
+                <Input
+                  label="Round (s)"
+                  type="number"
+                  value={metrics.roundDurationSeconds || ''}
+                  onChange={e => setMetrics({...metrics, roundDurationSeconds: Number(e.target.value)})}
+                />
+                <Input
+                  label="Descanso (s)"
+                  type="number"
+                  value={metrics.restDurationSeconds || ''}
+                  onChange={e => setMetrics({...metrics, restDurationSeconds: Number(e.target.value)})}
                 />
                 <Input
                   label="Golpes Estimados"
@@ -232,7 +249,7 @@ export const NewSessionPage: React.FC = () => {
               </div>
             )}
 
-            {(sportKey === 'football' || sportKey === 'futevolei') && (
+            {sportKey === 'football' && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] uppercase font-mono tracking-widest text-[#8F9380]">
@@ -248,6 +265,32 @@ export const NewSessionPage: React.FC = () => {
                     <option value="loss">Derrota</option>
                   </select>
                 </div>
+              </div>
+            )}
+
+            {sportKey === 'futevolei' && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <Input
+                  label="Qtd. de Sets"
+                  type="number"
+                  min={1}
+                  value={metrics.setsCount || ''}
+                  onChange={e => setMetrics({...metrics, setsCount: Number(e.target.value)})}
+                />
+                <Input
+                  label="Sets Vencidos"
+                  type="number"
+                  min={0}
+                  value={metrics.setsWon || ''}
+                  onChange={e => setMetrics({...metrics, setsWon: Number(e.target.value)})}
+                />
+                <Input
+                  label="Sets Perdidos"
+                  type="number"
+                  min={0}
+                  value={metrics.setsLost || ''}
+                  onChange={e => setMetrics({...metrics, setsLost: Number(e.target.value)})}
+                />
               </div>
             )}
           </Card>
