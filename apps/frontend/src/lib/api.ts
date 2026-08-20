@@ -61,6 +61,16 @@ export async function apiClient<T>(
     ...customConfig,
   };
 
+  if (isBrowser) {
+    const token = localStorage.getItem('pacelog_auth_token');
+    if (token) {
+      config.headers = {
+        ...config.headers,
+        Authorization: `Bearer ${token}`
+      };
+    }
+  }
+
   try {
     const response = await fetch(url, config);
 
