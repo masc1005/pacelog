@@ -18,6 +18,7 @@ import exportRoutes from './modules/export/export.routes.js';
 import insightRoutes from './modules/insights/insight.routes.js';
 
 export const app = express();
+app.set('trust proxy', 1);
 
 app.use(
   helmet({
