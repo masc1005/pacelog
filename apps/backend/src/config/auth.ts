@@ -1,5 +1,4 @@
 import { betterAuth } from 'better-auth';
-import { bearer } from 'better-auth/plugins';
 import { mongodbAdapter } from 'better-auth/adapters/mongodb';
 import { MongoClient } from 'mongodb';
 import { env } from './env.js';
@@ -37,8 +36,5 @@ export const auth = betterAuth({
     'http://127.0.0.1:5173',
     'http://localhost:3000',
     'http://192.168.*',
-  ],
-  plugins: [
-    bearer()
   ],
 });
