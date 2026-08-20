@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { AICoachWidget } from '../../components/ui/AICoachWidget';
 import {
   Flame,
   Zap,
@@ -111,6 +112,9 @@ export const HomePage: React.FC = () => {
           TELEMETRIA ATIVA
         </span>
       </div>
+
+      {/* AI Coach Widget */}
+      <AICoachWidget />
 
       {/* 1. Section: Chronograph Dashboard matching Stitch PACELOG: Performance Premium */}
       <section className="flex flex-col md:flex-row gap-6 lg:gap-10 items-center md:items-start justify-center bg-[#051424] p-6 lg:p-8 rounded-[2px] border border-[#1F2937] relative overflow-hidden">
