@@ -12,3 +12,14 @@ export function validate(schema: ZodSchema) {
     next();
   };
 }
+
+export function validateQuery(schema: ZodSchema) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req.query);
+    if (!result.success) {
+      return next(new HttpError(400, 'VALIDATION_ERROR', result.error.flatten()));
+    }
+    req.query = result.data as any;
+    next();
+  };
+}

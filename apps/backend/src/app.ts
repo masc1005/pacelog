@@ -10,6 +10,7 @@ import { env } from './config/env.js';
 import { HttpError } from './utils/httpError.js';
 import { sportRoutes } from './modules/sports/sport.routes.js';
 import { profileRoutes } from './modules/profile/profile.routes.js';
+import { sessionRoutes } from './modules/sessions/session.routes.js';
 
 export const app = express();
 
@@ -54,6 +55,7 @@ app.use(express.json({ limit: '5mb' }));
 // Rotas de Domínio
 app.use('/api/sports', sportRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/sessions', sessionRoutes);
 
 // Health check para Railway, Docker e monitoramento
 app.get('/health', (_req, res) => {

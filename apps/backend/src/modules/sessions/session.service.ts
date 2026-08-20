@@ -1,0 +1,280 @@
+import { SessionModel, type ISessionDocument } from './session.model.js';
+import {
+  enrichSportMetrics,
+  calculateSessionalLoad,
+} from './sport.rules.js';
+import type {
+  CreateSessionInput,
+  UpdateSessionInput,
+  ListSessionsQuery,
+  SessionSummaryQuery,
+} from './session.schemas.js';
+import { scopedFilter } from '../../utils/scopedQuery.js';
+import { HttpError } from '../../utils/httpError.js';
+import type { SessionSummaryDTO, SportKey, SportSummaryStats } from '@pacelog/shared';
+
+export class SessionService {
+  /**
+   * Cria ou atualiza (upsert) uma sessão de treino com idempotência offline via clientUuid.
+   */
+  async createOrUpsertSession(
+    userId: string,
+    input: CreateSessionInput
+  ): Promise<ISessionDocument> {
+    // 1. Enriquecer métricas de acordo com o esporte (pace de corrida, volume de musculação, rounds de boxe)
+    const enrichedMetrics = enrichSportMetrics(input.sportKey, input.metrics);
+
+    // 2. Determinar a duração total em segundos da sessão
+    let durationSeconds: number = Number(input.durationSeconds) || 0;
+    if (durationSeconds <= 0) {
+      if (enrichedMetrics.durationSeconds) {
+        durationSeconds = Number(enrichedMetrics.durationSeconds) || 60;
+      } else if (enrichedMetrics.totalDurationSeconds) {
+        durationSeconds = Number(enrichedMetrics.totalDurationSeconds) || 60;
+      } else {
+        durationSeconds = 60; // Fallback mínimo seguro
+      }
+    }
+
+    // 3. Calcular Carga Fisiológica da Sessão (Foster sRPE = minutos * RPE)
+    const sessionalLoad = calculateSessionalLoad(durationSeconds, input.rpe);
+
+    const sessionPayload: Record<string, any> = {
+      userId,
+      sportKey: input.sportKey,
+      startedAt: input.startedAt || new Date(),
+      endedAt: input.endedAt,
+      durationSeconds,
+      rpe: input.rpe,
+      sessionalLoad,
+      status: 'completed' as const,
+      metrics: enrichedMetrics,
+      notes: input.notes,
+    };
+
+    if (input.clientUuid) {
+      sessionPayload.clientUuid = input.clientUuid;
+    }
+
+    // 4. Se clientUuid estiver presente, fazer Upsert Idempotente para prevenir duplicidade offline
+    if (input.clientUuid) {
+      const filter = scopedFilter(userId, { clientUuid: input.clientUuid });
+      const session = await SessionModel.findOneAndUpdate(
+        filter,
+        { $set: sessionPayload },
+        {
+          new: true,
+          upsert: true,
+          setDefaultsOnInsert: true,
+          runValidators: true,
+        }
+      );
+      return session;
+    }
+
+    // 5. Caso contrário, criar nova sessão
+    const newSession = await SessionModel.create(sessionPayload);
+    return newSession;
+  }
+
+  /**
+   * Lista sessões de treino com paginação e filtros opcionais por modalidade e data.
+   */
+  async listSessions(
+    userId: string,
+    query: ListSessionsQuery
+  ): Promise<{
+    items: ISessionDocument[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      pages: number;
+    };
+  }> {
+    const { page, limit, sportKey, startDate, endDate } = query;
+
+    const baseFilter: Record<string, any> = {};
+
+    if (sportKey) {
+      baseFilter.sportKey = sportKey;
+    }
+
+    if (startDate || endDate) {
+      baseFilter.startedAt = {};
+      if (startDate) {
+        baseFilter.startedAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        baseFilter.startedAt.$lte = new Date(endDate);
+      }
+    }
+
+    const filter = scopedFilter(userId, baseFilter);
+    const skip = (page - 1) * limit;
+
+    const [total, items] = await Promise.all([
+      SessionModel.countDocuments(filter),
+      SessionModel.find(filter)
+        .sort({ startedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  /**
+   * Busca uma sessão individual garantindo isolamento multi-tenant.
+   */
+  async getSessionById(userId: string, sessionId: string): Promise<ISessionDocument> {
+    const filter = scopedFilter(userId, { _id: sessionId });
+    const session = await SessionModel.findOne(filter);
+
+    if (!session) {
+      throw new HttpError(404, 'SESSION_NOT_FOUND', { sessionId });
+    }
+
+    return session;
+  }
+
+  /**
+   * Atualiza uma sessão existente recalculando sessionalLoad e métricas enriquecidas.
+   */
+  async updateSession(
+    userId: string,
+    sessionId: string,
+    input: UpdateSessionInput
+  ): Promise<ISessionDocument> {
+    const existingSession = await this.getSessionById(userId, sessionId);
+
+    if (input.metrics) {
+      existingSession.metrics = enrichSportMetrics(
+        existingSession.sportKey,
+        { ...existingSession.metrics, ...input.metrics }
+      );
+    }
+
+    if (input.startedAt) existingSession.startedAt = input.startedAt;
+    if (input.endedAt !== undefined) existingSession.endedAt = input.endedAt;
+    if (input.durationSeconds) existingSession.durationSeconds = input.durationSeconds;
+    if (input.rpe) existingSession.rpe = input.rpe;
+    if (input.notes !== undefined) existingSession.notes = input.notes;
+
+    // Recalcular Carga Fisiológica sRPE
+    existingSession.sessionalLoad = calculateSessionalLoad(
+      existingSession.durationSeconds,
+      existingSession.rpe
+    );
+
+    await existingSession.save();
+    return existingSession;
+  }
+
+  /**
+   * Exclui uma sessão garantindo isolamento multi-tenant.
+   */
+  async deleteSession(userId: string, sessionId: string): Promise<void> {
+    const filter = scopedFilter(userId, { _id: sessionId });
+    const result = await SessionModel.findOneAndDelete(filter);
+
+    if (!result) {
+      throw new HttpError(404, 'SESSION_NOT_FOUND', { sessionId });
+    }
+  }
+
+  /**
+   * Gera resumo agregado da telemetria de treinos para o Dashboard e Telas de Progresso.
+   */
+  async getSessionSummary(
+    userId: string,
+    query: SessionSummaryQuery
+  ): Promise<SessionSummaryDTO> {
+    const { timeframe } = query;
+    const now = new Date();
+    let startDate: Date | null = null;
+
+    if (timeframe === 'week') {
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    } else if (timeframe === 'month') {
+      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    } else if (timeframe === 'year') {
+      startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+    }
+
+    const matchStage: Record<string, any> = { userId };
+    if (startDate) {
+      matchStage.startedAt = { $gte: startDate };
+    }
+
+    const aggregation = await SessionModel.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: '$sportKey',
+          totalSessions: { $sum: 1 },
+          totalDurationSeconds: { $sum: '$durationSeconds' },
+          totalSessionalLoad: { $sum: '$sessionalLoad' },
+          totalRpe: { $sum: '$rpe' },
+        },
+      },
+    ]);
+
+    let totalSessions = 0;
+    let totalDurationSeconds = 0;
+    let totalSessionalLoad = 0;
+    let totalRpeSum = 0;
+
+    const bySport: SportSummaryStats[] = aggregation.map((item) => {
+      totalSessions += item.totalSessions;
+      totalDurationSeconds += item.totalDurationSeconds;
+      totalSessionalLoad += item.totalSessionalLoad;
+      totalRpeSum += item.totalRpe;
+
+      return {
+        sportKey: item._id as SportKey,
+        totalSessions: item.totalSessions,
+        totalDurationSeconds: item.totalDurationSeconds,
+        totalSessionalLoad: item.totalSessionalLoad,
+      };
+    });
+
+    const averageRpe =
+      totalSessions > 0 ? Math.round((totalRpeSum / totalSessions) * 10) / 10 : 0;
+
+    // Cálculo simples de streak de dias únicos
+    const uniqueDaysAgg = await SessionModel.aggregate([
+      { $match: { userId } },
+      {
+        $project: {
+          day: { $dateToString: { format: '%Y-%m-%d', date: '$startedAt' } },
+        },
+      },
+      { $group: { _id: '$day' } },
+      { $sort: { _id: -1 } },
+      { $limit: 30 },
+    ]);
+
+    const streakDays = uniqueDaysAgg.length;
+
+    return {
+      totalSessions,
+      totalDurationSeconds,
+      totalSessionalLoad,
+      averageRpe,
+      streakDays,
+      bySport,
+    };
+  }
+}
+
+export const sessionService = new SessionService();
