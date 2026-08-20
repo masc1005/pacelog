@@ -17,13 +17,15 @@
   "devDependencies": {
     "prettier": "^3.5.3",
     "turbo": "^2.4.4",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "wrangler": "^4.124.0"
   },
   "packageManager": "pnpm@11.22.0",
   "onlyBuiltDependencies": [
     "@sentry-internal/node-cpu-profiler",
     "@sentry/profiling-node",
     "esbuild",
-    "mongodb-memory-server"
+    "mongodb-memory-server",
+    "workerd"
   ]
 }
