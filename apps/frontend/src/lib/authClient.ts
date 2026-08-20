@@ -13,8 +13,22 @@ export const API_BASE_URL =
     ? 'http://localhost:3333'
     : 'https://pacelog-api-production.up.railway.app');
 
+export const TOKEN_KEY = 'pacelog_auth_token';
+
 export const authClient = createAuthClient({
   baseURL: API_BASE_URL,
+  fetchOptions: {
+    // Injeta token Bearer em todas as requisições para funcionar em ambientes
+    // cross-origin onde cookies SameSite=None são bloqueados (Safari ITP, etc.)
+    onRequest: (ctx) => {
+      if (isBrowser) {
+        const token = localStorage.getItem(TOKEN_KEY);
+        if (token) {
+          ctx.headers.set('Authorization', `Bearer ${token}`);
+        }
+      }
+    },
+  },
 });
 
 export const { signIn, signUp, signOut, useSession, getSession } = authClient;

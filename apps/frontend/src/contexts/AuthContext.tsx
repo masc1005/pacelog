@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { authClient } from '../lib/authClient';
 
+const TOKEN_KEY = 'pacelog_auth_token';
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -13,6 +15,7 @@ export interface AuthContextType {
   user: AuthUser | null;
   session: any | null;
   isLoading: boolean;
+  token: string | null;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (name: string, email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
@@ -25,16 +28,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
+
+  const persistToken = (t: string | null) => {
+    setToken(t);
+    if (t) {
+      localStorage.setItem(TOKEN_KEY, t);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  };
 
   const fetchSession = useCallback(async () => {
     try {
       const res = await authClient.getSession();
       if (res?.data?.user) {
         setUser(res.data.user as AuthUser);
-        setSession(res.data.session);
+        setSession(res.data.session ?? null);
       } else {
-        setUser(null);
-        setSession(null);
+        // Cookie não disponível, tentar via token no localStorage
+        const savedToken = localStorage.getItem(TOKEN_KEY);
+        if (!savedToken) {
+          setUser(null);
+          setSession(null);
+        }
+        // Se há token, mantemos o usuário atual — será validado na próxima interação
       }
     } catch {
       setUser(null);
@@ -61,9 +79,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (res?.data?.user) {
         setUser(res.data.user as AuthUser);
+        setIsLoading(false);
       }
 
-      await fetchSession();
+      // Salvar token Bearer para fallback cross-origin (Safari ITP, Chrome Partitioned)
+      if ((res?.data as any)?.token) {
+        persistToken((res.data as any).token);
+      }
+
       return {};
     } catch (err: any) {
       return { error: err?.message || 'Erro de conexão com o servidor de autenticação.' };
@@ -84,9 +107,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (res?.data?.user) {
         setUser(res.data.user as AuthUser);
+        setIsLoading(false);
       }
 
-      await fetchSession();
+      if ((res?.data as any)?.token) {
+        persistToken((res.data as any).token);
+      }
+
       return {};
     } catch (err: any) {
       return { error: err?.message || 'Erro de conexão ao criar conta.' };
@@ -99,6 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setUser(null);
       setSession(null);
+      persistToken(null);
     }
   };
 
@@ -108,6 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         session,
         isLoading,
+        token,
         signIn: handleSignIn,
         signUp: handleSignUp,
         signOut: handleSignOut,

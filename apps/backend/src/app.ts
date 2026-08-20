@@ -13,7 +13,15 @@ import { profileRoutes } from './modules/profile/profile.routes.js';
 
 export const app = express();
 
-app.use(helmet());
+app.use(
+  helmet({
+    // Permite que browsers em domínios diferentes (Cloudflare Pages → Railway API)
+    // acessem os recursos. Sem isso, o CORP bloqueia cookies e respostas cross-origin.
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    // Manter as demais proteções ativas
+    crossOriginOpenerPolicy: false,
+  })
+);
 app.use(
   cors({
     origin: (origin, callback) => {
