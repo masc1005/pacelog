@@ -59,6 +59,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: res.error.message || 'Falha ao autenticar com as credenciais informadas.' };
       }
 
+      if (res?.data?.user) {
+        setUser(res.data.user as AuthUser);
+      }
+
       await fetchSession();
       return {};
     } catch (err: any) {
@@ -76,6 +80,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (res?.error) {
         return { error: res.error.message || 'Não foi possível cadastrar a conta de atleta.' };
+      }
+
+      if (res?.data?.user) {
+        setUser(res.data.user as AuthUser);
       }
 
       await fetchSession();

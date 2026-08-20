@@ -25,5 +25,10 @@ export const auth = betterAuth({
       httpOnly: true,
     },
   },
-  trustedOrigins: [env.APP_ORIGIN, 'http://localhost:5173', 'http://localhost:3000'],
+  trustedOrigins: [
+    env.APP_ORIGIN,
+    'https://pacelog-staging.pages.dev',
+    'http://localhost:5173',
+    'http://localhost:3000',
+  ],
 });
