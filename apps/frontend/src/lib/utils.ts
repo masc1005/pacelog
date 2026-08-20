@@ -34,6 +34,16 @@ export function calculatePace(distanceKm: number, durationSeconds: number): stri
 }
 
 /**
+ * Formata segundos por km diretamente no formato M:SS/km
+ */
+export function formatPace(paceSecondsPerKm: number): string {
+  if (!paceSecondsPerKm || paceSecondsPerKm <= 0 || isNaN(paceSecondsPerKm)) return '--:--';
+  const mins = Math.floor(paceSecondsPerKm / 60);
+  const secs = Math.floor(paceSecondsPerKm % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}/km`;
+}
+
+/**
  * Formata valor numérico com precisão decimal
  */
 export function formatMetricNumber(value: number, decimals: number = 2): string {
