@@ -54,7 +54,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          pnpm wrangler pages deploy apps/frontend/dist --project-name=pacelog-staging --branch=main --commit-dirty=true
+          pnpm exec wrangler pages deploy apps/frontend/dist --project-name=pacelog-staging --branch=main --commit-dirty=true
 
       - name: 🚂 Deploy Backend API (Railway)
         if: github.ref == 'refs/heads/main'
