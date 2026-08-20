@@ -18,10 +18,10 @@ export const auth = betterAuth({
     cookieCache: { enabled: true, maxAge: 5 * 60 },
   },
   advanced: {
-    useSecureCookies: env.NODE_ENV === 'production',
+    useSecureCookies: env.NODE_ENV === 'production' || env.NODE_ENV === 'staging',
     defaultCookieAttributes: {
-      sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
-      secure: env.NODE_ENV === 'production',
+      sameSite: env.NODE_ENV === 'production' || env.NODE_ENV === 'staging' ? 'none' : 'lax',
+      secure: env.NODE_ENV === 'production' || env.NODE_ENV === 'staging',
       httpOnly: true,
     },
   },

@@ -4,7 +4,7 @@ import { z } from 'zod';
 dotenv.config();
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
   PORT: z.coerce.number().default(3333),
   MONGODB_URI: z.string().default('mongodb://127.0.0.1:27017/pacelog'),
   APP_ORIGIN: z.string().default('http://localhost:5173'),
