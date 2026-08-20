@@ -4,8 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { Activity, Lock, Mail, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, AlertCircle, ShieldCheck } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const { signIn } = useAuth();
@@ -24,7 +23,7 @@ export const LoginPage: React.FC = () => {
     setError(null);
 
     if (!email.trim() || !password) {
-      setError('Por favor, informe e-mail e senha de acesso.');
+      setError('Por favor, informe seu e-mail e chave de acesso.');
       return;
     }
 
@@ -44,50 +43,48 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#08090C] flex flex-col justify-center items-center p-4 sm:p-6 relative overflow-hidden font-sans selection:bg-[#00F0FF]/30 selection:text-[#00F0FF]">
-      {/* Background Decorative Tactical Grid */}
-      <div className="absolute inset-0 bg-[radial-gradient(#1E232E_1px,transparent_1px)] [background-size:24px_24px] opacity-40 pointer-events-none" />
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#00F0FF]/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#0B1117] text-[#D4E4FA] flex flex-col justify-center items-center p-4 sm:p-6 relative overflow-hidden font-sans">
+      {/* Ambient Path Line from Stitch */}
+      <div className="path-line pointer-events-none" />
 
-      <div className="w-full max-w-md relative z-10">
-        {/* Brand Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-br from-[#00F0FF] to-[#39FF14] p-0.5 shadow-[0_0_30px_rgba(0,240,255,0.3)] mb-4">
-            <div className="h-full w-full bg-[#08090C] rounded-[14px] flex items-center justify-center">
-              <Activity className="h-7 w-7 text-[#00F0FF]" />
-            </div>
-          </div>
-          <h1 className="font-display text-4xl font-extrabold tracking-tight text-white uppercase">
+      <main className="w-full max-w-md relative z-10 flex flex-col gap-6">
+        {/* Header Section from Stitch */}
+        <header className="flex flex-col items-center text-center gap-3">
+          <div className="font-mono text-sm tracking-[0.25em] text-[#D4F684] uppercase font-bold">
             PACELOG
-          </h1>
-          <p className="font-mono text-xs uppercase tracking-widest text-[#00F0FF] mt-1">
-            PRECISION MULTI-SPORT TRACKER
-          </p>
-        </div>
-
-        {/* Login Card */}
-        <Card glow="cyan" className="p-6 sm:p-8 backdrop-blur-xl bg-[#0E1117]/95">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#1E232E]">
-            <div>
-              <h2 className="text-lg font-bold text-white font-sans">Acesso do Atleta</h2>
-              <p className="text-xs text-gray-400 font-mono mt-0.5">Credenciais de telemetria</p>
-            </div>
-            <Badge variant="cyan" size="sm">
-              SESSÃO SEGURA
-            </Badge>
           </div>
+          <div className="space-y-2">
+            <p className="font-mono text-[11px] text-[#C5C8B4] uppercase tracking-widest">
+              registre o esforço. enxergue a evolução.
+            </p>
+            <h1 className="font-display text-4xl sm:text-5xl font-bold text-[#D4E4FA] leading-tight lowercase">
+              volte para o seu ritmo
+            </h1>
+            <p className="font-sans text-xs text-[#8F9380] lowercase">
+              seus treinos, suas marcas, sua história.
+            </p>
+          </div>
+        </header>
 
+        {/* Form Module with Corner Ticks & Tags matching Stitch */}
+        <Card
+          variant="module"
+          cornerTagTopLeft="SESSÃO_001"
+          cornerTagBottomRight="AUTH:SECURE"
+          className="p-6 sm:p-8 bg-[#161C24]"
+        >
           {error && (
-            <div className="mb-6 p-3 rounded-lg bg-[#FF3366]/10 border border-[#FF3366]/30 text-[#FF3366] text-xs font-sans flex items-start gap-2.5 animate-fadeIn">
+            <div className="mb-6 p-3 rounded-[2px] bg-[#FFB4AB]/10 border border-[#FFB4AB]/30 text-[#FFB4AB] text-xs font-mono flex items-start gap-2.5 animate-fadeIn">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5 py-2">
             <Input
               id="login-email"
-              label="E-mail"
+              label="Email de acesso"
+              errorCode={error ? '[ERR:01]' : undefined}
               type="email"
               placeholder="atleta@pacelog.app"
               autoComplete="email"
@@ -100,7 +97,7 @@ export const LoginPage: React.FC = () => {
 
             <Input
               id="login-password"
-              label="Senha de Acesso"
+              label="Chave de segurança"
               isPassword
               placeholder="••••••••"
               autoComplete="current-password"
@@ -112,49 +109,51 @@ export const LoginPage: React.FC = () => {
             />
 
             <div className="flex items-center justify-between text-xs font-mono pt-1">
-              <label className="flex items-center gap-2 text-gray-400 hover:text-gray-200 cursor-pointer select-none">
+              <label className="flex items-center gap-2 text-[#8F9380] hover:text-[#D4E4FA] cursor-pointer select-none">
                 <input
                   type="checkbox"
                   defaultChecked
-                  className="rounded bg-[#1A1E26] border-[#2B3242] text-[#00F0FF] focus:ring-[#00F0FF] h-3.5 w-3.5"
+                  className="rounded-[2px] bg-[#0D1C2D] border-[#1F2937] text-[#D4F684] focus:ring-[#D4F684] h-3.5 w-3.5"
                 />
-                <span>Lembrar credenciais</span>
+                <span className="text-[11px]">Lembrar credenciais</span>
               </label>
 
-              <span className="text-gray-600 hover:text-gray-400 transition-colors cursor-not-allowed">
-                Esqueceu a senha?
+              <span className="text-[11px] text-[#4D5767] hover:text-[#8F9380] transition-colors cursor-not-allowed">
+                Esqueceu a chave?
               </span>
             </div>
 
             <Button
               type="submit"
-              variant="primary"
+              variant="tactile"
               size="lg"
               isLoading={isLoading}
-              className="w-full mt-3 font-mono font-bold tracking-widest"
+              className="w-full mt-3 font-display tracking-widest"
             >
               AUTENTICAR SESSÃO
             </Button>
           </form>
-
-          {/* Footer Link to Register */}
-          <div className="mt-8 pt-6 border-t border-[#1E232E] text-center text-xs font-mono text-gray-400">
-            <span>Novo no PaceLog? </span>
-            <Link
-              to="/register"
-              className="text-[#00F0FF] hover:underline font-bold transition-colors ml-1 uppercase"
-            >
-              Criar Conta de Atleta →
-            </Link>
-          </div>
         </Card>
 
+        {/* Footer Link to Register matching Stitch */}
+        <footer className="text-center pt-2">
+          <Link
+            to="/register"
+            className="font-mono text-xs text-[#8F9380] hover:text-[#D4F684] transition-colors uppercase tracking-widest inline-flex items-center gap-1.5"
+          >
+            ainda não começou?{' '}
+            <span className="text-[#D4F684] border-b border-[#D4F684]/40 pb-0.5 font-bold">
+              criar registro
+            </span>
+          </Link>
+        </footer>
+
         {/* Security badge footer */}
-        <div className="flex items-center justify-center gap-2 mt-6 text-[11px] font-mono text-gray-500">
-          <ShieldCheck className="h-4 w-4 text-[#39FF14]" />
-          <span>Isolamento estrito multi-tenant & conformidade LGPD</span>
+        <div className="flex items-center justify-center gap-2 mt-4 text-[10px] font-mono text-[#8F9380]">
+          <ShieldCheck className="h-3.5 w-3.5 text-[#D4F684]" />
+          <span>Isolamento multi-tenant & conformidade estrita LGPD</span>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

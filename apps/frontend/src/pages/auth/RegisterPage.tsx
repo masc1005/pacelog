@@ -4,8 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { Activity, Lock, Mail, User, AlertCircle, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Lock, AlertCircle, ShieldCheck } from 'lucide-react';
 
 export const RegisterPage: React.FC = () => {
   const { signUp } = useAuth();
@@ -22,18 +21,23 @@ export const RegisterPage: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    if (!name.trim() || !email.trim() || !password) {
-      setError('Por favor, preencha todos os campos obrigatórios.');
+    if (!name.trim()) {
+      setError('Informe seu nome ou apelido de atleta.');
+      return;
+    }
+
+    if (!email.trim() || !password) {
+      setError('Preencha e-mail e chave de acesso.');
       return;
     }
 
     if (password.length < 8) {
-      setError('A senha deve conter no mínimo 8 caracteres para segurança.');
+      setError('A chave de acesso deve conter ao menos 8 caracteres.');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('A confirmação de senha não coincide com a senha digitada.');
+      setError('A confirmação de senha não confere.');
       return;
     }
 
@@ -46,58 +50,63 @@ export const RegisterPage: React.FC = () => {
         navigate('/', { replace: true });
       }
     } catch {
-      setError('Erro ao criar conta. Verifique sua conexão e tente novamente.');
+      setError('Erro de conexão ao criar sua conta. Verifique sua rede e tente novamente.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#08090C] flex flex-col justify-center items-center p-4 sm:p-6 relative overflow-hidden font-sans selection:bg-[#00F0FF]/30 selection:text-[#00F0FF]">
-      {/* Background Grid */}
-      <div className="absolute inset-0 bg-[radial-gradient(#1E232E_1px,transparent_1px)] [background-size:24px_24px] opacity-40 pointer-events-none" />
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#39FF14]/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#0B1117] text-[#D4E4FA] flex flex-col justify-center items-center p-4 sm:p-6 relative overflow-hidden font-sans">
+      {/* Ambient Path Line from Stitch */}
+      <div className="path-line pointer-events-none" />
 
-      <div className="w-full max-w-md relative z-10">
-        {/* Brand Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-br from-[#00F0FF] to-[#39FF14] p-0.5 shadow-[0_0_30px_rgba(57,255,20,0.3)] mb-4">
-            <div className="h-full w-full bg-[#08090C] rounded-[14px] flex items-center justify-center">
-              <Activity className="h-7 w-7 text-[#39FF14]" />
-            </div>
+      <main className="w-full max-w-md relative z-10 flex flex-col gap-6">
+        {/* Header Navigation & Step indicator from Stitch */}
+        <header className="flex items-center justify-between z-10 w-full mb-2">
+          <Link
+            to="/login"
+            className="text-[#D4E4FA] hover:text-[#D4F684] transition-colors flex items-center gap-1 text-xs font-mono"
+          >
+            ← Voltar
+          </Link>
+          <div className="font-mono text-[11px] text-[#C5C8B4] flex items-center gap-2">
+            <span className="w-1.5 h-1.5 bg-[#D4F684] rounded-full animate-pulse"></span>
+            COMEÇO / 01
           </div>
-          <h1 className="font-display text-4xl font-extrabold tracking-tight text-white uppercase">
-            PACELOG
+        </header>
+
+        {/* Title Section matching Stitch Criar Registro */}
+        <section className="text-center sm:text-left">
+          <span className="font-mono text-[11px] text-[#8F9380] uppercase mb-1 block tracking-widest">
+            REGISTRO_NOVO
+          </span>
+          <h1 className="font-display text-4xl sm:text-5xl font-bold text-[#D4E4FA] leading-tight lowercase">
+            comece a<br />deixar rastros
           </h1>
-          <p className="font-mono text-xs uppercase tracking-widest text-[#39FF14] mt-1">
-            CADASTRO OFICIAL DE ATLETA
+          <p className="font-sans text-xs text-[#C5C8B4] mt-2 lowercase">
+            crie sua conta de atleta e centralize seus 5 esportes.
           </p>
-        </div>
+        </section>
 
-        {/* Register Card */}
-        <Card glow="green" className="p-6 sm:p-8 backdrop-blur-xl bg-[#0E1117]/95">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#1E232E]">
-            <div>
-              <h2 className="text-lg font-bold text-white font-sans">Novo Perfil</h2>
-              <p className="text-xs text-gray-400 font-mono mt-0.5">Telemetria multiesportiva</p>
-            </div>
-            <Badge variant="green" size="sm">
-              REGISTRO GRÁTIS
-            </Badge>
-          </div>
-
+        {/* Form Module with Corner Ticks */}
+        <Card
+          variant="module"
+          cornerTagTopLeft="NOVO_ATLETA"
+          cornerTagBottomRight="SYNC:ON"
+          className="p-6 sm:p-8 bg-[#161C24]"
+        >
           {error && (
-            <div className="mb-6 p-3 rounded-lg bg-[#FF3366]/10 border border-[#FF3366]/30 text-[#FF3366] text-xs font-sans flex items-start gap-2.5 animate-fadeIn">
+            <div className="mb-6 p-3 rounded-[2px] bg-[#FFB4AB]/10 border border-[#FFB4AB]/30 text-[#FFB4AB] text-xs font-mono flex items-start gap-2.5 animate-fadeIn">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5 py-2">
             <Input
               id="register-name"
-              label="Nome Completo / Apelido"
-              type="text"
+              label="Nome do Atleta"
               placeholder="Ex: Leoni Mascarenhas"
               autoComplete="name"
               value={name}
@@ -109,7 +118,7 @@ export const RegisterPage: React.FC = () => {
 
             <Input
               id="register-email"
-              label="E-mail"
+              label="Email de Acesso"
               type="email"
               placeholder="atleta@pacelog.app"
               autoComplete="email"
@@ -122,23 +131,22 @@ export const RegisterPage: React.FC = () => {
 
             <Input
               id="register-password"
-              label="Senha de Acesso"
+              label="Chave de Segurança (Min. 8 dígitos)"
               isPassword
-              placeholder="Mínimo 8 caracteres"
+              placeholder="••••••••"
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               leftIcon={<Lock className="h-4 w-4" />}
               disabled={isLoading}
-              helperText={password.length >= 8 ? undefined : 'Pelo menos 8 caracteres'}
               required
             />
 
             <Input
               id="register-confirm-password"
-              label="Confirmar Senha"
+              label="Confirmar Chave de Segurança"
               isPassword
-              placeholder="Repita sua senha"
+              placeholder="••••••••"
               autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -147,40 +155,37 @@ export const RegisterPage: React.FC = () => {
               required
             />
 
-            <div className="flex items-center gap-2 text-[11px] font-mono text-gray-400 pt-1">
-              <CheckCircle2 className="h-4 w-4 text-[#39FF14] shrink-0" />
-              <span>Suporte a Corrida, Boxe, Força, Futevôlei e Futebol</span>
-            </div>
-
             <Button
               type="submit"
-              variant="glow"
+              variant="tactile"
               size="lg"
               isLoading={isLoading}
-              className="w-full mt-3 font-mono font-bold tracking-widest"
+              className="w-full mt-3 font-display tracking-widest"
             >
-              CRIAR CONTA DE ATLETA
+              CRIAR CONTA & ENTRAR
             </Button>
           </form>
-
-          {/* Footer Link to Login */}
-          <div className="mt-8 pt-6 border-t border-[#1E232E] text-center text-xs font-mono text-gray-400">
-            <span>Já possui conta cadastrada? </span>
-            <Link
-              to="/login"
-              className="text-[#39FF14] hover:underline font-bold transition-colors ml-1 uppercase"
-            >
-              Acessar Login →
-            </Link>
-          </div>
         </Card>
 
-        {/* Security Footer */}
-        <div className="flex items-center justify-center gap-2 mt-6 text-[11px] font-mono text-gray-500">
-          <ShieldCheck className="h-4 w-4 text-[#00F0FF]" />
-          <span>Seus dados esportivos criptografados e protegidos</span>
+        {/* Footer Link to Login matching Stitch */}
+        <footer className="text-center pt-2">
+          <Link
+            to="/login"
+            className="font-mono text-xs text-[#8F9380] hover:text-[#D4F684] transition-colors uppercase tracking-widest inline-flex items-center gap-1.5"
+          >
+            já tem registro?{' '}
+            <span className="text-[#D4F684] border-b border-[#D4F684]/40 pb-0.5 font-bold">
+              autenticar sessão
+            </span>
+          </Link>
+        </footer>
+
+        {/* Security badge footer */}
+        <div className="flex items-center justify-center gap-2 mt-4 text-[10px] font-mono text-[#8F9380]">
+          <ShieldCheck className="h-3.5 w-3.5 text-[#D4F684]" />
+          <span>Isolamento multi-tenant & conformidade estrita LGPD</span>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

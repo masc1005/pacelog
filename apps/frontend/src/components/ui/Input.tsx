@@ -7,8 +7,10 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   helperText?: string;
   error?: string;
+  errorCode?: string;
   leftIcon?: React.ReactNode;
   isPassword?: boolean;
+  variant?: 'precision' | 'boxed';
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
@@ -18,8 +20,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       label,
       helperText,
       error,
+      errorCode,
       leftIcon,
       isPassword = false,
+      variant = 'precision',
       type = 'text',
       disabled,
       id,
@@ -32,19 +36,28 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
 
     return (
-      <div className="w-full flex flex-col gap-1.5 text-left font-sans">
+      <div className="w-full flex flex-col gap-1.5 text-left font-mono">
         {label && (
           <label
             htmlFor={inputId}
-            className="text-xs font-mono font-medium tracking-wider uppercase text-gray-400 select-none flex items-center justify-between"
+            className={clsx(
+              'text-[11px] font-mono font-medium uppercase tracking-wider select-none flex items-center justify-between',
+              error ? 'text-[#FFB4AB]' : 'text-[#C5C8B4]'
+            )}
           >
             <span>{label}</span>
+            {error && errorCode && <span className="text-[#FFB4AB]">{errorCode}</span>}
           </label>
         )}
 
         <div className="relative flex items-center">
           {leftIcon && (
-            <div className="absolute left-3.5 flex items-center justify-center text-gray-500 pointer-events-none">
+            <div
+              className={clsx(
+                'absolute left-0 bottom-2.5 flex items-center justify-center pointer-events-none',
+                error ? 'text-[#FFB4AB]' : 'text-[#8F9380]'
+              )}
+            >
               {leftIcon}
             </div>
           )}
@@ -56,12 +69,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             disabled={disabled}
             className={twMerge(
               clsx(
-                'w-full bg-[#11141B] text-white placeholder-gray-600 rounded-lg px-3.5 py-2.5 text-sm font-sans transition-all duration-200 border border-[#232834]',
-                'focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] focus:bg-[#141822]',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
-                leftIcon && 'pl-10',
-                isPassword && 'pr-10',
-                error && 'border-[#FF3366] focus:border-[#FF3366] focus:ring-[#FF3366]',
+                variant === 'precision'
+                  ? 'input-precision w-full pb-2 text-sm text-[#D4E4FA] placeholder-[#4D5767]'
+                  : 'w-full bg-[#161C24] text-[#D4E4FA] placeholder-[#4D5767] rounded-[2px] px-3.5 py-2.5 text-sm border border-[#1F2937] focus:outline-none focus:border-[#D4F684]',
+                leftIcon && (variant === 'precision' ? 'pl-6' : 'pl-10'),
+                isPassword && 'pr-8',
+                error && 'error border-b-[#FFB4AB]',
                 className
               )
             )}
@@ -73,7 +86,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               type="button"
               tabIndex={-1}
               onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-3 p-1 text-gray-500 hover:text-gray-300 focus:outline-none transition-colors cursor-pointer"
+              className="absolute right-0 bottom-2.5 p-1 text-[#8F9380] hover:text-[#D4F684] focus:outline-none transition-colors cursor-pointer"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -81,13 +94,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         </div>
 
         {error && (
-          <p className="text-xs font-sans text-[#FF3366] flex items-center gap-1 animate-fadeIn">
+          <p className="text-[11px] font-mono text-[#FFB4AB] flex items-center gap-1 mt-0.5">
             <span>•</span> {error}
           </p>
         )}
 
         {!error && helperText && (
-          <p className="text-xs font-mono text-gray-500">{helperText}</p>
+          <p className="text-[11px] font-mono text-[#8F9380] mt-0.5">{helperText}</p>
         )}
       </div>
     );

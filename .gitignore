@@ -33,3 +33,8 @@ pnpm-debug.log*
 # Testing
 coverage/
 .nyc_output/
+
+# Local agent customizations and Stitch assets
+.agents/
+stitch_assets/
+
