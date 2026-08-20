@@ -146,3 +146,84 @@ export interface SessionSummaryDTO {
   streakDays: number;
   bySport: SportSummaryStats[];
 }
+
+// ==========================================
+// MÓDULO DE METAS (GOALS)
+// ==========================================
+
+export const GOAL_TYPES = ['frequency', 'volume', 'consistency'] as const;
+export type GoalType = (typeof GOAL_TYPES)[number];
+
+export const GOAL_PERIODS = ['weekly', 'monthly', 'custom'] as const;
+export type GoalPeriod = (typeof GOAL_PERIODS)[number];
+
+export const GOAL_STATUSES = ['active', 'achieved', 'paused', 'abandoned'] as const;
+export type GoalStatus = (typeof GOAL_STATUSES)[number];
+
+export interface GoalDTO extends BaseEntity {
+  userId: string;
+  title: string;
+  type: GoalType;
+  sportKey?: SportKey | null;
+  targetValue: number;
+  currentValue: number;
+  progressPercent: number;
+  unit: string; // 'sessions' | 'km' | 'kg' | 'rounds' | 'days'
+  period: GoalPeriod;
+  startDate: Date | string;
+  deadline?: Date | string | null;
+  status: GoalStatus;
+  notes?: string;
+}
+
+// ==========================================
+// MÓDULO DE TELEMETRIA & EVOLUÇÃO (PROGRESS)
+// ==========================================
+
+export type AcwrStatus = 'optimal' | 'under-training' | 'over-reaching' | 'danger_zone';
+
+export interface AcwrReadout {
+  acuteLoad: number; // Soma de carga dos últimos 7 dias
+  chronicLoad: number; // Média semanal de carga dos últimos 28 dias
+  ratio: number; // acuteLoad / chronicLoad
+  status: AcwrStatus;
+  message: string;
+}
+
+export interface WeeklyTrendPoint {
+  weekLabel: string; // Ex: 'Sem 32' ou '12/08'
+  startDate: string;
+  totalLoad: number;
+  totalDurationSeconds: number;
+  sessionsCount: number;
+  sportVolume?: number; // km ou kg ou rounds
+}
+
+export interface SportProgressDTO {
+  sportKey: SportKey;
+  totalSessions: number;
+  totalDurationSeconds: number;
+  totalSessionalLoad: number;
+  weeklyTrend: WeeklyTrendPoint[];
+  sportSpecificHighlights: Record<string, any>;
+}
+
+export interface PersonalRecordItem {
+  id: string;
+  sportKey: SportKey;
+  metricLabel: string;
+  value: number | string;
+  unit: string;
+  achievedAt: Date | string;
+  sessionId?: string;
+}
+
+export interface ProgressOverviewDTO {
+  acwr: AcwrReadout;
+  totalActiveDaysStreak: number;
+  weeklyTotalDurationSeconds: number;
+  weeklyTotalSessionalLoad: number;
+  weeklySessionsCount: number;
+  sportsBreakdown: SportSummaryStats[];
+  recentPersonalRecords: PersonalRecordItem[];
+}
