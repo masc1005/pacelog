@@ -50,3 +50,11 @@ export function formatMetricNumber(value: number, decimals: number = 2): string 
   if (value === undefined || value === null || isNaN(value)) return '0';
   return Number(value).toFixed(decimals).replace(/\.00$/, '');
 }
+
+export const SPORT_LABELS: Record<string, string> = {
+  running: 'Corrida',
+  football: 'Futebol',
+  futevolei: 'Futevôlei',
+  boxing: 'Boxe',
+  strength: 'Musculação',
+};
