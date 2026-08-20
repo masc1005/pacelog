@@ -10,7 +10,7 @@ const isLocalhost =
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
   (isLocalhost
-    ? 'http://localhost:3333'
+    ? `http://${isBrowser ? window.location.hostname : 'localhost'}:3333`
     : 'https://pacelog-api-production.up.railway.app');
 
 export const TOKEN_KEY = 'pacelog_auth_token';
