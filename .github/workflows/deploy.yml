@@ -33,12 +33,10 @@ jobs:
       - name: ⚡ Enable Corepack & pnpm
         run: |
           corepack enable
-          corepack prepare pnpm@11.22.0 --activate
+          corepack prepare pnpm@10.5.2 --activate
 
       - name: 📦 Install Dependencies
-        run: |
-          pnpm approve-builds --all || true
-          pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: 🔍 Typecheck (All Packages)
         run: pnpm typecheck
