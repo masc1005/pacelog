@@ -1,0 +1,108 @@
+name: CI/CD Pipeline (Deploy Staging)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # =========================================================================
+  # 1. Quality Assurance & Tests (Executa em todos os pacotes do monorepo)
+  # =========================================================================
+  quality-check:
+    name: 🧪 Quality Check (Lint, Typecheck & Tests)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚡ Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: 📦 Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔍 Typecheck
+        run: pnpm typecheck
+
+      - name: 🧪 Run Tests (Vitest)
+        run: pnpm test
+
+      - name: 🏗️ Build All Packages (Turborepo)
+        run: pnpm build
+
+      - name: 📤 Upload Frontend Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: apps/frontend/dist/
+          retention-days: 1
+
+  # =========================================================================
+  # 2. Deploy Backend (Railway)
+  # =========================================================================
+  deploy-backend:
+    name: 🚂 Deploy Backend API (Railway)
+    needs: quality-check
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚡ Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 🚀 Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          npx @railway/cli up --service pacelog-api --detach
+
+  # =========================================================================
+  # 3. Deploy Frontend (Cloudflare Pages)
+  # =========================================================================
+  deploy-frontend:
+    name: ⚡ Deploy Frontend PWA (Cloudflare Pages)
+    needs: quality-check
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📥 Download Frontend Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: apps/frontend/dist
+
+      - name: 🚀 Publish to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/frontend/dist --project-name=pacelog-staging --commit-dirty=true
