@@ -25,6 +25,7 @@ export const HomePage: React.FC = () => {
   const [selectedSport, setSelectedSport] = useState<SportKey | 'all'>('all');
   const [summary, setSummary] = useState<SessionSummaryDTO | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Carrega resumo agregado e lista de sessões da API
   useEffect(() => {
@@ -39,6 +40,8 @@ export const HomePage: React.FC = () => {
         if (sessionsData && Array.isArray(sessionsData)) setSessions(sessionsData);
       } catch {
         // Silencioso em caso de inicialização offline
+      } finally {
+        setIsLoading(false);
       }
     }
     loadDashboardData();
@@ -55,47 +58,24 @@ export const HomePage: React.FC = () => {
     strength: { name: 'Musculação', color: '#A855F7', badge: 'purple', icon: Dumbbell },
   };
 
-  // Mock de sessões caso ainda não haja dados no banco para renderização imediata de demonstração
-  const displaySessions = sessions.length > 0 ? sessions : [
-    {
-      id: 'sess-demo-1',
-      sportKey: 'running' as SportKey,
-      startedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-      durationSeconds: 2740, // 45m 40s
-      rpe: 8,
-      sessionalLoad: 365,
-      metrics: { distanceMeters: 10200, paceSecondsPerKm: 268 },
-    },
-    {
-      id: 'sess-demo-2',
-      sportKey: 'boxing' as SportKey,
-      startedAt: new Date(Date.now() - 86400000).toISOString(),
-      durationSeconds: 3600,
-      rpe: 9,
-      sessionalLoad: 540,
-      metrics: { roundsCount: 8, punchesThrownEstimate: 420 },
-    },
-    {
-      id: 'sess-demo-3',
-      sportKey: 'strength' as SportKey,
-      startedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      durationSeconds: 3300,
-      rpe: 8,
-      sessionalLoad: 440,
-      metrics: { totalVolumeKg: 8450, totalSets: 18 },
-    },
-  ];
-
   const filteredSessions =
     selectedSport === 'all'
-      ? displaySessions
-      : displaySessions.filter((s) => s.sportKey === selectedSport);
+      ? sessions
+      : sessions.filter((s) => s.sportKey === selectedSport);
 
-  const totalWeeklyDurationMins = Math.round(
-    (summary?.totalDurationSeconds || displaySessions.reduce((acc, s) => acc + (s.durationSeconds || 0), 0)) / 60
-  );
-  const totalWeeklyLoad = summary?.totalSessionalLoad || displaySessions.reduce((acc, s) => acc + (s.sessionalLoad || 0), 0);
-  const avgIntensity = summary?.averageRpe || 8.2;
+  const totalWeeklyDurationMins = Math.round((summary?.totalDurationSeconds || 0) / 60);
+  const totalWeeklyLoad = summary?.totalSessionalLoad || 0;
+  const avgIntensity = summary?.averageRpe || 0;
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-8 p-4 animate-pulse">
+        <div className="h-4 bg-[#1F2937] w-1/4 rounded"></div>
+        <div className="h-64 bg-[#051424] rounded border border-[#1F2937]"></div>
+        <div className="h-32 bg-[#0D1C2D] rounded border border-[#1F2937]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-8 font-sans text-[#D4E4FA] relative">
@@ -229,48 +209,34 @@ export const HomePage: React.FC = () => {
             ÚLTIMO REGISTRO DE TELEMETRIA
           </h2>
           <span className="font-mono text-[11px] text-[#8F9380]">
-            {displaySessions[0] ? new Date(displaySessions[0].startedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'HOJE'}
+            {sessions[0] ? new Date(sessions[0].startedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'NENHUM REGISTRO'}
           </span>
         </div>
 
-        {/* Data Log Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="flex flex-col gap-1 border-l-2 border-[#1F2937] pl-3 py-2 bg-[#0D1C2D]/50 rounded-r-[2px]">
-            <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">
-              MODALIDADE
-            </span>
-            <span className="font-display text-xl font-bold text-[#D4E4FA] uppercase">
-              {displaySessions[0]?.sportKey || 'Corrida'}
-            </span>
+        {sessions[0] ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="flex flex-col gap-1 border-l-2 border-[#1F2937] pl-3 py-2 bg-[#0D1C2D]/50 rounded-r-[2px]">
+              <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">MODALIDADE</span>
+              <span className="font-display text-xl font-bold text-[#D4E4FA] uppercase">{sessions[0].sportKey}</span>
+            </div>
+            <div className="flex flex-col gap-1 border-l-2 border-[#1F2937] pl-3 py-2 bg-[#0D1C2D]/50 rounded-r-[2px]">
+              <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">DURAÇÃO TOTAL</span>
+              <span className="font-display text-xl font-bold text-[#D4E4FA]">{formatDuration(sessions[0].durationSeconds)}</span>
+            </div>
+            <div className="flex flex-col gap-1 border-l-2 border-[#1F2937] pl-3 py-2 bg-[#0D1C2D]/50 rounded-r-[2px]">
+              <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">PERCEPÇÃO (RPE)</span>
+              <span className="font-display text-xl font-bold text-[#FF6B35]">{sessions[0].rpe}/10</span>
+            </div>
+            <div className="flex flex-col gap-1 border-l-2 border-[#1F2937] pl-3 py-2 bg-[#0D1C2D]/50 rounded-r-[2px]">
+              <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">CARGA sRPE</span>
+              <span className="font-display text-xl font-bold text-[#D4F684]">{sessions[0].sessionalLoad}</span>
+            </div>
           </div>
-
-          <div className="flex flex-col gap-1 border-l-2 border-[#1F2937] pl-3 py-2 bg-[#0D1C2D]/50 rounded-r-[2px]">
-            <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">
-              DURAÇÃO TOTAL
-            </span>
-            <span className="font-display text-xl font-bold text-[#D4E4FA]">
-              {formatDuration(displaySessions[0]?.durationSeconds || 2740)}
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-1 border-l-2 border-[#1F2937] pl-3 py-2 bg-[#0D1C2D]/50 rounded-r-[2px]">
-            <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">
-              PERCEPÇÃO (RPE)
-            </span>
-            <span className="font-display text-xl font-bold text-[#FF6B35]">
-              {displaySessions[0]?.rpe || 8}/10
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-1 border-l-2 border-[#1F2937] pl-3 py-2 bg-[#0D1C2D]/50 rounded-r-[2px]">
-            <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">
-              CARGA sRPE
-            </span>
-            <span className="font-display text-xl font-bold text-[#D4F684]">
-              {displaySessions[0]?.sessionalLoad || 365}
-            </span>
-          </div>
-        </div>
+        ) : (
+          <Card className="p-8 flex flex-col items-center justify-center gap-2 border-dashed border-[#454839]">
+            <span className="font-mono text-[10px] text-[#8F9380] uppercase">Ainda sem dados para exibir</span>
+          </Card>
+        )}
       </section>
 
       {/* 3. Sport Filters & Categories */}
@@ -291,7 +257,7 @@ export const HomePage: React.FC = () => {
                 : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
             }`}
           >
-            Todas ({displaySessions.length})
+            Todas ({sessions.length})
           </button>
 
           {SPORT_KEYS.map((key) => {
@@ -332,133 +298,120 @@ export const HomePage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredSessions.map((session) => {
-            const meta = sportMeta[session.sportKey as SportKey] || sportMeta.running;
-            const Icon = meta.icon;
+          {filteredSessions.length === 0 ? (
+            <div className="col-span-full py-8 flex justify-center border border-dashed border-[#1F2937] rounded-[2px]">
+              <span className="font-mono text-xs text-[#8F9380] uppercase">Nenhum treino registrado</span>
+            </div>
+          ) : (
+            filteredSessions.map((session) => {
+              const meta = sportMeta[session.sportKey as SportKey] || sportMeta.running;
+              const Icon = meta.icon;
 
-            return (
-              <Card
-                key={session.id}
-                variant="watch"
-                interactive
-                className="flex flex-col justify-between p-5 bg-[#161C24] border-[#1F2937] hover:border-[#454839] transition-all group"
-              >
-                <div className="flex flex-col gap-3">
-                  {/* Header: Sport badge & Timestamp */}
-                  <div className="flex items-center justify-between">
-                    <Badge variant="sage" size="sm">
-                      <Icon className="h-3 w-3 inline mr-1" />
-                      {meta.name}
-                    </Badge>
-                    <span className="font-mono text-[10px] text-[#8F9380]">
-                      {new Date(session.startedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                    </span>
+              return (
+                <Card
+                  key={session.id}
+                  variant="watch"
+                  interactive
+                  className="flex flex-col justify-between p-5 bg-[#161C24] border-[#1F2937] hover:border-[#454839] transition-all group"
+                >
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="sage" size="sm">
+                        <Icon className="h-3 w-3 inline mr-1" />
+                        {meta.name}
+                      </Badge>
+                      <span className="font-mono text-[10px] text-[#8F9380]">
+                        {new Date(session.startedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 bg-[#0D1C2D] rounded-[2px] p-3 border border-[#1F2937]">
+                      {session.sportKey === 'running' && (
+                        <>
+                          <div>
+                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">Distância</span>
+                            <span className="font-display text-lg font-bold text-[#D4E4FA]">
+                              {session.metrics?.distanceMeters ? (session.metrics.distanceMeters / 1000).toFixed(1) : '--'} km
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">Pace Médio</span>
+                            <span className="font-display text-lg font-bold text-[#5CA9E6]">
+                              {session.metrics?.paceSecondsPerKm ? formatPace(session.metrics.paceSecondsPerKm) : '--'}
+                            </span>
+                          </div>
+                        </>
+                      )}
+
+                      {session.sportKey === 'boxing' && (
+                        <>
+                          <div>
+                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">Rounds</span>
+                            <span className="font-display text-lg font-bold text-[#D4E4FA]">
+                              {session.metrics?.roundsCount || '--'} rounds
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">Golpes Est.</span>
+                            <span className="font-display text-lg font-bold text-[#FF6B35]">
+                              {session.metrics?.punchesThrownEstimate || '--'}
+                            </span>
+                          </div>
+                        </>
+                      )}
+
+                      {session.sportKey === 'strength' && (
+                        <>
+                          <div>
+                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">Volume</span>
+                            <span className="font-display text-lg font-bold text-[#D4E4FA]">
+                              {session.metrics?.totalVolumeKg ? `${Math.round(session.metrics.totalVolumeKg)} kg` : '--'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">Séries</span>
+                            <span className="font-display text-lg font-bold text-[#A855F7]">
+                              {session.metrics?.totalSets || '--'} sets
+                            </span>
+                          </div>
+                        </>
+                      )}
+
+                      {(session.sportKey === 'football' || session.sportKey === 'futevolei') && (
+                        <>
+                          <div>
+                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">Duração</span>
+                            <span className="font-display text-lg font-bold text-[#D4E4FA]">
+                              {formatDuration(session.durationSeconds)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">Carga sRPE</span>
+                            <span className="font-display text-lg font-bold text-[#D4F684]">
+                              {session.sessionalLoad}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Sport Specific Metrics Display */}
-                  <div className="grid grid-cols-2 gap-2 bg-[#0D1C2D] rounded-[2px] p-3 border border-[#1F2937]">
-                    {session.sportKey === 'running' && (
-                      <>
-                        <div>
-                          <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                            Distância
-                          </span>
-                          <span className="font-display text-lg font-bold text-[#D4E4FA]">
-                            {session.metrics?.distanceMeters ? (session.metrics.distanceMeters / 1000).toFixed(1) : '10.2'} km
-                          </span>
-                        </div>
-                        <div>
-                          <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                            Pace Médio
-                          </span>
-                          <span className="font-display text-lg font-bold text-[#5CA9E6]">
-                            {formatPace(session.metrics?.paceSecondsPerKm || 268)}
-                          </span>
-                        </div>
-                      </>
-                    )}
+                  <div className="flex items-center justify-between pt-3 mt-3 border-t border-[#1F2937] text-xs font-mono text-[#8F9380]">
+                    <div className="flex items-center gap-1.5">
+                      <span>{formatDuration(session.durationSeconds)}</span>
+                    </div>
 
-                    {session.sportKey === 'boxing' && (
-                      <>
-                        <div>
-                          <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                            Rounds
-                          </span>
-                          <span className="font-display text-lg font-bold text-[#D4E4FA]">
-                            {session.metrics?.roundsCount || 8} rounds
-                          </span>
-                        </div>
-                        <div>
-                          <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                            Golpes Est.
-                          </span>
-                          <span className="font-display text-lg font-bold text-[#FF6B35]">
-                            {session.metrics?.punchesThrownEstimate || 420}
-                          </span>
-                        </div>
-                      </>
-                    )}
-
-                    {session.sportKey === 'strength' && (
-                      <>
-                        <div>
-                          <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                            Volume
-                          </span>
-                          <span className="font-display text-lg font-bold text-[#D4E4FA]">
-                            {session.metrics?.totalVolumeKg ? `${Math.round(session.metrics.totalVolumeKg)} kg` : '8.4k kg'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                            Séries
-                          </span>
-                          <span className="font-display text-lg font-bold text-[#A855F7]">
-                            {session.metrics?.totalSets || 18} sets
-                          </span>
-                        </div>
-                      </>
-                    )}
-
-                    {(session.sportKey === 'football' || session.sportKey === 'futevolei') && (
-                      <>
-                        <div>
-                          <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                            Duração
-                          </span>
-                          <span className="font-display text-lg font-bold text-[#D4E4FA]">
-                            {formatDuration(session.durationSeconds)}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                            Carga sRPE
-                          </span>
-                          <span className="font-display text-lg font-bold text-[#D4F684]">
-                            {session.sessionalLoad}
-                          </span>
-                        </div>
-                      </>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px]">RPE</span>
+                      <span className="font-bold text-[#D4E4FA] bg-[#0D1C2D] px-1.5 py-0.5 rounded-[2px] text-[10px] border border-[#1F2937]">
+                        {session.rpe || '--'}/10
+                      </span>
+                    </div>
                   </div>
-                </div>
-
-                {/* Card Footer: Duration & RPE */}
-                <div className="flex items-center justify-between pt-3 mt-3 border-t border-[#1F2937] text-xs font-mono text-[#8F9380]">
-                  <div className="flex items-center gap-1.5">
-                    <span>{formatDuration(session.durationSeconds)}</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px]">RPE</span>
-                    <span className="font-bold text-[#D4E4FA] bg-[#0D1C2D] px-1.5 py-0.5 rounded-[2px] text-[10px] border border-[#1F2937]">
-                      {session.rpe || 8}/10
-                    </span>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+                </Card>
+              );
+            })
+          )}
         </div>
       </section>
     </div>
