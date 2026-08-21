@@ -17,7 +17,8 @@ import { CreateGoalPage } from './pages/goals/CreateGoalPage';
 import { ProfilePage } from './pages/profile/ProfilePage';
 import { ProgressPage } from './pages/progress/ProgressPage';
 import { EvolutionBySportPage } from './pages/progress/EvolutionBySportPage';
-
+import { EditSessionPage } from './pages/sessions/EditSessionPage';
+import { GoalDetailsPage } from './pages/goals/GoalDetailsPage';
 
 
 export const AppRoutes: React.FC = () => {
@@ -36,9 +37,11 @@ export const AppRoutes: React.FC = () => {
         <Route path="sessions" element={<SessionsPage />} />
         <Route path="sessions/new" element={<NewSessionPage />} />
         <Route path="sessions/:id" element={<SessionDetailPage />} />
+        <Route path="sessions/:id/edit" element={<EditSessionPage />} />
         <Route path="progress" element={<ProgressPage />} />
         <Route path="progress/:sportKey" element={<EvolutionBySportPage />} />
         <Route path="goals" element={<GoalsPage />} />
+        <Route path="goals/:id" element={<GoalDetailsPage />} />
         <Route path="goals/new" element={<CreateGoalPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>

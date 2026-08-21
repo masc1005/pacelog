@@ -4,6 +4,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { apiClient } from '../../lib/api';
 import type { GoalDTO, SportKey } from '@pacelog/shared';
+import { useNavigate } from 'react-router-dom';
 import { Target, Activity, Flame, Sun, Zap, Dumbbell, Plus } from 'lucide-react';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badge: 'cyan'|'amber'|'crimson'|'purple'|'green' }> = {
@@ -15,6 +16,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badg
 };
 
 export const GoalsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [goals, setGoals] = useState<GoalDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -69,7 +71,12 @@ export const GoalsPage: React.FC = () => {
             const strokeDashoffset = circumference - ((goal.progressPercent || 0) / 100) * circumference;
 
             return (
-              <Card key={goal.id} variant="watch" className="p-5 flex flex-col gap-4 bg-[#0D1C2D] border-[#1F2937]">
+              <Card 
+                key={goal.id} 
+                variant="watch" 
+                className="p-5 flex flex-col gap-4 bg-[#0D1C2D] border-[#1F2937] cursor-pointer hover:border-[#5CA9E6] transition-colors"
+                onClick={() => navigate(`/goals/${goal.id}`)}
+              >
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-[2px] bg-[#161C24] flex items-center justify-center border border-[#1F2937]">
