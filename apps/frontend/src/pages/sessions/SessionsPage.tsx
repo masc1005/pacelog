@@ -5,6 +5,7 @@ import { apiClient } from '../../lib/api';
 import type { SessionDTO, SportKey } from '@pacelog/shared';
 import { Activity, Zap, Sun, Dumbbell, Flame, Search } from 'lucide-react';
 import { formatDuration } from '../../lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badge: 'cyan'|'amber'|'crimson'|'purple'|'green' }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity, badge: 'cyan' },
@@ -15,6 +16,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badg
 };
 
 export const SessionsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState<SessionDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -64,7 +66,12 @@ export const SessionsPage: React.FC = () => {
             const Icon = meta.icon;
             
             return (
-              <Card key={session.id} variant="watch" className="p-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-[#161C24] hover:bg-[#1a232d] transition-colors cursor-pointer border-[#1F2937] hover:border-[#454839]">
+              <Card 
+                key={session.id} 
+                variant="watch" 
+                className="p-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-[#161C24] hover:bg-[#1a232d] transition-colors cursor-pointer border-[#1F2937] hover:border-[#454839]"
+                onClick={() => navigate(`/sessions/${session.id}`)}
+              >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 flex items-center justify-center rounded-[2px] bg-[#051424] border border-[#1F2937]">
                     <Icon className="h-6 w-6" style={{ color: meta.color }} />
