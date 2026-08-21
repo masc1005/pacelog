@@ -2,7 +2,7 @@ import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
-import { Home, Activity, Plus, TrendingUp, Target, User } from 'lucide-react';
+import { Home, Activity, Plus, TrendingUp, Target, User, Sparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export const MainLayout: React.FC = () => {
@@ -11,6 +11,7 @@ export const MainLayout: React.FC = () => {
     { to: '/sessions', label: 'Histórico de Treinos', icon: Activity },
     { to: '/progress', label: 'Evolução & Métricas', icon: TrendingUp },
     { to: '/goals', label: 'Metas Ativas', icon: Target },
+    { to: '/insights', label: 'Inteligência', icon: Sparkles },
     { to: '/profile', label: 'Perfil do Atleta', icon: User },
   ];
 

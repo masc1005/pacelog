@@ -275,5 +275,6 @@ export interface WeeklyReportDTO {
 export interface AIInsightDTO extends BaseEntity {
   userId: string;
   content: string;
-  type: 'daily_coach' | 'recovery_warning' | 'milestone_celebration';
+  type: 'daily_coach' | 'recovery_warning' | 'milestone_celebration' | 'session_analysis';
+  sessionId?: string;
 }

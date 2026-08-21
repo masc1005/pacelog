@@ -6,8 +6,9 @@ export interface IInsight extends Document, Omit<AIInsightDTO, 'id'> {}
 const InsightSchema: Schema = new Schema(
   {
     userId: { type: String, required: true, index: true },
+    sessionId: { type: String, index: true },
     content: { type: String, required: true },
-    type: { type: String, enum: ['daily_coach', 'recovery_warning', 'milestone_celebration'], required: true },
+    type: { type: String, enum: ['daily_coach', 'recovery_warning', 'milestone_celebration', 'session_analysis'], required: true },
     createdAt: { type: Date, default: Date.now },
   },
   {

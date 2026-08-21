@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Activity, Plus, TrendingUp, Target } from 'lucide-react';
+import { Home, Activity, Plus, TrendingUp, Target, Sparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export const BottomNav: React.FC = () => {
@@ -10,6 +10,7 @@ export const BottomNav: React.FC = () => {
     { to: '/sessions/new', label: 'Gravar', icon: Plus, isAction: true },
     { to: '/progress', label: 'Evolução', icon: TrendingUp },
     { to: '/goals', label: 'Metas', icon: Target },
+    { to: '/insights', label: 'Coach', icon: Sparkles },
   ];
 
   return (

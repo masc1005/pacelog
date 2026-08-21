@@ -7,7 +7,8 @@ import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 import type { SessionDTO, SportKey } from '@pacelog/shared';
 import { formatDuration } from '../../lib/utils';
-import { Activity, Zap, Sun, Dumbbell, Flame, Pencil, Trash2, ArrowLeft } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, Pencil, Trash2, ArrowLeft, Sparkles } from 'lucide-react';
+import type { AIInsightDTO } from '@pacelog/shared';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badge: 'cyan'|'amber'|'crimson'|'purple'|'green' }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity, badge: 'cyan' },
@@ -25,12 +26,23 @@ export const SessionDetailPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  const [insight, setInsight] = useState<AIInsightDTO | null>(null);
+  const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
         const data = await apiClient<SessionDTO>(`/api/sessions/${id}`);
         setSession(data);
+        
+        // Tenta buscar insight já existente para esta sessão (falha silenciosamente se não existir)
+        try {
+          const insightData = await apiClient<AIInsightDTO>(`/api/insights/session/${id}`);
+          setInsight(insightData);
+        } catch (e) {
+          // Ignora, significa que ainda não foi gerado
+        }
       } catch {
         toastError('Sessão não encontrada.');
         navigate('/sessions');
@@ -39,7 +51,7 @@ export const SessionDetailPage: React.FC = () => {
       }
     }
     if (id) load();
-  }, [id]);
+  }, [id, navigate, toastError]);
 
   const handleDelete = async () => {
     if (!id) return;
@@ -52,6 +64,20 @@ export const SessionDetailPage: React.FC = () => {
       toastError('Erro ao excluir sessão.');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleGenerateInsight = async () => {
+    if (!id) return;
+    setIsGeneratingInsight(true);
+    try {
+      const data = await apiClient<AIInsightDTO>(`/api/insights/session/${id}/generate`, { method: 'POST' });
+      setInsight(data);
+      success('Análise gerada com sucesso!');
+    } catch {
+      toastError('Erro ao gerar análise da IA.');
+    } finally {
+      setIsGeneratingInsight(false);
     }
   };
 
@@ -121,6 +147,39 @@ export const SessionDetailPage: React.FC = () => {
           </Card>
         ))}
       </div>
+
+      {/* AI Coach Insight */}
+      <Card className="p-5 border-[#1F2937] bg-gradient-to-br from-[#0D1C2D] to-[#0A1624] relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-4 opacity-10">
+          <Sparkles className="h-24 w-24 text-[#A855F7]" />
+        </div>
+        <div className="relative z-10 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-[#A855F7]" />
+            <h2 className="font-mono text-[10px] text-[#A855F7] uppercase tracking-widest font-bold">Coach de IA</h2>
+          </div>
+          
+          {insight ? (
+            <p className="text-sm text-[#D4E4FA] leading-relaxed font-sans">{insight.content}</p>
+          ) : (
+            <div className="flex flex-col gap-3 items-start">
+              <p className="text-sm text-[#C5C8B4] leading-relaxed">
+                Quer saber como esta sessão se compara com a sua anterior? Peça uma análise tática ao Coach.
+              </p>
+              <Button 
+                variant="tactile" 
+                size="sm" 
+                className="bg-[#A855F7]/10 text-[#A855F7] border-[#A855F7]/30 hover:bg-[#A855F7]/20"
+                onClick={handleGenerateInsight}
+                isLoading={isGeneratingInsight}
+                leftIcon={<Sparkles className="h-4 w-4" />}
+              >
+                Gerar Análise Tática
+              </Button>
+            </div>
+          )}
+        </div>
+      </Card>
 
       {/* Sport Specific Metrics */}
       {session.metrics && Object.keys(session.metrics).length > 0 && (
