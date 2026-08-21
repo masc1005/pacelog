@@ -100,21 +100,35 @@ export class InsightService {
   private async generateSessionInsightFromGemini(current: any, previous: any | null): Promise<string> {
     try {
       const sportName = current.sportKey;
-      let prompt = `Você é um "High-Performance Coach" direto, tático e pragmático de um aplicativo chamado Pacelog.
-      Sua resposta deve ter no máximo 2 parágrafos curtos, sem saudações.
-      Analise o último treino de ${sportName} do atleta e dê um feedback.`;
+      let prompt = `Você é um "High-Performance Coach" especialista em fisiologia do exercício trabalhando no aplicativo Pacelog.
+      Sua resposta deve ter no máximo 2 parágrafos curtos, ser direta, altamente técnica e tática, sem saudações ou clichês motivacionais.
+      Seu objetivo principal é avaliar a EFICIÊNCIA DO TREINO cruzando o RPE (esforço percebido) com a métrica de volume/intensidade do esporte (${sportName}).
+      
+      Regras de Análise:
+      - Menos RPE para o mesmo volume/intensidade = ganho de condicionamento/eficiência.
+      - Mais RPE para o mesmo volume = sinal de fadiga residual ou má recuperação.
+      - Se for Musculação (strength), analise volume total vs repetições.
+      - Se for Corrida (running), analise pace vs frequência cardíaca ou RPE.
+      - Se for Boxe (boxing), analise quantidade de rounds.`;
 
       if (previous) {
-        prompt += `\n\nCompare a sessão atual com a anterior para encontrar evolução ou fadiga:
-        Sessão Anterior: Duração ${Math.round(previous.durationSeconds / 60)} min, RPE ${previous.rpe}, Carga ${previous.sessionalLoad}.
-        Métricas da Anterior: ${JSON.stringify(previous.metrics)}
+        prompt += `\n\nCompare a sessão ATUAL com a ANTERIOR e destaque a evolução ou queda de performance:
+        [TREINO ANTERIOR]
+        Duração: ${Math.round(previous.durationSeconds / 60)} min | Esforço (RPE): ${previous.rpe}/10 | Carga Fisiológica: ${previous.sessionalLoad}
+        Métricas Específicas: ${JSON.stringify(previous.metrics)}
         
-        Sessão Atual: Duração ${Math.round(current.durationSeconds / 60)} min, RPE ${current.rpe}, Carga ${current.sessionalLoad}.
-        Métricas Atuais: ${JSON.stringify(current.metrics)}`;
+        [TREINO ATUAL (O que acabou de ser feito)]
+        Duração: ${Math.round(current.durationSeconds / 60)} min | Esforço (RPE): ${current.rpe}/10 | Carga Fisiológica: ${current.sessionalLoad}
+        Métricas Específicas: ${JSON.stringify(current.metrics)}
+        
+        Feedback Analítico:`;
       } else {
-        prompt += `\n\nEste é o primeiro treino registrado dessa modalidade. Motive-o a manter a consistência.
-        Sessão Atual: Duração ${Math.round(current.durationSeconds / 60)} min, RPE ${current.rpe}, Carga ${current.sessionalLoad}.
-        Métricas Atuais: ${JSON.stringify(current.metrics)}`;
+        prompt += `\n\nEste é o primeiro treino registrado desta modalidade. Crie uma linha de base (baseline) tática.
+        [TREINO ATUAL]
+        Duração: ${Math.round(current.durationSeconds / 60)} min | Esforço (RPE): ${current.rpe}/10 | Carga Fisiológica: ${current.sessionalLoad}
+        Métricas Específicas: ${JSON.stringify(current.metrics)}
+        
+        Feedback Analítico:`;
       }
 
       if (!this.ai) {
@@ -124,7 +138,7 @@ export class InsightService {
       }
 
       const response = await this.ai.models.generateContent({
-        model: 'gemini-pro-latest',
+        model: 'gemini-2.5-flash',
         contents: prompt,
       });
 
@@ -169,7 +183,7 @@ export class InsightService {
       }
 
       const response = await this.ai.models.generateContent({
-        model: 'gemini-pro-latest',
+        model: 'gemini-2.5-flash',
         contents: prompt,
       });
 

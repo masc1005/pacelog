@@ -197,6 +197,18 @@ export const SessionDetailPage: React.FC = () => {
                   {session.metrics.paceSecondsPerKm ? `${Math.floor(session.metrics.paceSecondsPerKm / 60)}:${String(session.metrics.paceSecondsPerKm % 60).padStart(2, '0')}/km` : '--'}
                 </span>
               </div>
+              {session.metrics.elevationGainMeters !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#5CA9E6] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Elevação</span>
+                  <span className="font-display text-xl font-bold text-[#5CA9E6]">{session.metrics.elevationGainMeters} m</span>
+                </div>
+              )}
+              {session.metrics.avgHeartRate !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#5CA9E6] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">FC Média</span>
+                  <span className="font-display text-xl font-bold text-[#5CA9E6]">{session.metrics.avgHeartRate} bpm</span>
+                </div>
+              )}
             </>}
             {session.sportKey === 'boxing' && <>
               <div className="flex flex-col gap-1 border-l-2 border-[#FF6B35] pl-3">
@@ -207,6 +219,18 @@ export const SessionDetailPage: React.FC = () => {
                 <span className="font-mono text-[9px] text-[#8F9380] uppercase">Golpes Est.</span>
                 <span className="font-display text-xl font-bold text-[#FF6B35]">{session.metrics.punchesThrownEstimate || '--'}</span>
               </div>
+              {session.metrics.focusArea && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#FF6B35] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Foco</span>
+                  <span className="font-display text-sm font-bold text-[#FF6B35] uppercase">{String(session.metrics.focusArea).replace('_', ' ')}</span>
+                </div>
+              )}
+              {session.metrics.sparring && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#FF6B35] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Sparring</span>
+                  <span className="font-display text-xl font-bold text-[#FF6B35]">Sim</span>
+                </div>
+              )}
             </>}
             {session.sportKey === 'strength' && <>
               <div className="flex flex-col gap-1 border-l-2 border-[#A855F7] pl-3">
@@ -217,6 +241,84 @@ export const SessionDetailPage: React.FC = () => {
                 <span className="font-mono text-[9px] text-[#8F9380] uppercase">Séries</span>
                 <span className="font-display text-xl font-bold text-[#A855F7]">{session.metrics.totalSets}</span>
               </div>
+              {session.metrics.totalReps !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#A855F7] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Repetições</span>
+                  <span className="font-display text-xl font-bold text-[#A855F7]">{session.metrics.totalReps}</span>
+                </div>
+              )}
+            </>}
+            {session.sportKey === 'football' && <>
+              <div className="flex flex-col gap-1 border-l-2 border-[#D4F684] pl-3">
+                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Gols</span>
+                <span className="font-display text-xl font-bold text-[#D4F684]">{session.metrics.goals || 0}</span>
+              </div>
+              <div className="flex flex-col gap-1 border-l-2 border-[#D4F684] pl-3">
+                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Assistências</span>
+                <span className="font-display text-xl font-bold text-[#D4F684]">{session.metrics.assists || 0}</span>
+              </div>
+              {session.metrics.matchResult && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#D4F684] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Resultado</span>
+                  <span className="font-display text-sm font-bold text-[#D4F684] uppercase">
+                    {session.metrics.matchResult === 'win' ? 'Vitória' : session.metrics.matchResult === 'loss' ? 'Derrota' : 'Empate'}
+                  </span>
+                </div>
+              )}
+              {session.metrics.position && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#D4F684] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Posição</span>
+                  <span className="font-display text-sm font-bold text-[#D4F684] uppercase">{session.metrics.position}</span>
+                </div>
+              )}
+            </>}
+            {session.sportKey === 'futevolei' && <>
+              <div className="flex flex-col gap-1 border-l-2 border-[#FFB800] pl-3">
+                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Sets</span>
+                <span className="font-display text-xl font-bold text-[#FFB800]">{session.metrics.setsCount}</span>
+              </div>
+              {session.metrics.successfulReceptions !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#FFB800] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Recepções</span>
+                  <span className="font-display text-xl font-bold text-[#FFB800]">{session.metrics.successfulReceptions}</span>
+                </div>
+              )}
+              {session.metrics.successfulSets !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#FFB800] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Levantadas</span>
+                  <span className="font-display text-xl font-bold text-[#FFB800]">{session.metrics.successfulSets}</span>
+                </div>
+              )}
+              {session.metrics.successfulAttacks !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#FFB800] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Ataques</span>
+                  <span className="font-display text-xl font-bold text-[#FFB800]">{session.metrics.successfulAttacks}</span>
+                </div>
+              )}
+              {session.metrics.serves !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#FFB800] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Saques</span>
+                  <span className="font-display text-xl font-bold text-[#FFB800]">{session.metrics.serves}</span>
+                </div>
+              )}
+              {session.metrics.aces !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#FFB800] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Aces</span>
+                  <span className="font-display text-xl font-bold text-[#FFB800]">{session.metrics.aces}</span>
+                </div>
+              )}
+              {session.metrics.attackErrors !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#FFB800] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Erros de Ataque</span>
+                  <span className="font-display text-xl font-bold text-[#FFB800]">{session.metrics.attackErrors}</span>
+                </div>
+              )}
+              {session.metrics.partnerName && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#FFB800] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Dupla</span>
+                  <span className="font-display text-sm font-bold text-[#FFB800] truncate">{session.metrics.partnerName}</span>
+                </div>
+              )}
             </>}
           </div>
         </Card>

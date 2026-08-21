@@ -20,7 +20,10 @@ export async function createSessionController(
 
     res.status(201).json({
       success: true,
-      data: session,
+      data: {
+        ...session.toJSON(),
+        id: session._id.toString()
+      },
     });
   } catch (error) {
     next(error);
@@ -38,9 +41,17 @@ export async function listSessionsController(
 
     const result = await sessionService.listSessions(userId, query);
 
+    const mappedItems = result.items.map(item => {
+      const doc = item.toJSON();
+      return {
+        ...doc,
+        id: item._id.toString(),
+      };
+    });
+
     res.status(200).json({
       success: true,
-      data: result.items,
+      data: mappedItems,
       pagination: result.pagination,
     });
   } catch (error) {
@@ -61,7 +72,10 @@ export async function getSessionByIdController(
 
     res.status(200).json({
       success: true,
-      data: session,
+      data: {
+        ...session.toJSON(),
+        id: session._id.toString()
+      },
     });
   } catch (error) {
     next(error);
@@ -82,7 +96,10 @@ export async function updateSessionController(
 
     res.status(200).json({
       success: true,
-      data: session,
+      data: {
+        ...session.toJSON(),
+        id: session._id.toString()
+      },
     });
   } catch (error) {
     next(error);

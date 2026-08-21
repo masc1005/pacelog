@@ -67,6 +67,10 @@ export interface FutevoleiMetrics {
   durationSeconds: number;
   aces?: number;
   attackErrors?: number;
+  successfulReceptions?: number;
+  successfulSets?: number;
+  successfulAttacks?: number;
+  serves?: number;
   partnerName?: string;
   courtType?: 'sand_beach' | 'sand_court';
   notes?: string;
