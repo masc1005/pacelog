@@ -57,7 +57,7 @@ export const MainLayout: React.FC = () => {
       </div>
 
       {/* Main Page Content */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 pb-24 md:pb-12 animate-fadeIn">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 pb-32 md:pb-12 animate-fadeIn">
         <Outlet />
       </main>
 

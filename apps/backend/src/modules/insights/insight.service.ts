@@ -168,10 +168,14 @@ export class InsightService {
         '- Retorne a interpretação em texto simples e direto, em um único parágrafo, sem formatação markdown ou JSON.'
       );
 
+      const sportTipsInstruction = ['boxing', 'futevolei'].includes(sportName)
+        ? `\n\nATENÇÃO ESPECIAL TÉCNICA: Como esta é uma sessão de ${sportName}, se as notas táticas contiverem alguma queixa ou dificuldade técnica (ex: "chapada ruim", "guarda baixa", etc), inclua de forma amigável no final da sua resposta 1 ou 2 dicas práticas e curtas sobre como melhorar ou ajustar o fundamento mencionado.`
+        : '';
+
       const prompt = `Você é um assistente de treino do aplicativo Pacelog.
         ${sessionRules}
 
-        Você recebeu dados estruturados de duas sessões de ${sportName}. Interprete a evolução ou mudança entre elas.
+        Você recebeu dados estruturados de duas sessões de ${sportName}. Interprete a evolução ou mudança entre elas.${sportTipsInstruction}
 
         SESSÃO ATUAL (${currentData.period}):
         - Duração: ${currentData.durationMinutes} minutos

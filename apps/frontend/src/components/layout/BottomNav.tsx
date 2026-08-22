@@ -14,43 +14,25 @@ export const BottomNav: React.FC = () => {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#051424]/95 backdrop-blur-lg border-t border-[#1F2937] px-2 py-2">
-      <div className="flex items-center justify-around max-w-md mx-auto">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#051424] border-t border-[#1F2937] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <div className="flex items-center justify-between px-1 py-1">
         {navItems.map((item) => {
           const Icon = item.icon;
-
-          if (item.isAction) {
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className="flex flex-col items-center justify-center -mt-5 group"
-              >
-                <div className="h-11 w-11 rounded-[2px] btn-tactile shadow-[0_0_20px_rgba(255,107,53,0.35)] group-hover:scale-105 active:scale-95 transition-transform flex items-center justify-center">
-                  <Plus className="h-6 w-6 text-white" />
-                </div>
-                <span className="text-[10px] font-mono tracking-wider text-[#FF6B35] uppercase mt-1">
-                  {item.label}
-                </span>
-              </NavLink>
-            );
-          }
-
           return (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
                 clsx(
-                  'flex flex-col items-center justify-center p-1 rounded-[2px] transition-colors',
+                  'flex flex-1 flex-col items-center justify-center gap-1 py-2 rounded-lg transition-colors',
                   isActive
-                    ? 'text-[#D4F684]'
-                    : 'text-[#8F9380] hover:text-[#D4E4FA]'
+                    ? item.isAction ? 'text-[#FF6B35] bg-[#FF6B35]/10' : 'text-[#D4F684] bg-[#D4F684]/10'
+                    : 'text-[#8F9380] hover:text-[#D4E4FA] hover:bg-[#161C24]'
                 )
               }
             >
               <Icon className="h-5 w-5" />
-              <span className="text-[10px] font-mono uppercase tracking-wider mt-0.5">
+              <span className="text-[9px] font-mono uppercase tracking-wider">
                 {item.label}
               </span>
             </NavLink>
