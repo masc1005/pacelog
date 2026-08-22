@@ -9,7 +9,7 @@ export const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
   (isLocalhost
     ? `http://${isBrowser ? window.location.hostname : 'localhost'}:3333`
-    : 'https://pacelog-api-production.up.railway.app');
+    : '');
 
 export class ApiError extends Error {
   constructor(

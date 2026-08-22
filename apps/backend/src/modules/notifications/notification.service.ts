@@ -27,7 +27,7 @@ export class NotificationService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    if (acwr.status === 'danger_zone') {
+    if (acwr.status === 'high_variation') {
       const exists = await Notification.exists({ 
         userId, 
         type: 'acwr_danger', 
@@ -43,7 +43,7 @@ export class NotificationService {
           payload: { ratio: acwr.ratio }
         });
       }
-    } else if (acwr.status === 'over-reaching') {
+    } else if (acwr.status === 'elevated_vs_baseline') {
       const exists = await Notification.exists({ 
         userId, 
         type: 'acwr_warning', 
