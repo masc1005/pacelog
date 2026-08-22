@@ -3,6 +3,7 @@ import {
   enrichSportMetrics,
   calculateSessionalLoad,
 } from './sport.rules.js';
+import { buildSessionLoad } from '../progress/load/load.service.js';
 import type {
   CreateSessionInput,
   UpdateSessionInput,
@@ -38,8 +39,9 @@ export class SessionService {
       }
     }
 
-    // 3. Calcular Carga Fisiológica da Sessão (Foster sRPE = minutos * RPE)
-    const sessionalLoad = calculateSessionalLoad(durationSeconds, input.rpe);
+    // 3. Calcular carga da sessão via helper unificado
+    // sessionalLoad (legado) e load.srpe (oficial) sempre têm o mesmo valor
+    const loadPayload = buildSessionLoad(input.rpe, durationSeconds, 'completed');
 
     const sessionPayload: Record<string, any> = {
       userId,
@@ -48,7 +50,8 @@ export class SessionService {
       endedAt: input.endedAt,
       durationSeconds,
       rpe: input.rpe,
-      sessionalLoad,
+      sessionalLoad: loadPayload.sessionalLoad ?? 0,
+      load: loadPayload.load,
       status: 'completed' as const,
       metrics: enrichedMetrics,
       notes: input.notes,
@@ -194,11 +197,14 @@ export class SessionService {
     if (input.rpe) existingSession.rpe = input.rpe;
     if (input.notes !== undefined) existingSession.notes = input.notes;
 
-    // Recalcular Carga Fisiológica sRPE
-    existingSession.sessionalLoad = calculateSessionalLoad(
+    // Recalcular carga via helper unificado
+    const loadPayload = buildSessionLoad(
+      existingSession.rpe,
       existingSession.durationSeconds,
-      existingSession.rpe
+      'completed'
     );
+    existingSession.sessionalLoad = loadPayload.sessionalLoad ?? 0;
+    (existingSession as any).load = loadPayload.load;
 
     await existingSession.save();
     

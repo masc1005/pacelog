@@ -6,6 +6,13 @@ import {
   type SessionStatus,
 } from '@pacelog/shared';
 
+export interface ISessionLoad {
+  srpe: number;               // sRPE-TL = rpe × (durationSeconds / 60)
+  rpe: number;                // RPE registrado (1–10)
+  durationMinutes: number;    // duração em minutos
+  calculationVersion: number; // versão da fórmula (atualmente 1)
+}
+
 export interface ISessionDocument extends Document {
   userId: string;
   clientUuid?: string;
@@ -13,8 +20,9 @@ export interface ISessionDocument extends Document {
   startedAt: Date;
   endedAt?: Date;
   durationSeconds: number;
-  rpe: number; // 1 a 10 (Borg CR10)
-  sessionalLoad: number; // minutos * rpe
+  rpe: number;             // 1 a 10 (Borg CR10)
+  sessionalLoad: number;   // LEGADO — mantido para retrocompatibilidade. Mesmo valor de load.srpe.
+  load?: ISessionLoad;     // OFICIAL — campo estruturado. Use este em novos endpoints.
   status: SessionStatus;
   metrics: Record<string, any>;
   notes?: string;
@@ -63,6 +71,17 @@ const sessionSchema = new Schema<ISessionDocument>(
       type: Number,
       required: true,
       min: 0,
+      // LEGADO — manter para retrocompatibilidade. Sincronizado com load.srpe.
+    },
+    load: {
+      type: {
+        srpe: { type: Number, required: true, min: 0 },
+        rpe: { type: Number, required: true, min: 1, max: 10 },
+        durationMinutes: { type: Number, required: true, min: 0 },
+        calculationVersion: { type: Number, required: true, default: 1 },
+      },
+      required: false,
+      default: null,
     },
     status: {
       type: String,

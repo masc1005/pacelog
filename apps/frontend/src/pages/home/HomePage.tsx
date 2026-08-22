@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { AICoachWidget } from '../../components/ui/AICoachWidget';
+import { AIProgressInsight } from '../../components/ui/AIProgressInsight';
+import { LoadSummaryCard } from '../../components/progress/LoadSummaryCard';
+import { SportDistributionCard } from '../../components/progress/SportDistributionCard';
+import { SportProgressSummary } from '../../components/progress/SportProgressSummary';
 import {
   Flame,
   Zap,
@@ -16,28 +19,49 @@ import {
   Bed,
   Bolt,
 } from 'lucide-react';
-import { SPORT_KEYS, type SportKey, type SessionSummaryDTO } from '@pacelog/shared';
+import { SPORT_KEYS, type SportKey, type SessionSummaryDTO, type ProgressSummaryDTO, type ProgressBySportDTO } from '@pacelog/shared';
 import { formatPace, formatDuration } from '../../lib/utils';
 import { apiClient } from '../../lib/api';
 
 export const HomePage: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [selectedSport, setSelectedSport] = useState<SportKey | 'all'>('all');
   const [summary, setSummary] = useState<SessionSummaryDTO | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // V2 — dados contextualizados de progresso
+  const [progressSummary, setProgressSummary] = useState<ProgressSummaryDTO | null>(null);
+  const [sportProgressList, setSportProgressList] = useState<ProgressBySportDTO[]>([]);
 
-  // Carrega resumo agregado e lista de sessões da API
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const [summaryData, sessionsData] = await Promise.all([
+        const [summaryData, sessionsData, progressData] = await Promise.all([
           apiClient<SessionSummaryDTO>('/api/sessions/summary?timeframe=week').catch(() => null),
           apiClient<any[]>('/api/sessions?limit=6').catch(() => []),
+          apiClient<ProgressSummaryDTO>('/api/progress/summary?period=7').catch(() => null),
         ]);
 
         if (summaryData) setSummary(summaryData);
         if (sessionsData && Array.isArray(sessionsData)) setSessions(sessionsData);
+        if (progressData) {
+          setProgressSummary(progressData);
+
+          // Buscar progresso por esporte apenas dos que tiveram sessões
+          if (progressData.distribution?.length > 0) {
+            const sportKeys = progressData.distribution.map(d => d.sportKey);
+            const sportProgressResults = await Promise.allSettled(
+              sportKeys.map(key =>
+                apiClient<ProgressBySportDTO>(`/api/progress/by-sport/${key}`).catch(() => null)
+              )
+            );
+            const fulfilled = sportProgressResults
+              .filter((r): r is PromiseFulfilledResult<ProgressBySportDTO> => r.status === 'fulfilled' && r.value !== null)
+              .map(r => r.value);
+            setSportProgressList(fulfilled);
+          }
+        }
       } catch {
         // Silencioso em caso de inicialização offline
       } finally {
@@ -93,8 +117,8 @@ export const HomePage: React.FC = () => {
         </span>
       </div>
 
-      {/* AI Coach Widget */}
-      <AICoachWidget />
+      {/* AI Progress Insight Widget */}
+      <AIProgressInsight />
 
       {/* 1. Section: Chronograph Dashboard matching Stitch PACELOG: Performance Premium */}
       <section className="flex flex-col md:flex-row gap-6 lg:gap-10 items-center md:items-start justify-center bg-[#051424] p-6 lg:p-8 rounded-[2px] border border-[#1F2937] relative overflow-hidden">
@@ -144,6 +168,18 @@ export const HomePage: React.FC = () => {
             <span className="font-mono text-[10px] text-[#D4F684] tracking-wider mt-0.5 font-bold uppercase">
               FOSTER sRPE
             </span>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-4 mt-2 font-mono text-[8px] sm:text-[9px] uppercase tracking-wider font-bold whitespace-nowrap">
+          <div className="flex items-center gap-1.5 text-[#FF6B35]">
+            <span className="w-2 h-2 rounded-full bg-[#FF6B35]"></span>
+            Carga Atual (7d)
+          </div>
+          <div className="flex items-center gap-1.5 text-[#5CA9E6]">
+            <span className="w-2 h-2 rounded-full bg-[#5CA9E6]"></span>
+            Baseline (28d)
           </div>
         </div>
 
@@ -238,6 +274,66 @@ export const HomePage: React.FC = () => {
           </Card>
         )}
       </section>
+
+      {/* ==========================================
+          SEÇÃO V2 — CARGA E PROGRESSO CONTEXTUALIZADO
+          Substitui "métrica alta" por dados contextualizados.
+          Aparece somente se houver dados do endpoint V2.
+      ========================================== */}
+      {progressSummary && (
+        <section className="flex flex-col gap-4">
+          <div className="flex items-center justify-between border-b border-[#1F2937] pb-2">
+            <h2 className="text-xs font-mono font-bold uppercase tracking-widest text-[#C5C8B4] flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-[#D4F684] rounded-full" />
+              CARGA E PROGRESSO
+            </h2>
+            <Link
+              to="/progress"
+              className="text-xs font-mono text-[#D4F684] hover:underline flex items-center gap-1 uppercase font-bold tracking-wider"
+            >
+              Ver análise completa <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+
+          {/* Progresso por esporte (Prioridade 1) */}
+          {sportProgressList.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <p className="font-mono text-[10px] text-[#8F9380] uppercase tracking-widest">
+                Progresso relativo por modalidade
+              </p>
+              <SportProgressSummary
+                sports={sportProgressList}
+                onSportClick={(key) => navigate(`/progress/${key}`)}
+              />
+            </div>
+          )}
+
+          {/* Card de carga percebida (Prioridade 2) */}
+          <div className="mt-2">
+             <LoadSummaryCard load={progressSummary.load} />
+          </div>
+
+          {/* Distribuição por esporte */}
+          {progressSummary.distribution.length > 0 && (
+            <SportDistributionCard
+              distribution={progressSummary.distribution}
+              totalSrpe={progressSummary.load.currentSrpe}
+            />
+          )}
+
+          {/* Explicações determinísticas */}
+          {progressSummary.explanations.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {progressSummary.explanations.map((exp, i) => (
+                <p key={i} className="font-mono text-xs text-[#8F9380] flex items-start gap-2">
+                  <span className="text-[#4A5568] mt-0.5">→</span>
+                  {exp}
+                </p>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* 3. Sport Filters & Categories */}
       <section className="flex flex-col gap-3">

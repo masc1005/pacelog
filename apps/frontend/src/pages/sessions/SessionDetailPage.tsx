@@ -7,7 +7,7 @@ import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 import type { SessionDTO, SportKey } from '@pacelog/shared';
 import { formatDuration } from '../../lib/utils';
-import { Activity, Zap, Sun, Dumbbell, Flame, Pencil, Trash2, ArrowLeft, Sparkles } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, Pencil, Trash2, ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
 import type { AIInsightDTO } from '@pacelog/shared';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badge: 'cyan'|'amber'|'crimson'|'purple'|'green' }> = {
@@ -67,11 +67,12 @@ export const SessionDetailPage: React.FC = () => {
     }
   };
 
-  const handleGenerateInsight = async () => {
+  const handleGenerateInsight = async (force: boolean = false) => {
     if (!id) return;
     setIsGeneratingInsight(true);
     try {
-      const data = await apiClient<AIInsightDTO>(`/api/insights/session/${id}/generate`, { method: 'POST' });
+      const url = force ? `/api/insights/session/${id}/generate?force=true` : `/api/insights/session/${id}/generate`;
+      const data = await apiClient<AIInsightDTO>(url, { method: 'POST' });
       setInsight(data);
       success('Análise gerada com sucesso!');
     } catch {
@@ -154,13 +155,38 @@ export const SessionDetailPage: React.FC = () => {
           <Sparkles className="h-24 w-24 text-[#A855F7]" />
         </div>
         <div className="relative z-10 flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-[#A855F7]" />
-            <h2 className="font-mono text-[10px] text-[#A855F7] uppercase tracking-widest font-bold">Coach de IA</h2>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-[#A855F7]" />
+              <h2 className="font-mono text-[10px] text-[#A855F7] uppercase tracking-widest font-bold">Coach de IA</h2>
+            </div>
+            {insight && (
+              <button 
+                onClick={() => handleGenerateInsight(true)}
+                disabled={isGeneratingInsight}
+                className="text-[#8F9380] hover:text-[#A855F7] transition-colors p-1 rounded hover:bg-[#A855F7]/10 disabled:opacity-50"
+                title="Regerar análise"
+              >
+                <RefreshCw className={`h-4 w-4 ${isGeneratingInsight ? 'animate-spin' : ''}`} />
+              </button>
+            )}
           </div>
           
           {insight ? (
-            <p className="text-sm text-[#D4E4FA] leading-relaxed font-sans">{insight.content}</p>
+            <p className="text-sm text-[#D4E4FA] leading-relaxed font-sans">
+              {(() => {
+                let text = insight.content;
+                if (text.startsWith('```')) {
+                  text = text.replace(/```(json)?\n?/g, '').trim();
+                }
+                try {
+                  const data = JSON.parse(text);
+                  return data.interpretacao || data.summary || data.headline || insight.content;
+                } catch {
+                  return text;
+                }
+              })()}
+            </p>
           ) : (
             <div className="flex flex-col gap-3 items-start">
               <p className="text-sm text-[#C5C8B4] leading-relaxed">
@@ -170,7 +196,7 @@ export const SessionDetailPage: React.FC = () => {
                 variant="tactile" 
                 size="sm" 
                 className="bg-[#A855F7]/10 text-[#A855F7] border-[#A855F7]/30 hover:bg-[#A855F7]/20"
-                onClick={handleGenerateInsight}
+                onClick={() => handleGenerateInsight(false)}
                 isLoading={isGeneratingInsight}
                 leftIcon={<Sparkles className="h-4 w-4" />}
               >

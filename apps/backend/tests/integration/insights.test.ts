@@ -14,7 +14,11 @@ vi.mock('@google/genai', () => {
       return {
         models: {
           generateContent: vi.fn().mockResolvedValue({
-            text: 'MOCK_INSIGHT: Continue treinando duro. O seu ACWR está excelente.'
+            text: JSON.stringify({
+              headline: 'Mock Headline',
+              summary: 'Mock Summary',
+              topProgress: []
+            })
           })
         }
       };
@@ -54,7 +58,7 @@ describe('Insights API', () => {
     const res = await request(app).get('/api/insights/daily');
     
     expect(res.status).toBe(200);
-    expect(res.body.data.type).toBe('daily_coach');
+    expect(res.body.data.type).toBe('daily_progress');
     
     // As we mock Gemini or use the fallback (if env is empty), we just check it returns a string
     expect(res.body.data.content).toBeDefined();
@@ -66,14 +70,14 @@ describe('Insights API', () => {
   it('should return the cached insight if one was already generated today', async () => {
     await InsightModel.create({
       userId,
-      content: 'CACHED_INSIGHT',
-      type: 'daily_coach',
+      content: JSON.stringify({ headline: 'CACHED', summary: 'CACHED', topProgress: [] }),
+      type: 'daily_progress',
     });
 
     const res = await request(app).get('/api/insights/daily');
     
     expect(res.status).toBe(200);
-    expect(res.body.data.content).toBe('CACHED_INSIGHT');
+    expect(res.body.data.content).toContain('CACHED');
     
     const count = await InsightModel.countDocuments({ userId });
     expect(count).toBe(1); // Should not create a new one

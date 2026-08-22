@@ -128,3 +128,69 @@ export function enrichSportMetrics(sportKey: SportKey, metrics: any): any {
       return metrics;
   }
 }
+
+/**
+ * Extrai a métrica principal de desempenho de uma sessão como `MetricSnapshot`.
+ * A métrica primária é definida em `metric-definitions.ts` do pacote shared.
+ *
+ * Retorna `null` se a modalidade não tiver dados de desempenho suficientes.
+ * Nunca compara métricas entre esportes diferentes.
+ */
+export function computePrimaryMetric(
+  sportKey: SportKey,
+  metrics: any,
+  durationSeconds: number
+): { key: string; label: string; value: number; unit: string; direction: string; comparability: string } | null {
+  if (!metrics) return null;
+
+  switch (sportKey) {
+    case 'running': {
+      const distKm = metrics.distanceMeters > 0 ? metrics.distanceMeters / 1000 : null;
+      const pace = distKm && durationSeconds > 0
+        ? Math.round(durationSeconds / distKm)
+        : (metrics.paceSecondsPerKm ?? null);
+      if (pace === null || pace <= 0) return null;
+      return { key: 'paceSecondsPerKm', label: 'Pace médio', value: pace, unit: 's/km', direction: 'lower_is_better', comparability: 'same_metric' };
+    }
+
+    case 'football': {
+      const minutes = metrics.durationSeconds ? Math.round(metrics.durationSeconds / 60) : 0;
+      if (minutes <= 0) return null;
+      return { key: 'minutesPlayed', label: 'Minutos jogados', value: minutes, unit: 'min', direction: 'higher_is_better', comparability: 'same_sport' };
+    }
+
+    case 'futevolei': {
+      const ratings: number[] = [];
+      if (metrics.successfulReceptions != null) ratings.push(metrics.successfulReceptions);
+      if (metrics.successfulSets != null) ratings.push(metrics.successfulSets);
+      if (metrics.successfulAttacks != null) ratings.push(metrics.successfulAttacks);
+      if (metrics.serves != null) ratings.push(metrics.serves);
+      if (ratings.length === 0) {
+        // fallback: sets vencidos
+        const total = metrics.setsCount || 1;
+        const won = metrics.setsWon ?? null;
+        if (won === null) return null;
+        const rate = Math.round((won / total) * 100);
+        return { key: 'setsWonRate', label: 'Taxa de sets vencidos', value: rate, unit: '%', direction: 'higher_is_better', comparability: 'same_metric' };
+      }
+      const avg = Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 100) / 100;
+      return { key: 'technicalAverage', label: 'Média técnica', value: avg, unit: '/5', direction: 'higher_is_better', comparability: 'same_metric' };
+    }
+
+    case 'boxing': {
+      const completed = metrics.roundsCount ?? 0;
+      if (completed <= 0) return null;
+      // Considera 100% se não houver target definido (todos os rounds concluídos)
+      return { key: 'roundCompletionRate', label: 'Conclusão de rounds', value: 100, unit: '%', direction: 'higher_is_better', comparability: 'same_metric' };
+    }
+
+    case 'strength': {
+      const volume = metrics.totalVolumeKg ?? null;
+      if (volume === null || volume <= 0) return null;
+      return { key: 'totalVolumeKg', label: 'Volume total', value: volume, unit: 'kg', direction: 'neutral', comparability: 'same_metric' };
+    }
+
+    default:
+      return null;
+  }
+}

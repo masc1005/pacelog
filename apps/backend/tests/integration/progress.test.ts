@@ -91,7 +91,10 @@ describe('Progress Analytics & Telemetry Integration Tests', () => {
       expect(acwr.acuteLoad).toBe(300);
       expect(acwr.chronicLoad).toBe(300);
       expect(acwr.ratio).toBe(1);
-      expect(acwr.status).toBe('optimal');
+      // 'optimal' foi substituído por 'baseline' — linguagem descritiva sem termos médicos
+      expect(acwr.status).toBe('baseline');
+      // disclaimer obrigatório em todas as respostas de carga
+      expect(acwr.disclaimer).toBeTruthy();
       expect(weeklySessionsCount).toBe(1);
       expect(sportsBreakdown).toHaveLength(1);
       expect(sportsBreakdown[0].sportKey).toBe('running');

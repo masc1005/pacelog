@@ -1,3 +1,12 @@
+// ==========================================
+// MÓDULO DE MÉTRICAS V2 (CARGA E PROGRESSO)
+// ==========================================
+export * from './metrics/load.types.js';
+export * from './metrics/external-metrics.types.js';
+export * from './metrics/performance.types.js';
+export * from './metrics/progress.types.js';
+export * from './metrics/metric-definitions.js';
+
 export const SPORT_KEYS = [
   'running',
   'football',
@@ -184,14 +193,32 @@ export interface GoalDTO extends BaseEntity {
 // MÓDULO DE TELEMETRIA & EVOLUÇÃO (PROGRESS)
 // ==========================================
 
-export type AcwrStatus = 'optimal' | 'under-training' | 'over-reaching' | 'danger_zone';
+/**
+ * Status descritivo de variabilidade de carga (ACWR).
+ * Vocabulário sem linguagem médica ou diagnóstica.
+ *
+ * @deprecated Os valores de status abaixo substituem os anteriores:
+ *   'optimal'       → 'baseline'
+ *   'under-training'→ 'below_baseline'
+ *   'over-reaching' → 'elevated_vs_baseline'
+ *   'danger_zone'   → 'high_variation'
+ */
+export type AcwrStatus =
+  | 'baseline'              // dentro do padrão histórico
+  | 'below_baseline'        // abaixo da média recente
+  | 'elevated_vs_baseline'  // acima da média recente
+  | 'high_variation'        // variação relevante na carga
+  | 'insufficient_data';    // histórico insuficiente
 
 export interface AcwrReadout {
-  acuteLoad: number; // Soma de carga dos últimos 7 dias
-  chronicLoad: number; // Média semanal de carga dos últimos 28 dias
-  ratio: number; // acuteLoad / chronicLoad
-  status: AcwrStatus;
-  message: string;
+  acuteLoad: number;      // Soma de carga dos últimos 7 dias
+  chronicLoad: number;    // Média semanal de carga dos últimos 28 dias
+  ratio: number;          // acuteLoad / chronicLoad
+  status: AcwrStatus;     // Status descritivo (sem linguagem médica)
+  /** @deprecated Alias legado para clientes antigos. Use `status`. */
+  legacyStatus?: string;  // ex: 'danger_zone' — somente se necessário para compatibilidade
+  message: string;        // descrição comparativa com o histórico
+  disclaimer: string;     // lembrete: comparação descritiva, não avaliação médica
 }
 
 export interface WeeklyTrendPoint {
@@ -279,6 +306,6 @@ export interface WeeklyReportDTO {
 export interface AIInsightDTO extends BaseEntity {
   userId: string;
   content: string;
-  type: 'daily_coach' | 'recovery_warning' | 'milestone_celebration' | 'session_analysis';
+  type: 'daily_coach' | 'daily_progress' | 'recovery_warning' | 'milestone_celebration' | 'session_analysis';
   sessionId?: string;
 }

@@ -6,6 +6,33 @@ import type { AIInsightDTO } from '@pacelog/shared';
 import { Sparkles, ArrowRight, BrainCircuit, LineChart, Target } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+const RenderProgressInsight: React.FC<{ content: string }> = ({ content }) => {
+  try {
+    const data = JSON.parse(content);
+    return (
+      <div className="flex flex-col gap-3 mt-1">
+        <p className="text-sm text-[#C5C8B4] leading-relaxed">{data.summary}</p>
+        {data.topProgress && data.topProgress.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2 border-t border-[#1F2937] pt-3">
+            {data.topProgress.map((item: any, idx: number) => (
+              <div key={idx} className="flex flex-col gap-1 bg-[#051424] p-3 rounded-[2px] border border-[#1F2937]">
+                <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-widest">
+                  {item.sportKey} • {item.metric}
+                </span>
+                <span className="text-sm font-medium text-[#D4E4FA]">
+                  {item.description}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  } catch (e) {
+    return <div className="text-sm text-[#C5C8B4] leading-relaxed font-sans mt-1">{content}</div>;
+  }
+};
+
 export const InsightsPage: React.FC = () => {
   const [insights, setInsights] = useState<AIInsightDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +64,7 @@ export const InsightsPage: React.FC = () => {
     switch (type) {
       case 'session_analysis': return 'Análise Tática de Sessão';
       case 'daily_coach': return 'Coach Diário';
+      case 'daily_progress': return 'Insight de Evolução';
       case 'milestone_celebration': return 'Marco Alcançado';
       case 'recovery_warning': return 'Alerta de Recuperação';
       default: return 'Insight de IA';
@@ -47,6 +75,7 @@ export const InsightsPage: React.FC = () => {
     switch (type) {
       case 'session_analysis': return 'cyan';
       case 'daily_coach': return 'purple';
+      case 'daily_progress': return 'cyan';
       case 'milestone_celebration': return 'sage';
       case 'recovery_warning': return 'crimson';
       default: return 'neutral';
@@ -96,7 +125,18 @@ export const InsightsPage: React.FC = () => {
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                       <span className="font-display text-lg font-bold text-[#D4E4FA]">
-                        {getTitleForType(insight.type)}
+                        {insight.type === 'daily_progress' && (
+                          <span className="block text-[#D4E4FA]">
+                            {(() => {
+                              try {
+                                return JSON.parse(insight.content).headline;
+                              } catch {
+                                return getTitleForType(insight.type);
+                              }
+                            })()}
+                          </span>
+                        )}
+                        {insight.type !== 'daily_progress' && getTitleForType(insight.type)}
                       </span>
                       <Badge variant={getBadgeVariant(insight.type)} size="sm">
                         {new Date(insight.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
@@ -113,9 +153,13 @@ export const InsightsPage: React.FC = () => {
                   )}
                 </div>
 
-                <div className="text-sm text-[#C5C8B4] leading-relaxed font-sans mt-1">
-                  {insight.content}
-                </div>
+                {insight.type === 'daily_progress' ? (
+                  <RenderProgressInsight content={insight.content} />
+                ) : (
+                  <div className="text-sm text-[#C5C8B4] leading-relaxed font-sans mt-1">
+                    {insight.content}
+                  </div>
+                )}
               </Card>
             </div>
           ))}

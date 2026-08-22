@@ -93,6 +93,21 @@ export const EditSessionPage: React.FC = () => {
         finalMetrics.paceSecondsPerKm = (finalMetrics.paceMin * 60) + finalMetrics.paceSec;
       }
 
+      if (sportKey === 'strength' && (!finalMetrics.exercises || finalMetrics.exercises.length === 0)) {
+        finalMetrics.exercises = [
+          {
+            exerciseName: 'Treino Geral',
+            sets: [
+              {
+                setNumber: 1,
+                reps: Math.max(finalMetrics.totalReps || 10, 1),
+                weightKg: Math.max(finalMetrics.totalVolumeKg || 0, 0),
+              }
+            ]
+          }
+        ];
+      }
+
       const payload: Partial<SessionDTO> = {
         sportKey: sportKey as SportKey,
         startedAt: new Date(startedAt).toISOString(),

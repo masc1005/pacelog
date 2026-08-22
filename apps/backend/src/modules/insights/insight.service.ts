@@ -2,8 +2,51 @@ import { InsightModel, type IInsight } from './insight.model.js';
 import { progressService } from '../progress/progress.service.js';
 import { env } from '../../config/env.js';
 import { GoogleGenAI } from '@google/genai';
-import type { AIInsightDTO, SessionDTO } from '@pacelog/shared';
+import type { AIInsightDTO } from '@pacelog/shared';
 import { SessionModel } from '../sessions/session.model.js';
+import { LOAD_DISCLAIMER } from '../progress/baseline.service.js';
+import { z } from 'zod';
+
+const aiProgressInsightSchema = z.object({
+  headline: z.string().describe('Um título curto e motivador resumindo a evolução atual (ex: "Consistência no Boxe e Melhora no Pace")'),
+  summary: z.string().describe('Um parágrafo curto (max 2 frases) avaliando o progresso do usuário no período. Foco em consistência, evolução relativa e esforço investido.'),
+  topProgress: z.array(z.object({
+    sportKey: z.string(),
+    metric: z.string(),
+    description: z.string().describe('Explicação de uma frase do porquê foi uma evolução (ex: "Seu pace caiu de 6:05 para 5:45 mantendo o mesmo volume.")')
+  })).describe('Lista dos 2 maiores destaques de progresso no período, baseados em métricas ou consistência.')
+});
+
+// ==========================================
+// REGRAS DE PROMPT PARA IA
+// ==========================================
+
+/**
+ * Regras invariáveis que o prompt da IA deve seguir:
+ * - Não chamar carga alta de risco.
+ * - Não fazer diagnóstico.
+ * - Não recomendar tratamento.
+ * - Diferenciar carga, volume e desempenho.
+ * - Informar período e baseline.
+ * - Usar somente os dados recebidos.
+ * - Não inventar causalidade.
+ * - Declarar insuficiência de dados.
+ * - Produzir texto curto e objetivo.
+ * - IA não calcula números — apenas interpreta dados já calculados.
+ */
+const AI_SYSTEM_RULES_V2 = `
+REGRAS OBRIGATÓRIAS:
+- Nunca use termos como "risco de lesão", "zona de perigo", "overtraining" ou qualquer linguagem médica.
+- Nunca faça diagnóstico ou recomende tratamento.
+- Foco em PROGRESSO: consistência (frequência) e melhoria relativa em métricas.
+- Carga (sRPE-TL) é usada como CONTEXTO: maior carga não significa evolução. Evolução é melhorar métricas mantendo ou diminuindo carga.
+- Use somente os dados fornecidos. Não invente valores ou causalidades.
+- Retorne estritamente um objeto JSON estruturado. Não adicione markdown ou textos antes/depois do JSON.
+`;
+
+// ==========================================
+// INSIGHT SERVICE
+// ==========================================
 
 export class InsightService {
   private ai: GoogleGenAI | null = null;
@@ -15,31 +58,29 @@ export class InsightService {
   }
 
   /**
-   * Gera um insight diário baseado no ACWR e histórico do atleta.
-   * Limita a geração a 1 por dia para economizar API.
+   * Gera um insight diário contextualizado com dados determinísticos.
+   * A IA interpreta — não calcula — os dados do progresso.
    */
   async getDailyInsight(userId: string): Promise<AIInsightDTO> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 1. Verifica se já existe um insight gerado hoje
     const existingInsight = await InsightModel.findOne({
       userId,
       createdAt: { $gte: today },
-      type: 'daily_coach'
+      type: 'daily_progress',
     }).sort({ createdAt: -1 });
 
     if (existingInsight) {
       return this.mapToDTO(existingInsight);
     }
 
-    // 2. Se não existir, gera um novo.
-    const insightContent = await this.generateInsightFromGemini(userId);
+    const insightContent = await this.generateDailyInsightFromGemini(userId);
 
     const newInsight = await InsightModel.create({
       userId,
       content: insightContent,
-      type: 'daily_coach'
+      type: 'daily_progress',
     });
 
     return this.mapToDTO(newInsight);
@@ -49,92 +90,107 @@ export class InsightService {
     const existingInsight = await InsightModel.findOne({
       userId,
       sessionId,
-      type: 'session_analysis'
+      type: 'session_analysis',
     });
     if (!existingInsight) return null;
     return this.mapToDTO(existingInsight);
   }
 
   /**
-   * Gera ou recupera um insight comparativo entre a sessão atual e a anterior do mesmo esporte.
+   * Gera ou recupera um insight comparativo de sessão.
+   * Envia dados estruturados e contextualizados à IA — sem cálculos pela IA.
    */
   async getSessionComparisonInsight(userId: string, sessionId: string): Promise<AIInsightDTO> {
-    // 1. Verifica se já existe um insight salvo para esta sessão
     const existingInsight = await InsightModel.findOne({
       userId,
       sessionId,
-      type: 'session_analysis'
+      type: 'session_analysis',
     });
 
     if (existingInsight) {
       return this.mapToDTO(existingInsight);
     }
 
-    // 2. Busca a sessão alvo
     const currentSession = await SessionModel.findOne({ _id: sessionId, userId });
     if (!currentSession) {
       throw new Error('Sessão não encontrada');
     }
 
-    // 3. Busca a sessão anterior do mesmo esporte
     const previousSession = await SessionModel.findOne({
       userId,
       sportKey: currentSession.sportKey,
-      startedAt: { $lt: currentSession.startedAt }
+      startedAt: { $lt: currentSession.startedAt },
     }).sort({ startedAt: -1 });
 
-    // 4. Gera insight com o Gemini
     const insightContent = await this.generateSessionInsightFromGemini(currentSession, previousSession);
 
-    // 5. Salva no banco
     const newInsight = await InsightModel.create({
       userId,
       sessionId,
       content: insightContent,
-      type: 'session_analysis'
+      type: 'session_analysis',
     });
 
     return this.mapToDTO(newInsight);
   }
 
+  /**
+   * Gera insight de sessão enviando dados estruturados — sem linguagem médica no prompt.
+   */
   private async generateSessionInsightFromGemini(current: any, previous: any | null): Promise<string> {
     try {
       const sportName = current.sportKey;
-      let prompt = `Você é um "High-Performance Coach" especialista em fisiologia do exercício trabalhando no aplicativo Pacelog.
-      Sua resposta deve ter no máximo 2 parágrafos curtos, ser direta, altamente técnica e tática, sem saudações ou clichês motivacionais.
-      Seu objetivo principal é avaliar a EFICIÊNCIA DO TREINO cruzando o RPE (esforço percebido) com a métrica de volume/intensidade do esporte (${sportName}).
-      
-      Regras de Análise:
-      - Menos RPE para o mesmo volume/intensidade = ganho de condicionamento/eficiência.
-      - Mais RPE para o mesmo volume = sinal de fadiga residual ou má recuperação.
-      - Se for Musculação (strength), analise volume total vs repetições.
-      - Se for Corrida (running), analise pace vs frequência cardíaca ou RPE.
-      - Se for Boxe (boxing), analise quantidade de rounds.`;
+      const currentLoad = (current as any).load?.srpe ?? current.sessionalLoad;
+      const previousLoad = previous ? ((previous as any).load?.srpe ?? previous.sessionalLoad) : null;
 
-      if (previous) {
-        prompt += `\n\nCompare a sessão ATUAL com a ANTERIOR e destaque a evolução ou queda de performance:
-        [TREINO ANTERIOR]
-        Duração: ${Math.round(previous.durationSeconds / 60)} min | Esforço (RPE): ${previous.rpe}/10 | Carga Fisiológica: ${previous.sessionalLoad}
-        Métricas Específicas: ${JSON.stringify(previous.metrics)}
-        
-        [TREINO ATUAL (O que acabou de ser feito)]
-        Duração: ${Math.round(current.durationSeconds / 60)} min | Esforço (RPE): ${current.rpe}/10 | Carga Fisiológica: ${current.sessionalLoad}
-        Métricas Específicas: ${JSON.stringify(current.metrics)}
-        
-        Feedback Analítico:`;
-      } else {
-        prompt += `\n\nEste é o primeiro treino registrado desta modalidade. Crie uma linha de base (baseline) tática.
-        [TREINO ATUAL]
-        Duração: ${Math.round(current.durationSeconds / 60)} min | Esforço (RPE): ${current.rpe}/10 | Carga Fisiológica: ${current.sessionalLoad}
-        Métricas Específicas: ${JSON.stringify(current.metrics)}
-        
-        Feedback Analítico:`;
-      }
+      // Payload estruturado — IA interpreta, não calcula
+      const currentData = {
+        sportKey: sportName,
+        durationMinutes: Math.round(current.durationSeconds / 60),
+        rpe: current.rpe,
+        srpeLoad: currentLoad,
+        metrics: current.metrics,
+        period: new Date(current.startedAt).toLocaleDateString('pt-BR'),
+      };
+
+      const previousData = previous ? {
+        durationMinutes: Math.round(previous.durationSeconds / 60),
+        rpe: previous.rpe,
+        srpeLoad: previousLoad,
+        metrics: previous.metrics,
+        period: new Date(previous.startedAt).toLocaleDateString('pt-BR'),
+      } : null;
+
+      const sessionRules = AI_SYSTEM_RULES_V2.replace(
+        '- Retorne estritamente um objeto JSON estruturado. Não adicione markdown ou textos antes/depois do JSON.',
+        '- Retorne a interpretação em texto simples e direto, em um único parágrafo, sem formatação markdown ou JSON.'
+      );
+
+      const prompt = `Você é um assistente de treino do aplicativo Pacelog.
+        ${sessionRules}
+
+        Você recebeu dados estruturados de duas sessões de ${sportName}. Interprete a evolução ou mudança entre elas.
+
+        SESSÃO ATUAL (${currentData.period}):
+        - Duração: ${currentData.durationMinutes} minutos
+        - RPE: ${currentData.rpe}/10
+        - Carga percebida (sRPE-TL): ${currentData.srpeLoad} AU
+        - Métricas específicas: ${JSON.stringify(currentData.metrics)}
+
+        ${previousData ? `SESSÃO ANTERIOR (${previousData.period}):
+        - Duração: ${previousData.durationMinutes} minutos
+        - RPE: ${previousData.rpe}/10
+        - Carga percebida (sRPE-TL): ${previousData.srpeLoad} AU
+        - Métricas específicas: ${JSON.stringify(previousData.metrics)}
+
+        Compare as sessões. Destaque diferenças em carga percebida e métricas específicas da modalidade.` : `Esta é a primeira sessão registrada desta modalidade. Descreva o que os dados mostram sem comparar com histórico inexistente.`}
+
+        Interpretação:`;
 
       if (!this.ai) {
-        return previous 
-          ? `Sua carga de treino variou de ${previous.sessionalLoad} para ${current.sessionalLoad}. Continue focado nos seus marcadores de evolução em ${sportName}.` 
-          : `Bom primeiro treino de ${sportName}. A consistência é a chave.`;
+        return previousData
+          ? `Carga percebida: de ${previousData.srpeLoad} AU para ${currentLoad} AU em ${sportName}. Continue acompanhando suas métricas.`
+          : `Primeira sessão de ${sportName} registrada. Carga percebida: ${currentLoad} AU. Continue registrando para construir histórico.`;
       }
 
       const response = await this.ai.models.generateContent({
@@ -142,44 +198,69 @@ export class InsightService {
         contents: prompt,
       });
 
-      return response.text || 'Continue treinando focado em suas métricas base.';
+      return response.text || 'Sessão finalizada. Continue acompanhando suas métricas de carga e desempenho.';
     } catch (error) {
       console.error('[InsightService] Gemini Session Generation Failed:', error);
-      return 'Treino finalizado com sucesso. Monitore sua percepção de esforço no próximo treino.';
+      return 'Sessão registrada com sucesso. Acompanhe sua carga percebida nos próximos treinos.';
     }
   }
 
-  private async generateInsightFromGemini(userId: string): Promise<string> {
+  private async generateDailyInsightFromGemini(userId: string): Promise<string> {
     try {
-      const overview = await progressService.getOverview(userId);
+      const comparison = await progressService.getComparison(userId, 30);
 
-      // Prompt Context Builder
-      const acwrText = `ACWR: ${overview.acwr.ratio} (${overview.acwr.status}). ${overview.acwr.message}`;
-      const streakText = `Sequência: ${overview.totalActiveDaysStreak} dias.`;
-      
-      const prsText = overview.recentPersonalRecords.length > 0
-        ? `Últimos PRs batidos: ${overview.recentPersonalRecords.map(pr => pr.metricLabel + ' ' + pr.value).join(', ')}.`
-        : 'Nenhum recorde recente.';
+      const aiContext = {
+        period: comparison.period.label,
+        overallConsistency: `${comparison.overall.consistencyPercent}% (baseline: ${comparison.overall.baselineConsistencyPercent}%)`,
+        sports: comparison.sports.map(s => ({
+          sportLabel: s.sportLabel,
+          sessionsCount: `${s.sessions.current} vs ${s.sessions.baseline}`,
+          primaryMetric: s.primaryMetric,
+          evidence: s.evidence
+        })),
+        ranking: {
+          mostImproved: comparison.ranking.mostImproved,
+          mostConsistent: comparison.ranking.mostConsistent,
+          mostEfficient: comparison.ranking.mostEfficient,
+        },
+        loadContext: comparison.loadContext
+      };
 
-      const prompt = `Você é um "High-Performance Coach" direto, tático e pragmático de um aplicativo chamado Pacelog. 
-        Sua resposta deve ser curta (máximo 3 parágrafos curtos) e sem saudações genéricas como "Olá" ou "Bom dia".
-        Analise os seguintes dados do atleta e dê uma recomendação de treino ou recuperação.
-        Se o ACWR estiver em "danger_zone" ou "over-reaching", recomende cautela e descanso.
-        Se o ACWR estiver em "optimal", incentive a manter o ritmo.
-        Se o ACWR estiver em "under-training", sugira aumentar gradativamente a intensidade.
+      const prompt = `Você é o analista de progresso esportivo do PACELOG.
+${AI_SYSTEM_RULES_V2}
 
-        Métricas Atuais:
-        - ${acwrText}
-        - ${streakText}
-        - Carga semanal total: ${overview.weeklyTotalSessionalLoad}
-        - Duração semanal total: ${Math.round(overview.weeklyTotalDurationSeconds / 60)} minutos
-        - ${prsText}
+Você recebeu os seguintes dados de progresso dos últimos ${aiContext.period}:
 
-        Recomendação:`;
+DADOS DE CONSISTÊNCIA GERAL:
+${aiContext.overallConsistency}
+
+PROGRESSO POR ESPORTE (Apenas as modalidades com dados recentes):
+${JSON.stringify(aiContext.sports, null, 2)}
+
+RANKING CALCULADO:
+- Maior Evolução (mostImproved): ${aiContext.ranking.mostImproved ?? 'Nenhum'}
+- Maior Consistência (mostConsistent): ${aiContext.ranking.mostConsistent ?? 'Nenhum'}
+- Mais Eficiente (mostEfficient): ${aiContext.ranking.mostEfficient ?? 'Nenhum'}
+
+CONTEXTO DE CARGA (Para não interpretar carga isolada como evolução):
+${JSON.stringify(aiContext.loadContext, null, 2)}
+
+Sua tarefa: Retornar um JSON válido com a seguinte estrutura:
+{
+  "headline": "Título curto",
+  "summary": "Parágrafo resumindo a evolução",
+  "topProgress": [{"sportKey": "...", "metric": "...", "description": "..."}]
+}
+Lembre que: ${LOAD_DISCLAIMER}
+
+Apenas o JSON, sem markdown.`;
 
       if (!this.ai) {
-        // Fallback gracefully se a chave não estiver configurada (útil em dev/testes)
-        return `Baseado no seu ACWR atual de ${overview.acwr.ratio}, ${overview.acwr.message}`;
+        return JSON.stringify({
+          headline: 'Acompanhe seu progresso',
+          summary: 'Continue registrando seus treinos para construir seu histórico.',
+          topProgress: []
+        });
       }
 
       const response = await this.ai.models.generateContent({
@@ -187,10 +268,20 @@ export class InsightService {
         contents: prompt,
       });
 
-      return response.text || 'Continue monitorando suas métricas de evolução diária.';
+      const responseText = response.text || '';
+      const cleanJsonStr = responseText.replace(/^\s*```(json)?|\s*```\s*$/gi, '').trim();
+      
+      const parsedData = JSON.parse(cleanJsonStr);
+      aiProgressInsightSchema.parse(parsedData); // validador zod
+      
+      return JSON.stringify(parsedData);
     } catch (error) {
       console.error('[InsightService] Gemini Generation Failed:', error);
-      return 'Continue treinando duro e acompanhando sua telemetria. Os dados fisiológicos mostram consistência.';
+      return JSON.stringify({
+        headline: 'Dados Insuficientes',
+        summary: 'Não foi possível gerar seu insight de evolução agora. Continue registrando seus treinos.',
+        topProgress: []
+      });
     }
   }
 
@@ -201,7 +292,7 @@ export class InsightService {
       content: insight.content,
       type: insight.type as any,
       createdAt: insight.createdAt,
-      updatedAt: insight.updatedAt
+      updatedAt: insight.updatedAt,
     };
   }
 }

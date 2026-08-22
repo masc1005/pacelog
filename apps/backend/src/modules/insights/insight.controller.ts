@@ -34,6 +34,13 @@ export class InsightController {
     try {
       const userId = req.userId!;
       const sessionId = String(req.params.sessionId);
+      const force = req.query.force === 'true';
+
+      if (force) {
+        const { InsightModel } = await import('./insight.model.js');
+        await InsightModel.deleteOne({ userId, sessionId, type: 'session_analysis' });
+      }
+
       const insight = await insightService.getSessionComparisonInsight(userId, sessionId);
       
       res.status(200).json({ data: insight });

@@ -67,6 +67,21 @@ export const NewSessionPage: React.FC = () => {
         finalMetrics.paceSecondsPerKm = (finalMetrics.paceMin * 60) + finalMetrics.paceSec;
       }
 
+      if (sportKey === 'strength' && (!finalMetrics.exercises || finalMetrics.exercises.length === 0)) {
+        finalMetrics.exercises = [
+          {
+            exerciseName: 'Treino Geral',
+            sets: [
+              {
+                setNumber: 1,
+                reps: Math.max(finalMetrics.totalReps || 10, 1),
+                weightKg: Math.max(finalMetrics.totalVolumeKg || 0, 0),
+              }
+            ]
+          }
+        ];
+      }
+
       const clientUuid = crypto.randomUUID();
       const payload: Partial<SessionDTO> = {
         clientUuid,
