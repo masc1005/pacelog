@@ -150,6 +150,7 @@ export class InsightService {
         rpe: current.rpe,
         srpeLoad: currentLoad,
         metrics: current.metrics,
+        notes: current.notes,
         period: new Date(current.startedAt).toLocaleDateString('pt-BR'),
       };
 
@@ -158,6 +159,7 @@ export class InsightService {
         rpe: previous.rpe,
         srpeLoad: previousLoad,
         metrics: previous.metrics,
+        notes: previous.notes,
         period: new Date(previous.startedAt).toLocaleDateString('pt-BR'),
       } : null;
 
@@ -176,14 +178,16 @@ export class InsightService {
         - RPE: ${currentData.rpe}/10
         - Carga percebida (sRPE-TL): ${currentData.srpeLoad} AU
         - Métricas específicas: ${JSON.stringify(currentData.metrics)}
+        ${currentData.notes ? `- Notas táticas do atleta: "${currentData.notes}"` : ''}
 
         ${previousData ? `SESSÃO ANTERIOR (${previousData.period}):
         - Duração: ${previousData.durationMinutes} minutos
         - RPE: ${previousData.rpe}/10
         - Carga percebida (sRPE-TL): ${previousData.srpeLoad} AU
         - Métricas específicas: ${JSON.stringify(previousData.metrics)}
+        ${previousData.notes ? `- Notas táticas do atleta: "${previousData.notes}"` : ''}
 
-        Compare as sessões. Destaque diferenças em carga percebida e métricas específicas da modalidade.` : `Esta é a primeira sessão registrada desta modalidade. Descreva o que os dados mostram sem comparar com histórico inexistente.`}
+        Compare as sessões. Destaque diferenças em carga percebida e métricas específicas da modalidade. Leve as notas táticas em consideração se houverem.` : `Esta é a primeira sessão registrada desta modalidade. Descreva o que os dados mostram sem comparar com histórico inexistente. Leve as notas táticas em consideração se houverem.`}
 
         Interpretação:`;
 
