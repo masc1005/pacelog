@@ -10,9 +10,9 @@ async function start() {
   try {
     await connectDatabase();
     await seedSports();
-    app.listen(env.PORT, () => {
+    app.listen(env.PORT, '0.0.0.0', () => {
       logger.info(`🚀 Servidor PACELOG API rodando na porta ${env.PORT} [${env.NODE_ENV}]`);
-      logger.info(`🔗 Health check: http://localhost:${env.PORT}/health`);
+      logger.info(`🔗 Health check: http://0.0.0.0:${env.PORT}/health`);
     });
   } catch (error) {
     logger.error('Falha fatal ao iniciar o servidor:', error);
