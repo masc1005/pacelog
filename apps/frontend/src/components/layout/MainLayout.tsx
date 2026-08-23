@@ -18,7 +18,7 @@ export const MainLayout: React.FC = () => {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#08090C] text-white flex flex-col font-sans selection:bg-[#D4F684]/30 selection:text-[#D4F684]">
+    <div className="min-h-dvh bg-[#08090C] text-white flex flex-col font-sans selection:bg-[#D4F684]/30 selection:text-[#D4F684]">
       <Header onOpenSessionCreator={() => setSheetOpen(true)} />
 
       {/* Desktop Sub-Nav */}
@@ -60,7 +60,7 @@ export const MainLayout: React.FC = () => {
       </div>
 
       {/* Conteúdo da página */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 pb-32 md:pb-12 animate-fadeIn">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 pb-24 md:pb-12 animate-fadeIn">
         <Outlet />
       </main>
 
