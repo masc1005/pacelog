@@ -114,16 +114,12 @@ export const HomePage: React.FC = () => {
       </div>
 
       {/* ==========================================
-          1. PROGRESSO POR ESPORTE (PRIORIDADE 1)
-      ========================================== */}
-
-      {/* ==========================================
-          2. INSIGHT DE ANÁLISE (PRIORIDADE 2)
+          1. INSIGHT DE ANÁLISE
       ========================================== */}
       <AIProgressInsight />
 
       {/* ==========================================
-          3. ÚLTIMA SESSÃO
+          2. ÚLTIMA SESSÃO
       ========================================== */}
       <section className="flex flex-col gap-3">
         <div className="flex justify-between items-baseline border-b border-[#1F2937] pb-2">
@@ -267,8 +263,8 @@ export const HomePage: React.FC = () => {
           <button
             onClick={() => setSelectedSport('all')}
             className={`px-3.5 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer border ${selectedSport === 'all'
-                ? 'bg-[#D4F684] text-[#051424] border-[#D4F684] font-bold shadow-[0_0_12px_rgba(212,246,132,0.25)]'
-                : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
+              ? 'bg-[#D4F684] text-[#051424] border-[#D4F684] font-bold shadow-[0_0_12px_rgba(212,246,132,0.25)]'
+              : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
               }`}
           >
             Todas ({sessions.length})
@@ -284,8 +280,8 @@ export const HomePage: React.FC = () => {
                 key={key}
                 onClick={() => setSelectedSport(key)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer border ${isSelected
-                    ? 'bg-[#161C24] text-[#D4E4FA] border-[#D4F684] shadow-[0_0_12px_rgba(212,246,132,0.15)]'
-                    : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
+                  ? 'bg-[#161C24] text-[#D4E4FA] border-[#D4F684] shadow-[0_0_12px_rgba(212,246,132,0.15)]'
+                  : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
                   }`}
               >
                 <Icon className="h-3.5 w-3.5" style={{ color: meta.color }} />
