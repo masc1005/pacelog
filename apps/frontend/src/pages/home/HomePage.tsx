@@ -116,26 +116,6 @@ export const HomePage: React.FC = () => {
       {/* ==========================================
           1. PROGRESSO POR ESPORTE (PRIORIDADE 1)
       ========================================== */}
-      {sportProgressList.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <div className="flex items-center justify-between border-b border-[#1F2937] pb-2">
-            <h2 className="font-mono text-xs font-bold text-[#D4E4FA] uppercase tracking-widest flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-[#D4F684] rounded-full" />
-              PROGRESSO DA SEMANA
-            </h2>
-            <Link
-              to="/progress"
-              className="text-xs font-mono text-[#D4F684] hover:underline flex items-center gap-1 uppercase font-bold tracking-wider"
-            >
-              Ver análise <ArrowRight className="h-3 w-3" />
-            </Link>
-          </div>
-          <SportProgressSummary
-            sports={sportProgressList}
-            onSportClick={(key) => navigate(`/progress/sports/${key}`)}
-          />
-        </section>
-      )}
 
       {/* ==========================================
           2. INSIGHT DE ANÁLISE (PRIORIDADE 2)
@@ -154,11 +134,11 @@ export const HomePage: React.FC = () => {
           <span className="font-mono text-[11px] text-[#8F9380]">
             {sessions[0]
               ? new Date(sessions[0].startedAt).toLocaleDateString('pt-BR', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+              })
               : 'NENHUM REGISTRO'}
           </span>
         </div>
@@ -286,11 +266,10 @@ export const HomePage: React.FC = () => {
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           <button
             onClick={() => setSelectedSport('all')}
-            className={`px-3.5 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer border ${
-              selectedSport === 'all'
+            className={`px-3.5 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer border ${selectedSport === 'all'
                 ? 'bg-[#D4F684] text-[#051424] border-[#D4F684] font-bold shadow-[0_0_12px_rgba(212,246,132,0.25)]'
                 : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
-            }`}
+              }`}
           >
             Todas ({sessions.length})
           </button>
@@ -304,11 +283,10 @@ export const HomePage: React.FC = () => {
               <button
                 key={key}
                 onClick={() => setSelectedSport(key)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer border ${
-                  isSelected
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer border ${isSelected
                     ? 'bg-[#161C24] text-[#D4E4FA] border-[#D4F684] shadow-[0_0_12px_rgba(212,246,132,0.15)]'
                     : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
-                }`}
+                  }`}
               >
                 <Icon className="h-3.5 w-3.5" style={{ color: meta.color }} />
                 <span>{meta.name}</span>
