@@ -12,13 +12,13 @@ import { HomePage } from './pages/home/HomePage';
 import { NewSessionPage } from './pages/sessions/NewSessionPage';
 import { SessionsPage } from './pages/sessions/SessionsPage';
 import { SessionDetailPage } from './pages/sessions/SessionDetailPage';
+import { EditSessionPage } from './pages/sessions/EditSessionPage';
 import { GoalsPage } from './pages/goals/GoalsPage';
 import { CreateGoalPage } from './pages/goals/CreateGoalPage';
+import { GoalDetailsPage } from './pages/goals/GoalDetailsPage';
 import { ProfilePage } from './pages/profile/ProfilePage';
 import { ProgressPage } from './pages/progress/ProgressPage';
 import { EvolutionBySportPage } from './pages/progress/EvolutionBySportPage';
-import { EditSessionPage } from './pages/sessions/EditSessionPage';
-import { GoalDetailsPage } from './pages/goals/GoalDetailsPage';
 import { InsightsPage } from './pages/insights/InsightsPage';
 
 
@@ -32,19 +32,31 @@ export const AppRoutes: React.FC = () => {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
 
+      {/* Redirects de rotas antigas para novas */}
+      <Route path="/goals" element={<Navigate to="/progress/goals" replace />} />
+      <Route path="/goals/new" element={<Navigate to="/progress/goals/new" replace />} />
+      <Route path="/goals/:id" element={<GoalDetailsRedirect />} />
+      <Route path="/insights" element={<Navigate to="/progress/insights" replace />} />
+
       {/* Rotas Protegidas com Layout Principal */}
       <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
         <Route index element={<HomePage />} />
+
+        {/* Sessões */}
         <Route path="sessions" element={<SessionsPage />} />
         <Route path="sessions/new" element={<NewSessionPage />} />
         <Route path="sessions/:id" element={<SessionDetailPage />} />
         <Route path="sessions/:id/edit" element={<EditSessionPage />} />
+
+        {/* Progresso — inclui Metas e Insights como subrotas */}
         <Route path="progress" element={<ProgressPage />} />
-        <Route path="progress/:sportKey" element={<EvolutionBySportPage />} />
-        <Route path="goals" element={<GoalsPage />} />
-        <Route path="goals/:id" element={<GoalDetailsPage />} />
-        <Route path="goals/new" element={<CreateGoalPage />} />
-        <Route path="insights" element={<InsightsPage />} />
+        <Route path="progress/sports/:sportKey" element={<EvolutionBySportPage />} />
+        <Route path="progress/goals" element={<GoalsPage />} />
+        <Route path="progress/goals/new" element={<CreateGoalPage />} />
+        <Route path="progress/goals/:id" element={<GoalDetailsPage />} />
+        <Route path="progress/insights" element={<InsightsPage />} />
+
+        {/* Perfil */}
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -53,3 +65,13 @@ export const AppRoutes: React.FC = () => {
     </Routes>
   );
 };
+
+/**
+ * Redirect dinâmico para /goals/:id → /progress/goals/:id
+ * Não é possível usar Navigate com params diretamente, então usamos um componente auxiliar.
+ */
+function GoalDetailsRedirect() {
+  // Extrai o id do pathname atual
+  const id = window.location.pathname.split('/goals/')[1];
+  return <Navigate to={`/progress/goals/${id}`} replace />;
+}

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -18,18 +18,33 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = 
 
 export const NewSessionPage: React.FC = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const location = useLocation();
+  const stateKey = (location.state as { sportKey?: SportKey } | null)?.sportKey;
+
+  const [step, setStep] = useState<1 | 2 | 3>(stateKey ? 2 : 1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form State
-  const [sportKey, setSportKey] = useState<SportKey | ''>('');
+  const [sportKey, setSportKey] = useState<SportKey | ''>(stateKey ?? '');
   const [startedAt, setStartedAt] = useState<string>(new Date().toISOString().slice(0, 16));
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
   const [rpe, setRpe] = useState<number>(5);
   const [notes, setNotes] = useState<string>('');
-  
+
   // Dynamic metrics state
   const [metrics, setMetrics] = useState<Record<string, any>>({});
+
+  // Setup metric defaults when sportKey is pre-selected from sheet
+  useEffect(() => {
+    if (stateKey) {
+      if (stateKey === 'running') setMetrics({ distanceKm: 5, paceMin: 5, paceSec: 30 });
+      if (stateKey === 'boxing') setMetrics({ roundsCount: 12, punchesThrownEstimate: 0, roundDurationSeconds: 180, restDurationSeconds: 60 });
+      if (stateKey === 'football') setMetrics({ matchResult: 'win' });
+      if (stateKey === 'futevolei') setMetrics({ setsCount: 3, setsWon: 2, setsLost: 1 });
+      if (stateKey === 'strength') setMetrics({ totalVolumeKg: 0, totalSets: 10 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleNext = () => {
     if (step === 1 && sportKey) {
