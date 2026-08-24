@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Activity, Flame, Sun, Zap, Dumbbell } from 'lucide-react';
+import { X, Activity, Flame, Sun, Zap, Dumbbell, Waves } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { SportKey } from '@pacelog/shared';
 
@@ -47,6 +47,13 @@ const SPORTS: Sport[] = [
     description: 'Volume, séries e carga',
     icon: Dumbbell,
     color: '#A855F7',
+  },
+  {
+    key: 'swimming',
+    name: 'Natação',
+    description: 'Treino em piscina, pace e distância',
+    icon: Waves,
+    color: '#38BDF8',
   },
 ];
 
