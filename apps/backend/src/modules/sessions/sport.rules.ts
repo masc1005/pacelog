@@ -3,7 +3,9 @@ import type {
   RunningMetrics,
   StrengthMetrics,
   BoxingMetrics,
+  SwimmingMetrics,
 } from '@pacelog/shared';
+import { enrichSwimmingMetrics } from './swimming.rules.js';
 
 /**
  * Calcula a Carga Fisiológica da Sessão (Foster sRPE / TRIMP modificado).
@@ -112,7 +114,7 @@ export function enrichBoxingMetrics(metrics: BoxingMetrics): BoxingMetrics {
 /**
  * Despacha o enriquecimento de métricas de acordo com a modalidade.
  */
-export function enrichSportMetrics(sportKey: SportKey, metrics: any): any {
+export function enrichSportMetrics(sportKey: SportKey, metrics: any, durationSeconds?: number): any {
   if (!metrics) return {};
 
   switch (sportKey) {
@@ -122,6 +124,8 @@ export function enrichSportMetrics(sportKey: SportKey, metrics: any): any {
       return enrichStrengthMetrics(metrics);
     case 'boxing':
       return enrichBoxingMetrics(metrics);
+    case 'swimming':
+      return enrichSwimmingMetrics(metrics, durationSeconds || 0);
     case 'football':
     case 'futevolei':
     default:
@@ -188,6 +192,12 @@ export function computePrimaryMetric(
       const volume = metrics.totalVolumeKg ?? null;
       if (volume === null || volume <= 0) return null;
       return { key: 'totalVolumeKg', label: 'Volume total', value: volume, unit: 'kg', direction: 'neutral', comparability: 'same_metric' };
+    }
+
+    case 'swimming': {
+      const pace = metrics.paceSecondsPer100m ?? null;
+      if (pace === null || pace <= 0) return null;
+      return { key: 'paceSecondsPer100m', label: 'Pace médio', value: pace, unit: 's/100m', direction: 'lower_is_better', comparability: 'same_metric' };
     }
 
     default:

@@ -7,15 +7,16 @@ import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 import type { SessionDTO, SportKey } from '@pacelog/shared';
 import { formatDuration } from '../../lib/utils';
-import { Activity, Zap, Sun, Dumbbell, Flame, Pencil, Trash2, ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, Pencil, Trash2, ArrowLeft, Sparkles, RefreshCw, Waves } from 'lucide-react';
 import type { AIInsightDTO } from '@pacelog/shared';
 
-const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badge: 'cyan'|'amber'|'crimson'|'purple'|'green' }> = {
+const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badge: 'cyan'|'amber'|'crimson'|'purple'|'green'|'blue' }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity, badge: 'cyan' },
   football: { name: 'Futebol', color: '#D4F684', icon: Flame, badge: 'green' },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun, badge: 'amber' },
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap, badge: 'crimson' },
   strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell, badge: 'purple' },
+  swimming: { name: 'Natação', color: '#38BDF8', icon: Waves, badge: 'blue' },
 };
 
 export const SessionDetailPage: React.FC = () => {
@@ -233,6 +234,30 @@ export const SessionDetailPage: React.FC = () => {
                 <div className="flex flex-col gap-1 border-l-2 border-[#5CA9E6] pl-3">
                   <span className="font-mono text-[9px] text-[#8F9380] uppercase">FC Média</span>
                   <span className="font-display text-xl font-bold text-[#5CA9E6]">{session.metrics.avgHeartRate} bpm</span>
+                </div>
+              )}
+            </>}
+            {session.sportKey === 'swimming' && <>
+              <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
+                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Distância</span>
+                <span className="font-display text-xl font-bold text-[#D4E4FA]">{session.metrics.totalDistanceMeters} m</span>
+              </div>
+              <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
+                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Pace Médio</span>
+                <span className="font-display text-xl font-bold text-[#38BDF8]">
+                  {session.metrics.paceSecondsPer100m ? `${Math.floor(session.metrics.paceSecondsPer100m / 60)}:${String(Math.floor(session.metrics.paceSecondsPer100m % 60)).padStart(2, '0')}/100m` : '--'}
+                </span>
+              </div>
+              {session.metrics.totalLaps !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Piscinas</span>
+                  <span className="font-display text-xl font-bold text-[#38BDF8]">{session.metrics.totalLaps}</span>
+                </div>
+              )}
+              {session.metrics.swolf !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">SWOLF</span>
+                  <span className="font-display text-xl font-bold text-[#38BDF8]">{session.metrics.swolf}</span>
                 </div>
               )}
             </>}

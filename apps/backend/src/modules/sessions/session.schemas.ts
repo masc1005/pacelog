@@ -95,6 +95,64 @@ export const strengthMetricsSchema = z.object({
 });
 
 // ==========================================
+// SWIMMING SCHEMAS
+// ==========================================
+
+export const swimmingStrokeSchema = z.enum([
+  'freestyle',
+  'backstroke',
+  'breaststroke',
+  'butterfly',
+  'mixed',
+  'drill',
+  'other'
+]);
+
+export const swimmingSetSchema = z.object({
+  setNumber: z.number().int().positive(),
+  distanceMeters: z.number().positive(),
+  repetitions: z.number().int().positive(),
+  stroke: swimmingStrokeSchema,
+  durationSeconds: z.number().positive().optional(),
+  restSeconds: z.number().nonnegative().optional(),
+  targetPaceSecondsPer100m: z.number().positive().optional(),
+  averagePaceSecondsPer100m: z.number().positive().optional(),
+  rpe: z.number().min(1).max(10).optional(),
+  notes: z.string().max(500).optional(),
+});
+
+export const poolSwimmingMetricsSchema = z.object({
+  environment: z.literal('pool'),
+  totalDistanceMeters: z.number().positive(),
+  poolLengthMeters: z.number().positive().optional(),
+  totalLaps: z.number().positive().optional(),
+  primaryStroke: swimmingStrokeSchema.optional(),
+  paceSecondsPer100m: z.number().positive().optional(),
+  averageHeartRate: z.number().int().min(30).max(250).optional(),
+  maxHeartRate: z.number().int().min(30).max(250).optional(),
+  totalStrokes: z.number().int().positive().optional(),
+  swolf: z.number().positive().optional(),
+  sets: z.array(swimmingSetSchema).optional(),
+});
+
+export const openWaterSwimmingMetricsSchema = z.object({
+  environment: z.literal('open_water'),
+  totalDistanceMeters: z.number().positive(),
+  primaryStroke: swimmingStrokeSchema.optional(),
+  paceSecondsPer100m: z.number().positive().optional(),
+  averageHeartRate: z.number().int().min(30).max(250).optional(),
+  maxHeartRate: z.number().int().min(30).max(250).optional(),
+  totalStrokes: z.number().int().positive().optional(),
+  swolf: z.number().positive().optional(),
+  sets: z.array(swimmingSetSchema).optional(),
+});
+
+export const swimmingMetricsSchema = z.discriminatedUnion('environment', [
+  poolSwimmingMetricsSchema,
+  openWaterSwimmingMetricsSchema,
+]);
+
+// ==========================================
 // SCHEMAS DE CRIAÇÃO DISCRIMINADA DE SESSÃO
 // ==========================================
 
@@ -137,12 +195,19 @@ export const createStrengthSessionSchema = z.object({
   metrics: strengthMetricsSchema,
 });
 
+export const createSwimmingSessionSchema = z.object({
+  sportKey: z.literal('swimming'),
+  ...baseSessionFields,
+  metrics: swimmingMetricsSchema,
+});
+
 export const createSessionSchema = z.discriminatedUnion('sportKey', [
   createRunningSessionSchema,
   createFootballSessionSchema,
   createFutevoleiSessionSchema,
   createBoxingSessionSchema,
   createStrengthSessionSchema,
+  createSwimmingSessionSchema,
 ]);
 
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;

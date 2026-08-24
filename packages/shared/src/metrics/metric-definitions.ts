@@ -56,6 +56,16 @@ export const STRENGTH_METRICS: SportMetricDefinition[] = [
   { key: 'estimated1RM', label: 'e1RM (por exercício)', unit: 'kg', category: 'performance', direction: 'higher_is_better', comparability: 'same_metric' },
 ];
 
+export const SWIMMING_METRICS: SportMetricDefinition[] = [
+  // Carga externa
+  { key: 'totalDistanceMeters', label: 'Distância', unit: 'm', category: 'load', direction: 'higher_is_better', comparability: 'same_sport', required: true },
+  { key: 'durationMinutes', label: 'Duração', unit: 'min', category: 'load', direction: 'neutral', comparability: 'same_sport', required: true },
+  { key: 'totalLaps', label: 'Piscinas', unit: 'laps', category: 'load', direction: 'neutral', comparability: 'same_sport' },
+  // Desempenho
+  { key: 'paceSecondsPer100m', label: 'Pace médio', unit: 's/100m', category: 'performance', direction: 'lower_is_better', comparability: 'same_metric', required: true },
+  { key: 'swolf', label: 'SWOLF', unit: 'score', category: 'performance', direction: 'lower_is_better', comparability: 'same_metric' },
+];
+
 /**
  * Registry central de métricas por esporte.
  * Consulte este objeto para saber o que exibir, com qual unidade e direção.
@@ -66,6 +76,7 @@ export const SPORT_METRIC_REGISTRY: SportMetricRegistry = {
   futevolei: FUTEVOLEI_METRICS,
   boxing: BOXING_METRICS,
   strength: STRENGTH_METRICS,
+  swimming: SWIMMING_METRICS,
 };
 
 /**
@@ -78,6 +89,7 @@ export const PRIMARY_METRIC_KEY: Record<string, string> = {
   futevolei: 'technicalAverage',
   boxing: 'roundCompletionRate',
   strength: 'totalVolumeKg',
+  swimming: 'paceSecondsPer100m',
 };
 
 /**

@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { AIProgressInsight } from '../../components/ui/AIProgressInsight';
 import { LoadSummaryCard } from '../../components/progress/LoadSummaryCard';
 import { SportDistributionCard } from '../../components/progress/SportDistributionCard';
-import { SportProgressSummary } from '../../components/progress/SportProgressSummary';
 import {
   Flame,
   Zap,
@@ -14,6 +13,7 @@ import {
   Dumbbell,
   Sun,
   Activity,
+  Waves,
 } from 'lucide-react';
 import {
   SPORT_KEYS,
@@ -27,13 +27,11 @@ import { apiClient } from '../../lib/api';
 
 export const HomePage: React.FC = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [selectedSport, setSelectedSport] = useState<SportKey | 'all'>('all');
   const [summary, setSummary] = useState<SessionSummaryDTO | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [progressSummary, setProgressSummary] = useState<ProgressSummaryDTO | null>(null);
-  const [sportProgressList, setSportProgressList] = useState<ProgressBySportDTO[]>([]);
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -50,19 +48,12 @@ export const HomePage: React.FC = () => {
           setProgressSummary(progressData);
 
           if (progressData.distribution?.length > 0) {
-            const sportKeys = progressData.distribution.map((d) => d.sportKey);
-            const sportProgressResults = await Promise.allSettled(
+            const sportKeys = progressData.distribution.map((d: any) => d.sportKey);
+            await Promise.allSettled(
               sportKeys.map((key) =>
                 apiClient<ProgressBySportDTO>(`/api/progress/by-sport/${key}`).catch(() => null)
               )
             );
-            const fulfilled = sportProgressResults
-              .filter(
-                (r): r is PromiseFulfilledResult<ProgressBySportDTO> =>
-                  r.status === 'fulfilled' && r.value !== null
-              )
-              .map((r) => r.value);
-            setSportProgressList(fulfilled);
           }
         }
       } catch {
@@ -76,13 +67,14 @@ export const HomePage: React.FC = () => {
 
   const sportMeta: Record<
     SportKey,
-    { name: string; color: string; badge: 'cyan' | 'green' | 'amber' | 'crimson' | 'purple'; icon: any }
+    { name: string; color: string; badge: 'cyan' | 'green' | 'amber' | 'crimson' | 'purple' | 'blue'; icon: any }
   > = {
     running: { name: 'Corrida', color: '#5CA9E6', badge: 'cyan', icon: Activity },
     football: { name: 'Futebol', color: '#D4F684', badge: 'green', icon: Flame },
     futevolei: { name: 'Futevôlei', color: '#FFB800', badge: 'amber', icon: Sun },
     boxing: { name: 'Boxe', color: '#FF6B35', badge: 'crimson', icon: Zap },
     strength: { name: 'Musculação', color: '#A855F7', badge: 'purple', icon: Dumbbell },
+    swimming: { name: 'Natação', color: '#38BDF8', badge: 'blue', icon: Waves },
   };
 
   const filteredSessions =
@@ -390,6 +382,31 @@ export const HomePage: React.FC = () => {
                             </span>
                             <span className="font-display text-lg font-bold text-[#A855F7]">
                               {session.metrics?.totalSets || '--'} sets
+                            </span>
+                          </div>
+                        </>
+                      )}
+
+                      {session.sportKey === 'swimming' && (
+                        <>
+                          <div>
+                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
+                              Distância
+                            </span>
+                            <span className="font-display text-lg font-bold text-[#D4E4FA]">
+                              {session.metrics?.totalDistanceMeters
+                                ? `${session.metrics.totalDistanceMeters} m`
+                                : '--'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
+                              Pace
+                            </span>
+                            <span className="font-display text-lg font-bold text-[#38BDF8]">
+                              {session.metrics?.paceSecondsPer100m
+                                ? `${Math.floor(session.metrics.paceSecondsPer100m / 60)}:${(session.metrics.paceSecondsPer100m % 60).toString().padStart(2, '0')}/100m`
+                                : '--'}
                             </span>
                           </div>
                         </>

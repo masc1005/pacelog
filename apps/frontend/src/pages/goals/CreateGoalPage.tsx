@@ -6,7 +6,7 @@ import { Badge } from '../../components/ui/Badge';
 import { SPORT_KEYS, type SportKey } from '@pacelog/shared';
 import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
-import { Activity, Zap, Sun, Dumbbell, Flame, Plus } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, Plus, Waves } from 'lucide-react';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity },
@@ -14,6 +14,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = 
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun },
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap },
   strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell },
+  swimming: { name: 'Natação', color: '#38BDF8', icon: Waves },
 };
 
 const GOAL_TYPES = [

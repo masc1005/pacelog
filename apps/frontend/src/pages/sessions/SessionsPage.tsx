@@ -3,16 +3,17 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { apiClient } from '../../lib/api';
 import type { SessionDTO, SportKey } from '@pacelog/shared';
-import { Activity, Zap, Sun, Dumbbell, Flame, Search } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, Search, Waves } from 'lucide-react';
 import { formatDuration } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 
-const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badge: 'cyan'|'amber'|'crimson'|'purple'|'green' }> = {
+const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badge: 'cyan'|'amber'|'crimson'|'purple'|'green'|'blue' }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity, badge: 'cyan' },
   football: { name: 'Futebol', color: '#D4F684', icon: Flame, badge: 'green' },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun, badge: 'amber' },
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap, badge: 'crimson' },
   strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell, badge: 'purple' },
+  swimming: { name: 'Natação', color: '#38BDF8', icon: Waves, badge: 'blue' },
 };
 
 export const SessionsPage: React.FC = () => {
@@ -97,6 +98,7 @@ export const SessionsPage: React.FC = () => {
                     <span className="font-display text-sm font-bold text-[#D4E4FA]">
                       {session.sportKey === 'running' ? `${(session.metrics?.distanceMeters || 0)/1000} km` : 
                        session.sportKey === 'boxing' ? `${session.metrics?.roundsCount || 0} rds` : 
+                       session.sportKey === 'swimming' ? `${session.metrics?.totalDistanceMeters || 0} m` : 
                        session.sportKey === 'strength' ? `${session.metrics?.totalSets || 0} sets` : '100%'}
                     </span>
                   </div>

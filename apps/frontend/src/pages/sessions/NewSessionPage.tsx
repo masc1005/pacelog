@@ -6,7 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { SPORT_KEYS, type SportKey, type SessionDTO } from '@pacelog/shared';
 import { apiClient } from '../../lib/api';
-import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, Waves } from 'lucide-react';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity },
@@ -14,6 +14,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = 
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun },
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap },
   strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell },
+  swimming: { name: 'Natação', color: '#38BDF8', icon: Waves },
 };
 
 export const NewSessionPage: React.FC = () => {
@@ -253,6 +254,71 @@ export const NewSessionPage: React.FC = () => {
                   type="number"
                   value={metrics.cadenceAvg || ''}
                   onChange={e => setMetrics({...metrics, cadenceAvg: Number(e.target.value)})}
+                />
+              </div>
+            )}
+
+            {sportKey === 'swimming' && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-1.5 col-span-2 sm:col-span-1">
+                  <label className="text-[10px] uppercase font-mono tracking-widest text-[#8F9380]">
+                    Ambiente
+                  </label>
+                  <select
+                    className="input-precision py-2 text-sm"
+                    value={metrics.environment || 'pool'}
+                    onChange={e => setMetrics({...metrics, environment: e.target.value})}
+                  >
+                    <option value="pool">Piscina</option>
+                    <option value="open_water">Águas Abertas</option>
+                  </select>
+                </div>
+                <Input
+                  label="Distância (m)"
+                  type="number"
+                  min={0}
+                  value={metrics.totalDistanceMeters || ''}
+                  onChange={e => setMetrics({...metrics, totalDistanceMeters: Number(e.target.value)})}
+                />
+                <Input
+                  label="Pace (s/100m)"
+                  type="number"
+                  min={0}
+                  value={metrics.paceSecondsPer100m || ''}
+                  onChange={e => setMetrics({...metrics, paceSecondsPer100m: Number(e.target.value)})}
+                />
+                {metrics.environment !== 'open_water' && (
+                  <Input
+                    label="Tamanho da Piscina (m)"
+                    type="number"
+                    min={0}
+                    value={metrics.poolLengthMeters || ''}
+                    onChange={e => setMetrics({...metrics, poolLengthMeters: Number(e.target.value)})}
+                  />
+                )}
+                {metrics.environment !== 'open_water' && (
+                  <Input
+                    label="Qtd. Piscinas"
+                    type="number"
+                    min={0}
+                    value={metrics.totalLaps || ''}
+                    onChange={e => setMetrics({...metrics, totalLaps: Number(e.target.value)})}
+                  />
+                )}
+                <Input
+                  label="FC Média (bpm)"
+                  type="number"
+                  min={30}
+                  max={250}
+                  value={metrics.averageHeartRate || ''}
+                  onChange={e => setMetrics({...metrics, averageHeartRate: Number(e.target.value)})}
+                />
+                <Input
+                  label="SWOLF"
+                  type="number"
+                  min={0}
+                  value={metrics.swolf || ''}
+                  onChange={e => setMetrics({...metrics, swolf: Number(e.target.value)})}
                 />
               </div>
             )}

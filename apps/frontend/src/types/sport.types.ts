@@ -5,7 +5,7 @@ export type { SportKey };
 export interface SportConfig {
   key: SportKey;
   name: string;
-  category: 'endurance' | 'combat' | 'team' | 'strength';
+  category: 'endurance' | 'combat' | 'team' | 'strength' | 'individual';
   icon: string;
   primaryMetric: string;
   color: string;
@@ -57,5 +57,14 @@ export const SPORTS_REGISTRY: Record<SportKey, SportConfig> = {
     primaryMetric: 'minutesPlayed',
     color: '#00ff88',
     defaultMetrics: ['minutesPlayed', 'goals', 'assists'],
+  },
+  swimming: {
+    key: 'swimming',
+    name: 'Natação',
+    category: 'individual',
+    icon: 'pool',
+    primaryMetric: 'paceSecondsPer100m',
+    color: '#38BDF8',
+    defaultMetrics: ['totalDistanceMeters', 'durationSeconds', 'paceSecondsPer100m'],
   },
 };

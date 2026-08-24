@@ -57,6 +57,28 @@ export const OFFICIAL_SPORTS = [
     active: true,
     order: 5,
   },
+  {
+    sportKey: 'swimming',
+    name: 'Natação',
+    category: 'individual',
+    icon: 'Waves',
+    color: '#38BDF8',
+    supportedMetrics: [
+      'environment',
+      'totalDistanceMeters',
+      'poolLengthMeters',
+      'totalLaps',
+      'primaryStroke',
+      'paceSecondsPer100m',
+      'sets',
+      'averageHeartRate',
+      'totalStrokes',
+      'swolf',
+    ],
+    description: 'Natação em piscina ou águas abertas.',
+    active: true,
+    order: 6,
+  },
 ];
 
 export async function seedSports(): Promise<void> {
@@ -68,7 +90,7 @@ export async function seedSports(): Promise<void> {
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
     }
-    logger.info('✅ Seed dos 5 esportes oficiais executado com sucesso.');
+    logger.info('✅ Seed dos esportes oficiais executado com sucesso.');
   } catch (error) {
     logger.error('Erro ao executar seed de esportes:', error);
     throw error;

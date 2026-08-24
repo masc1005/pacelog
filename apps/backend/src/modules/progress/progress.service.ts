@@ -57,6 +57,7 @@ function buildSportLabel(sportKey: SportKey): string {
     futevolei: 'Futevôlei',
     boxing: 'Boxe',
     strength: 'Musculação',
+    swimming: 'Natação',
   };
   return labels[sportKey] || sportKey;
 }

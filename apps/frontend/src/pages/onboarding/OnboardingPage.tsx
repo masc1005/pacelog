@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { SPORT_KEYS, type SportKey } from '@pacelog/shared';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { Activity, Zap, Sun, Dumbbell, Flame, ChevronRight, Target } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, ChevronRight, Target, Waves } from 'lucide-react';
 import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -13,6 +13,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any; desc
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun, desc: 'Praia ou quadra de areia' },
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap, desc: 'Rounds, sparring e condicionamento' },
   strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell, desc: 'Séries, reps e tonelagem' },
+  swimming: { name: 'Natação', color: '#38BDF8', icon: Waves, desc: 'Piscina ou águas abertas' },
 };
 
 const STEPS = ['Boas-vindas', 'Esportes', 'Meta Inicial', 'Pronto'];

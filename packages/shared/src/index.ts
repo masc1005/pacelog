@@ -6,6 +6,9 @@ export * from './metrics/external-metrics.types.js';
 export * from './metrics/performance.types.js';
 export * from './metrics/progress.types.js';
 export * from './metrics/metric-definitions.js';
+export * from './swimming/swimming.types.js';
+export { calculateSwimmingPace, calculateTotalLaps, calculateSwolf } from './swimming/swimming.metrics.js';
+import { SwimmingMetrics } from './swimming/swimming.types.js';
 
 export const SPORT_KEYS = [
   'running',
@@ -13,6 +16,7 @@ export const SPORT_KEYS = [
   'futevolei',
   'boxing',
   'strength',
+  'swimming',
 ] as const;
 
 export type SportKey = (typeof SPORT_KEYS)[number];
@@ -124,7 +128,8 @@ export type SportMetrics =
   | FootballMetrics
   | FutevoleiMetrics
   | BoxingMetrics
-  | StrengthMetrics;
+  | StrengthMetrics
+  | SwimmingMetrics;
 
 // ==========================================
 // SESSÃO DE TREINO DTO

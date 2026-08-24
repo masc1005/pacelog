@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 import type { GoalDTO, SportKey } from '@pacelog/shared';
-import { Target, Activity, Flame, Sun, Zap, Dumbbell, ArrowLeft, CheckCircle, PauseCircle, Trash2, Calendar } from 'lucide-react';
+import { Target, Activity, Flame, Sun, Zap, Dumbbell, ArrowLeft, CheckCircle, PauseCircle, Trash2, Calendar, Waves } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
@@ -15,6 +15,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = 
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun },
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap },
   strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell },
+  swimming: { name: 'Natação', color: '#38BDF8', icon: Waves },
 };
 
 export const GoalDetailsPage: React.FC = () => {
