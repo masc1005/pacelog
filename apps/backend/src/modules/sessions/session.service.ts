@@ -14,7 +14,10 @@ import { scopedFilter } from '../../utils/scopedQuery.js';
 import { HttpError } from '../../utils/httpError.js';
 import { notificationService } from '../notifications/notification.service.js';
 import { progressService } from '../progress/progress.service.js';
-import type { SessionSummaryDTO, SportKey, SportSummaryStats } from '@pacelog/shared';
+import { ShoeService } from '../shoes/shoe.service.js';
+import type { SessionSummaryDTO, SportKey, SportSummaryStats, RunningMetrics } from '@pacelog/shared';
+
+const shoeService = new ShoeService();
 
 export class SessionService {
   /**
@@ -85,6 +88,14 @@ export class SessionService {
 
     // 5. Caso contrário, criar nova sessão
     const newSession = await SessionModel.create(sessionPayload);
+    
+    // 6. Atualizar tênis (se houver)
+    if (newSession.sportKey === 'running' && newSession.metrics?.shoeId && newSession.metrics?.distanceMeters) {
+      const distanceKm = newSession.metrics.distanceMeters / 1000;
+      await shoeService.updateDistanceTransaction(userId, newSession.metrics.shoeId, distanceKm).catch(err => {
+        console.error('[SessionService] Failed to update shoe distance:', err);
+      });
+    }
     
     // Disparar hooks assíncronos
     setImmediate(() => {
@@ -183,6 +194,7 @@ export class SessionService {
     input: UpdateSessionInput
   ): Promise<ISessionDocument> {
     const existingSession = await this.getSessionById(userId, sessionId);
+    const oldMetrics = { ...existingSession.metrics };
 
     if (input.metrics) {
       existingSession.metrics = enrichSportMetrics(
@@ -206,7 +218,44 @@ export class SessionService {
     existingSession.sessionalLoad = loadPayload.sessionalLoad ?? 0;
     (existingSession as any).load = loadPayload.load;
 
+    // Calcular diferença de tênis (Running)
+    let shoeUpdatePromise: Promise<void> | null = null;
+    if (existingSession.sportKey === 'running') {
+      const oldShoeId = (oldMetrics as unknown as RunningMetrics)?.shoeId;
+      const oldDistanceMeters = (oldMetrics as unknown as RunningMetrics)?.distanceMeters || 0;
+      
+      const newShoeId = (existingSession.metrics as unknown as RunningMetrics)?.shoeId;
+      const newDistanceMeters = (existingSession.metrics as unknown as RunningMetrics)?.distanceMeters || 0;
+      
+      const oldDistanceKm = oldDistanceMeters / 1000;
+      const newDistanceKm = newDistanceMeters / 1000;
+
+      if (oldShoeId === newShoeId && oldShoeId) {
+        // Same shoe, distance changed
+        const deltaKm = newDistanceKm - oldDistanceKm;
+        if (deltaKm !== 0) {
+          shoeUpdatePromise = shoeService.updateDistanceTransaction(userId, oldShoeId, deltaKm);
+        }
+      } else {
+        // Different shoes or shoe removed/added
+        const promises = [];
+        if (oldShoeId) {
+          promises.push(shoeService.updateDistanceTransaction(userId, oldShoeId, -oldDistanceKm));
+        }
+        if (newShoeId) {
+          promises.push(shoeService.updateDistanceTransaction(userId, newShoeId, newDistanceKm));
+        }
+        if (promises.length > 0) {
+          shoeUpdatePromise = Promise.all(promises).then(() => {});
+        }
+      }
+    }
+
     await existingSession.save();
+    
+    if (shoeUpdatePromise) {
+      await shoeUpdatePromise.catch(err => console.error('[SessionService] Failed to update shoe delta:', err));
+    }
     
     // Disparar hooks assíncronos
     setImmediate(() => {
@@ -221,11 +270,20 @@ export class SessionService {
    */
   async deleteSession(userId: string, sessionId: string): Promise<void> {
     const filter = scopedFilter(userId, { _id: sessionId });
-    const result = await SessionModel.findOneAndDelete(filter);
-
-    if (!result) {
+    const session = await SessionModel.findOne(filter);
+    
+    if (!session) {
       throw new HttpError(404, 'SESSION_NOT_FOUND', { sessionId });
     }
+
+    if (session.sportKey === 'running' && session.metrics?.shoeId && session.metrics?.distanceMeters) {
+      const distanceKm = session.metrics.distanceMeters / 1000;
+      await shoeService.updateDistanceTransaction(userId, session.metrics.shoeId, -distanceKm).catch(err => {
+        console.error('[SessionService] Failed to revert shoe distance:', err);
+      });
+    }
+
+    await SessionModel.deleteOne(filter);
   }
 
   /**

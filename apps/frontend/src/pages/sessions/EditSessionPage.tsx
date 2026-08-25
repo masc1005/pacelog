@@ -7,6 +7,7 @@ import { Badge } from '../../components/ui/Badge';
 import { SPORT_KEYS, type SportKey, type SessionDTO } from '@pacelog/shared';
 import { apiClient } from '../../lib/api';
 import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, AlertTriangle, Waves } from 'lucide-react';
+import { ShoePicker } from '../../components/shoes/ShoePicker';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity },
@@ -280,6 +281,11 @@ export const EditSessionPage: React.FC = () => {
                   type="number"
                   value={metrics.cadenceAvg || ''}
                   onChange={e => setMetrics({...metrics, cadenceAvg: Number(e.target.value)})}
+                />
+                
+                <ShoePicker 
+                  value={metrics.shoeId}
+                  onChange={shoeId => setMetrics({...metrics, shoeId})}
                 />
               </div>
             )}

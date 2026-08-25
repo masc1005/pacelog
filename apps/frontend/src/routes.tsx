@@ -20,6 +20,10 @@ import { ProfilePage } from './pages/profile/ProfilePage';
 import { ProgressPage } from './pages/progress/ProgressPage';
 import { EvolutionBySportPage } from './pages/progress/EvolutionBySportPage';
 import { InsightsPage } from './pages/insights/InsightsPage';
+import { ShoesPage } from './pages/shoes/ShoesPage';
+import { CreateShoePage } from './pages/shoes/CreateShoePage';
+import { ShoeDetailsPage } from './pages/shoes/ShoeDetailsPage';
+import { EditShoePage } from './pages/shoes/EditShoePage';
 
 
 export const AppRoutes: React.FC = () => {
@@ -58,6 +62,12 @@ export const AppRoutes: React.FC = () => {
 
         {/* Perfil */}
         <Route path="profile" element={<ProfilePage />} />
+
+        {/* Tênis (Running Shoes Tracker) */}
+        <Route path="shoes" element={<ShoesPage />} />
+        <Route path="shoes/new" element={<CreateShoePage />} />
+        <Route path="shoes/:id" element={<ShoeDetailsPage />} />
+        <Route path="shoes/:id/edit" element={<EditShoePage />} />
       </Route>
 
       {/* Fallback para home ou login */}

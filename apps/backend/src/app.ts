@@ -16,6 +16,7 @@ import { progressRoutes } from './modules/progress/progress.routes.js';
 import notificationRoutes from './modules/notifications/notification.routes.js';
 import exportRoutes from './modules/export/export.routes.js';
 import insightRoutes from './modules/insights/insight.routes.js';
+import { shoeRoutes } from './modules/shoes/shoe.routes.js';
 
 export const app = express();
 app.set('trust proxy', 1);
@@ -67,6 +68,7 @@ app.use('/api/progress', progressRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/insights', insightRoutes);
+app.use('/api/shoes', shoeRoutes);
 
 // Health check para Railway, Docker e monitoramento
 app.get('/health', (_req, res) => {

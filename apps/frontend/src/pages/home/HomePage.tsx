@@ -6,6 +6,8 @@ import { Badge } from '../../components/ui/Badge';
 import { AIProgressInsight } from '../../components/ui/AIProgressInsight';
 import { LoadSummaryCard } from '../../components/progress/LoadSummaryCard';
 import { SportDistributionCard } from '../../components/progress/SportDistributionCard';
+import { ShoeUsageSummary } from '../../components/shoes/ShoeUsageSummary';
+import { shoeApi } from '../../services/shoe.api';
 import {
   Flame,
   Zap,
@@ -21,6 +23,7 @@ import {
   type SessionSummaryDTO,
   type ProgressSummaryDTO,
   type ProgressBySportDTO,
+  type RunningShoe,
 } from '@pacelog/shared';
 import { formatPace, formatDuration } from '../../lib/utils';
 import { apiClient } from '../../lib/api';
@@ -32,18 +35,21 @@ export const HomePage: React.FC = () => {
   const [sessions, setSessions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [progressSummary, setProgressSummary] = useState<ProgressSummaryDTO | null>(null);
+  const [shoes, setShoes] = useState<RunningShoe[]>([]);
 
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const [summaryData, sessionsData, progressData] = await Promise.all([
+        const [summaryData, sessionsData, progressData, shoesData] = await Promise.all([
           apiClient<SessionSummaryDTO>('/api/sessions/summary?timeframe=week').catch(() => null),
           apiClient<any[]>('/api/sessions?limit=6').catch(() => []),
           apiClient<ProgressSummaryDTO>('/api/progress/summary?period=7').catch(() => null),
+          shoeApi.getShoes(false).catch(() => []),
         ]);
 
         if (summaryData) setSummary(summaryData);
         if (sessionsData && Array.isArray(sessionsData)) setSessions(sessionsData);
+        if (shoesData) setShoes(shoesData);
         if (progressData) {
           setProgressSummary(progressData);
 
@@ -106,9 +112,15 @@ export const HomePage: React.FC = () => {
       </div>
 
       {/* ==========================================
-          1. INSIGHT DE ANÁLISE
+          1. INSIGHT DE ANÁLISE E TÊNIS
       ========================================== */}
-      <AIProgressInsight />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <AIProgressInsight />
+        <ShoeUsageSummary 
+          defaultShoe={shoes.find(s => s.isDefault) || shoes[0]} 
+          activeShoesCount={shoes.length} 
+        />
+      </div>
 
       {/* ==========================================
           2. ÚLTIMA SESSÃO

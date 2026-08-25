@@ -10,6 +10,9 @@ export * from './swimming/swimming.types.js';
 export { calculateSwimmingPace, calculateTotalLaps, calculateSwolf } from './swimming/swimming.metrics.js';
 import { SwimmingMetrics } from './swimming/swimming.types.js';
 
+// Tênis / Shoes Tracker
+export * from './shoes/index.js';
+
 export const SPORT_KEYS = [
   'running',
   'football',
@@ -41,6 +44,9 @@ export interface SplitMarker {
   elevationMeters?: number;
 }
 
+export type RunningSurface = 'road' | 'track' | 'trail' | 'treadmill' | 'mixed' | 'other';
+export type RunningType = 'base' | 'interval' | 'long' | 'recovery' | 'race' | 'other';
+
 export interface RunningMetrics {
   distanceMeters: number;
   durationSeconds: number;
@@ -50,7 +56,10 @@ export interface RunningMetrics {
   maxHeartRate?: number;
   cadenceAvg?: number;
   splits?: SplitMarker[];
-  shoesId?: string;
+  shoeId?: string;
+  surface?: RunningSurface;
+  runningType?: RunningType;
+  elevationMeters?: number; // Alias ou complemento de elevationGainMeters para fins de histórico
   notes?: string;
 }
 
