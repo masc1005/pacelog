@@ -28,7 +28,7 @@ export const ShoeForm: React.FC<ShoeFormProps> = ({ initialData, onSubmit, onCan
       nickname: nickname || undefined,
       initialDistanceKm,
       distanceLimitKm: distanceLimitKm || undefined,
-      purchaseDate: purchaseDate ? new Date(purchaseDate).toISOString() : undefined,
+      purchaseDate: purchaseDate || undefined,
       isDefault,
     });
   };
