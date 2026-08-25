@@ -8,7 +8,7 @@ export class ShoeController {
   async getShoes(req: Request, res: Response) {
     try {
       // req.user is set by auth middleware
-      const userId = (req as any).user.id;
+      const userId = (req as any).userId;
       const includeArchived = req.query.includeArchived === 'true';
       const shoes = await shoeService.getShoesByUser(userId, includeArchived);
       res.json(shoes);
@@ -19,7 +19,7 @@ export class ShoeController {
 
   async getShoeById(req: Request, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = (req as any).userId;
       const shoeId = req.params.id as string;
       const shoe = await shoeService.getShoeById(userId, shoeId);
       res.json(shoe);
@@ -30,7 +30,7 @@ export class ShoeController {
 
   async createShoe(req: Request, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = (req as any).userId;
       const data = createShoeSchema.parse(req.body);
       const newShoe = await shoeService.createShoe(userId, data);
       res.status(201).json(newShoe);
@@ -45,7 +45,7 @@ export class ShoeController {
 
   async updateShoe(req: Request, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = (req as any).userId;
       const shoeId = req.params.id as string;
       const data = updateShoeSchema.parse(req.body);
       const updatedShoe = await shoeService.updateShoe(userId, shoeId, data);
@@ -61,7 +61,7 @@ export class ShoeController {
 
   async setDefault(req: Request, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = (req as any).userId;
       const shoeId = req.params.id as string;
       const shoe = await shoeService.setDefault(userId, shoeId);
       res.json(shoe);
@@ -72,7 +72,7 @@ export class ShoeController {
 
   async retireShoe(req: Request, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = (req as any).userId;
       const shoeId = req.params.id as string;
       const shoe = await shoeService.retireShoe(userId, shoeId);
       res.json(shoe);
@@ -83,7 +83,7 @@ export class ShoeController {
 
   async archiveShoe(req: Request, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = (req as any).userId;
       const shoeId = req.params.id as string;
       const shoe = await shoeService.archiveShoe(userId, shoeId);
       res.json(shoe);
