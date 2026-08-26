@@ -17,6 +17,7 @@ import notificationRoutes from './modules/notifications/notification.routes.js';
 import exportRoutes from './modules/export/export.routes.js';
 import insightRoutes from './modules/insights/insight.routes.js';
 import { shoeRoutes } from './modules/shoes/shoe.routes.js';
+import { strengthRoutes } from './modules/strength/strength-session.routes.js';
 
 export const app = express();
 app.set('trust proxy', 1);

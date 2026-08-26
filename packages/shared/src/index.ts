@@ -1,4 +1,19 @@
 // ==========================================
+// MÓDULO DE MUSCULAÇÃO (SESSÃO ATIVA)
+// ==========================================
+export * from './strength/strength.enums.js';
+export * from './strength/strength.types.js';
+export * from './strength/strength.schemas.js';
+export * from './strength/strength.metrics.js';
+export * from './strength/strength.session.js';
+
+// ==========================================
+// MÓDULO DE EXERCÍCIOS
+// ==========================================
+export * from './exercises/exercise.enums.js';
+export * from './exercises/exercise.types.js';
+
+// ==========================================
 // MÓDULO DE MÉTRICAS V2 (CARGA E PROGRESSO)
 // ==========================================
 export * from './metrics/load.types.js';
@@ -109,7 +124,8 @@ export interface BoxingMetrics {
   notes?: string;
 }
 
-export interface StrengthSet {
+/** @deprecated Use StrengthSet from strength/strength.types instead */
+export interface LegacyStrengthSet {
   setNumber: number;
   reps: number;
   weightKg: number;
@@ -117,14 +133,16 @@ export interface StrengthSet {
   isWarmup?: boolean;
 }
 
-export interface StrengthExercise {
+/** @deprecated Use StrengthExerciseEntry from strength/strength.types instead */
+export interface LegacyStrengthExercise {
   exerciseName: string;
   targetMuscleGroup?: string;
-  sets: StrengthSet[];
+  sets: LegacyStrengthSet[];
 }
 
-export interface StrengthMetrics {
-  exercises: StrengthExercise[];
+/** @deprecated Use CompletedStrengthSession.exercises for the new format */
+export interface LegacyStrengthMetrics {
+  exercises: LegacyStrengthExercise[];
   totalVolumeKg?: number;
   totalSets?: number;
   totalReps?: number;
@@ -137,7 +155,7 @@ export type SportMetrics =
   | FootballMetrics
   | FutevoleiMetrics
   | BoxingMetrics
-  | StrengthMetrics
+  | LegacyStrengthMetrics
   | SwimmingMetrics;
 
 // ==========================================

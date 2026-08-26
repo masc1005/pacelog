@@ -39,23 +39,30 @@ export const NewSessionPage: React.FC = () => {
   // Setup metric defaults when sportKey is pre-selected from sheet
   useEffect(() => {
     if (stateKey) {
+      if (stateKey === 'strength') {
+        navigate('/strength');
+        return;
+      }
       if (stateKey === 'running') setMetrics({ distanceKm: 5, paceMin: 5, paceSec: 30 });
       if (stateKey === 'boxing') setMetrics({ roundsCount: 12, punchesThrownEstimate: 0, roundDurationSeconds: 180, restDurationSeconds: 60 });
       if (stateKey === 'football') setMetrics({ matchResult: 'win' });
       if (stateKey === 'futevolei') setMetrics({ setsCount: 3, setsWon: 2, setsLost: 1 });
-      if (stateKey === 'strength') setMetrics({ totalVolumeKg: 0, totalSets: 10 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [stateKey, navigate]);
 
   const handleNext = () => {
     if (step === 1 && sportKey) {
+      if (sportKey === 'strength') {
+        navigate('/strength');
+        return;
+      }
+
       // Setup initial metrics defaults
       if (sportKey === 'running') setMetrics({ distanceKm: 5, paceMin: 5, paceSec: 30 });
       if (sportKey === 'boxing') setMetrics({ roundsCount: 12, punchesThrownEstimate: 0, roundDurationSeconds: 180, restDurationSeconds: 60 });
       if (sportKey === 'football') setMetrics({ matchResult: 'win' });
       if (sportKey === 'futevolei') setMetrics({ setsCount: 3, setsWon: 2, setsLost: 1 });
-      if (sportKey === 'strength') setMetrics({ totalVolumeKg: 0, totalSets: 10 });
       
       setStep(2);
     } else if (step === 2) {
@@ -84,20 +91,6 @@ export const NewSessionPage: React.FC = () => {
         finalMetrics.paceSecondsPerKm = (finalMetrics.paceMin * 60) + finalMetrics.paceSec;
       }
 
-      if (sportKey === 'strength' && (!finalMetrics.exercises || finalMetrics.exercises.length === 0)) {
-        finalMetrics.exercises = [
-          {
-            exerciseName: 'Treino Geral',
-            sets: [
-              {
-                setNumber: 1,
-                reps: Math.max(finalMetrics.totalReps || 10, 1),
-                weightKg: Math.max(finalMetrics.totalVolumeKg || 0, 0),
-              }
-            ]
-          }
-        ];
-      }
 
       const clientUuid = crypto.randomUUID();
       const payload: Partial<SessionDTO> = {
@@ -388,28 +381,6 @@ export const NewSessionPage: React.FC = () => {
               </div>
             )}
 
-            {sportKey === 'strength' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                <Input
-                  label="Total de Séries"
-                  type="number"
-                  value={metrics.totalSets || ''}
-                  onChange={e => setMetrics({...metrics, totalSets: Number(e.target.value)})}
-                />
-                <Input
-                  label="Total de Repetições"
-                  type="number"
-                  value={metrics.totalReps || ''}
-                  onChange={e => setMetrics({...metrics, totalReps: Number(e.target.value)})}
-                />
-                <Input
-                  label="Volume Levantado (Kg)"
-                  type="number"
-                  value={metrics.totalVolumeKg || ''}
-                  onChange={e => setMetrics({...metrics, totalVolumeKg: Number(e.target.value)})}
-                />
-              </div>
-            )}
 
             {sportKey === 'football' && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">

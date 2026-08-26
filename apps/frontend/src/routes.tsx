@@ -24,6 +24,7 @@ import { ShoesPage } from './pages/shoes/ShoesPage';
 import { CreateShoePage } from './pages/shoes/CreateShoePage';
 import { ShoeDetailsPage } from './pages/shoes/ShoeDetailsPage';
 import { EditShoePage } from './pages/shoes/EditShoePage';
+import { StrengthRoutes } from './features/strength/strength.routes';
 
 
 export const AppRoutes: React.FC = () => {
@@ -68,6 +69,9 @@ export const AppRoutes: React.FC = () => {
         <Route path="shoes/new" element={<CreateShoePage />} />
         <Route path="shoes/:id" element={<ShoeDetailsPage />} />
         <Route path="shoes/:id/edit" element={<EditShoePage />} />
+
+        {/* Musculação */}
+        <Route path="strength/*" element={<StrengthRoutes />} />
       </Route>
 
       {/* Fallback para home ou login */}

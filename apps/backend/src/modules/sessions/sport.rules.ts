@@ -1,7 +1,7 @@
 import type {
   SportKey,
   RunningMetrics,
-  StrengthMetrics,
+  LegacyStrengthMetrics,
   BoxingMetrics,
   SwimmingMetrics,
 } from '@pacelog/shared';
@@ -54,7 +54,7 @@ export function enrichRunningMetrics(metrics: RunningMetrics): RunningMetrics {
  * - Total de Séries
  * - Total de Repetições
  */
-export function enrichStrengthMetrics(metrics: StrengthMetrics): StrengthMetrics {
+export function enrichStrengthMetrics(metrics: LegacyStrengthMetrics): LegacyStrengthMetrics {
   let totalVolumeKg = 0;
   let totalSets = 0;
   let totalReps = 0;
