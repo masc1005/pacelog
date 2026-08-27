@@ -75,10 +75,13 @@ export async function listSessionsController(
     const userId = req.userId!;
     const query = req.query as unknown as ListStrengthSessionsQuery;
     const result = await strengthSessionService.listCompletedSessions(userId, query);
+    console.log('List sessions result for user:', userId, 'count:', result.items.length);
     res.status(200).json({
       success: true,
-      data: result.items.map((s) => s.toJSON()),
-      pagination: result.pagination,
+      data: {
+        items: result.items.map((s) => s.toJSON()),
+        pagination: result.pagination,
+      }
     });
   } catch (error) {
     next(error);

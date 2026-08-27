@@ -12,8 +12,14 @@ export const StrengthSessionHistoryPage: React.FC = () => {
   useEffect(() => {
     strengthApi
       .listSessions(1, 50)
-      .then((data) => setSessions(data))
-      .catch(() => setSessions([]))
+      .then((data) => {
+        console.log('List sessions raw data:', data);
+        setSessions(Array.isArray(data) ? data : ((data as any).items || []));
+      })
+      .catch((err) => {
+        console.error('List sessions error:', err);
+        setSessions([]);
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
