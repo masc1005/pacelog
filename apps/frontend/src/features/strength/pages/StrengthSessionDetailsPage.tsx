@@ -22,17 +22,21 @@ export const StrengthSessionDetailsPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="session-details session-details--loading" aria-busy="true">
-        Carregando…
+      <div className="flex items-center justify-center min-h-[50vh]" aria-busy="true">
+        <p className="font-mono text-sm text-[#8F9380] animate-pulse uppercase tracking-widest">
+          Carregando…
+        </p>
       </div>
     );
   }
 
   if (!session) {
     return (
-      <div className="session-details session-details--error" role="alert">
-        <p>Sessão não encontrada.</p>
-        <button className="btn btn--secondary" onClick={() => navigate(-1)}>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4" role="alert">
+        <p className="font-mono text-sm text-[#FF6B35] bg-[#FF6B35]/10 px-4 py-2 rounded-[4px] border border-[#FF6B35]/50">
+          Sessão não encontrada.
+        </p>
+        <button className="px-4 py-2 border border-[#1F2937] text-[#C5C8B4] hover:bg-[#161C24] font-mono text-xs uppercase tracking-widest rounded-[2px]" onClick={() => navigate(-1)}>
           Voltar
         </button>
       </div>
@@ -46,29 +50,31 @@ export const StrengthSessionDetailsPage: React.FC = () => {
   });
 
   return (
-    <div className="session-details">
-      <header className="session-details__header">
+    <div className="flex flex-col max-w-2xl mx-auto w-full p-4 sm:p-0 gap-6 pb-24">
+      <header className="flex items-center gap-4 mb-2">
         <button
-          className="btn-icon btn-icon--ghost"
+          className="flex items-center justify-center w-10 h-10 rounded-[2px] border border-[#1F2937] text-[#8F9380] hover:text-[#D4E4FA] hover:bg-[#161C24] transition-colors"
           onClick={() => navigate(-1)}
           aria-label="Voltar"
         >
-          ←
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
         </button>
-        <h1 className="session-details__title">Detalhes do treino</h1>
+        <h1 className="font-display text-2xl font-bold text-[#D4E4FA] uppercase tracking-wide">
+          Detalhes do treino
+        </h1>
       </header>
 
-      <section className="session-details__meta">
-        <p className="session-details__date">{date}</p>
-        <div className="session-details__stats">
+      <section className="flex flex-col p-4 bg-[#0D1C2D] border border-[#1F2937] rounded-[4px]">
+        <p className="font-mono text-sm text-[#D4F684] mb-2">{date}</p>
+        <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-[#8F9380] uppercase tracking-widest">
           <span>{formatDuration(session.durationSeconds)}</span>
-          <span>·</span>
+          <span className="text-[#1F2937]">/</span>
           <span>{session.exercises.length} exercícios</span>
-          <span>·</span>
+          <span className="text-[#1F2937]">/</span>
           <span>{session.completedSets} séries</span>
           {session.totalVolumeKg != null && (
             <>
-              <span>·</span>
+              <span className="text-[#1F2937]">/</span>
               <span>
                 {session.totalVolumeKg.toLocaleString('pt-BR', {
                   maximumFractionDigits: 0,
@@ -80,15 +86,17 @@ export const StrengthSessionDetailsPage: React.FC = () => {
         </div>
       </section>
 
-      <section className="session-details__exercises">
+      <section className="flex flex-col gap-6">
         {session.exercises.map((exercise) => (
-          <div key={exercise.id} className="session-details__exercise">
-            <h3 className="session-details__exercise-name">
-              {exercise.exerciseNameSnapshot}
-            </h3>
+          <div key={exercise.id} className="flex flex-col bg-[#161C24] border border-[#1F2937] rounded-[4px] overflow-hidden">
+            <div className="p-4 bg-[#051424] border-b border-[#1F2937]">
+              <h3 className="font-display font-bold text-[#D4E4FA]">
+                {exercise.exerciseNameSnapshot}
+              </h3>
+            </div>
 
-            <div className="session-details__sets">
-              <div className="session-details__set-header" aria-hidden="true">
+            <div className="flex flex-col">
+              <div className="grid grid-cols-4 px-4 py-2 bg-[#161C24] border-b border-[#1F2937] font-mono text-[10px] uppercase text-[#8F9380] tracking-widest" aria-hidden="true">
                 <span>Série</span>
                 <span>Reps</span>
                 <span>Carga</span>
@@ -98,8 +106,8 @@ export const StrengthSessionDetailsPage: React.FC = () => {
               {exercise.sets
                 .filter((s) => s.status === 'completed')
                 .map((set) => (
-                  <div key={set.id} className="session-details__set-row">
-                    <span>{set.setNumber}</span>
+                  <div key={set.id} className="grid grid-cols-4 px-4 py-3 bg-[#161C24] border-b border-[#1F2937]/50 font-mono text-sm text-[#D4E4FA] last:border-0">
+                    <span className="text-[#8F9380]">{set.setNumber}</span>
                     <span>{set.reps ?? '—'}</span>
                     <span>
                       {set.loadUnit === 'bodyweight'
@@ -117,9 +125,9 @@ export const StrengthSessionDetailsPage: React.FC = () => {
       </section>
 
       {session.notes && (
-        <section className="session-details__notes">
-          <h3>Observações</h3>
-          <p>{session.notes}</p>
+        <section className="flex flex-col gap-2 p-4 bg-[#161C24] border border-[#1F2937] rounded-[4px]">
+          <h3 className="font-mono text-[10px] uppercase tracking-widest text-[#8F9380]">Observações</h3>
+          <p className="text-sm text-[#C5C8B4] whitespace-pre-wrap">{session.notes}</p>
         </section>
       )}
     </div>

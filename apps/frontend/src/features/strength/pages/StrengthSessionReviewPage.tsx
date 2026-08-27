@@ -46,18 +46,22 @@ export const StrengthSessionReviewPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="session-review session-review--loading" aria-busy="true">
-        Calculando métricas…
+      <div className="flex items-center justify-center min-h-[50vh]" aria-busy="true">
+        <p className="font-mono text-sm text-[#8F9380] animate-pulse uppercase tracking-widest">
+          Calculando métricas…
+        </p>
       </div>
     );
   }
 
   if (error || !session) {
     return (
-      <div className="session-review session-review--error" role="alert">
-        <p>{error || 'Sessão não encontrada.'}</p>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4" role="alert">
+        <p className="font-mono text-sm text-[#FF6B35] bg-[#FF6B35]/10 px-4 py-2 rounded-[4px] border border-[#FF6B35]/50">
+          {error || 'Sessão não encontrada.'}
+        </p>
         <button
-          className="btn btn--secondary"
+          className="px-4 py-2 border border-[#1F2937] text-[#C5C8B4] hover:bg-[#161C24] font-mono text-xs uppercase tracking-widest rounded-[2px]"
           onClick={() => navigate('/strength')}
         >
           Voltar
@@ -67,7 +71,7 @@ export const StrengthSessionReviewPage: React.FC = () => {
   }
 
   return (
-    <div className="session-review">
+    <div className="flex flex-col p-4 font-sans pb-24">
       <SessionSummary
         session={session}
         onSave={handleSave}

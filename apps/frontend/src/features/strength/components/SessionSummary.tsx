@@ -25,10 +25,10 @@ export const SessionSummary: React.FC<SessionSummaryProps> = ({
   });
 
   return (
-    <div className="session-summary" aria-label="Resumo da sessão">
-      <h2 className="session-summary__title">Resumo da sessão</h2>
+    <div className="flex flex-col gap-6 max-w-2xl mx-auto w-full" aria-label="Resumo da sessão">
+      <h2 className="font-display text-2xl font-bold text-[#D4E4FA] uppercase tracking-wide">Resumo da sessão</h2>
 
-      <div className="session-summary__stats">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <SummaryStat
           label="Duração"
           value={formatDuration(session.durationSeconds)}
@@ -61,17 +61,18 @@ export const SessionSummary: React.FC<SessionSummaryProps> = ({
         <SummaryStat label="Término" value={endTime} />
       </div>
 
-      <div className="session-summary__exercises">
+      <div className="flex flex-col gap-2 mt-4">
+        <h3 className="font-mono text-xs uppercase tracking-widest text-[#8F9380] mb-2">Exercícios Concluídos</h3>
         {session.exercises.map((exercise) => {
           const completedSets = exercise.sets.filter(
             (s) => s.status === 'completed'
           );
           return (
-            <div key={exercise.id} className="session-summary__exercise">
-              <span className="session-summary__exercise-name">
+            <div key={exercise.id} className="flex items-center justify-between p-4 bg-[#161C24] border border-[#1F2937] rounded-[4px]">
+              <span className="font-display font-bold text-[#D4E4FA]">
                 {exercise.exerciseNameSnapshot}
               </span>
-              <span className="session-summary__exercise-sets">
+              <span className="font-mono text-sm text-[#D4F684]">
                 {completedSets.length} séries
               </span>
             </div>
@@ -79,10 +80,10 @@ export const SessionSummary: React.FC<SessionSummaryProps> = ({
         })}
       </div>
 
-      <div className="session-summary__actions">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
         <button
           id="btn-edit-session"
-          className="btn btn--secondary"
+          className="flex items-center justify-center gap-2 py-4 px-4 bg-[#161C24] border border-[#1F2937] text-[#C5C8B4] hover:bg-[#1F2937] hover:text-[#D4E4FA] font-mono text-sm uppercase font-bold tracking-widest rounded-[2px] transition-colors"
           onClick={onEdit}
           disabled={isSaving}
         >
@@ -90,7 +91,7 @@ export const SessionSummary: React.FC<SessionSummaryProps> = ({
         </button>
         <button
           id="btn-save-session"
-          className="btn btn--primary"
+          className="flex items-center justify-center gap-2 py-4 px-4 bg-[#D4F684] text-[#0A0D14] hover:bg-[#bce65c] font-mono text-sm uppercase font-bold tracking-widest rounded-[2px] transition-colors shadow-[0_0_20px_rgba(212,246,132,0.2)] hover:shadow-[0_0_30px_rgba(212,246,132,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={onSave}
           disabled={isSaving}
         >
@@ -103,9 +104,9 @@ export const SessionSummary: React.FC<SessionSummaryProps> = ({
 
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="session-summary__stat">
-      <span className="session-summary__stat-label">{label}</span>
-      <span className="session-summary__stat-value">{value}</span>
+    <div className="flex flex-col p-4 bg-[#0D1C2D] border border-[#1F2937] rounded-[4px]">
+      <span className="font-mono text-[10px] uppercase tracking-widest text-[#8F9380] mb-1">{label}</span>
+      <span className="font-display text-lg font-bold text-[#D4E4FA]">{value}</span>
     </div>
   );
 }
