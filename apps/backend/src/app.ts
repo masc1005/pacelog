@@ -70,6 +70,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/insights', insightRoutes);
 app.use('/api/shoes', shoeRoutes);
+app.use('/api/strength', strengthRoutes);
 
 // Health check para Railway, Docker e monitoramento
 app.get('/health', (_req, res) => {
