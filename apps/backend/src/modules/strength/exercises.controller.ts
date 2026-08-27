@@ -13,8 +13,10 @@ export async function searchExercisesController(
     const result = await exerciseService.searchExercises(userId, query);
     res.status(200).json({
       success: true,
-      data: result.items.map((e) => e.toJSON()),
-      pagination: result.pagination,
+      data: {
+        items: result.items.map((e) => e.toJSON()),
+        pagination: result.pagination,
+      }
     });
   } catch (error) {
     next(error);

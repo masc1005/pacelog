@@ -40,7 +40,7 @@ export const ExerciseSearch: React.FC<ExerciseSearchProps> = ({
           limit: 30,
         };
         const result = await strengthApi.searchExercises(params);
-        setResults(result.items);
+        setResults(result.items || []);
       } catch {
         // falha silenciosa na busca
       } finally {
