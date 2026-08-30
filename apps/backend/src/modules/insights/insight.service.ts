@@ -274,7 +274,7 @@ Interpretação:`;
       }
 
       const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.5-flash',
         contents: prompt,
       });
 
@@ -353,7 +353,7 @@ Interpretação:`;
       }
 
       const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.5-flash',
         contents: prompt,
       });
 
@@ -423,7 +423,7 @@ Apenas o JSON, sem markdown.`;
       }
 
       const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.5-flash',
         contents: prompt,
       });
 
