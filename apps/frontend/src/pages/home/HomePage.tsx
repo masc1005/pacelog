@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -29,6 +29,7 @@ import { formatPace, formatDuration } from '../../lib/utils';
 import { apiClient } from '../../lib/api';
 
 export const HomePage: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [selectedSport, setSelectedSport] = useState<SportKey | 'all'>('all');
   const [summary, setSummary] = useState<SessionSummaryDTO | null>(null);
@@ -312,7 +313,8 @@ export const HomePage: React.FC = () => {
                   key={session.id}
                   variant="watch"
                   interactive
-                  className="flex flex-col justify-between p-5 bg-[#161C24] border-[#1F2937] hover:border-[#454839] transition-all group"
+                  className="flex flex-col justify-between p-5 bg-[#161C24] border-[#1F2937] hover:border-[#454839] transition-all group cursor-pointer"
+                  onClick={() => navigate(session.sportKey === 'strength' ? `/strength/sessions/${session.id}` : `/sessions/${session.id}`)}
                 >
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">

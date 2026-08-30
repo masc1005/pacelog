@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { strengthApi } from '../../../services/strength.api';
+import { apiClient } from '../../../lib/api';
+import { useToast } from '../../../contexts/ToastContext';
 import { formatDuration } from '../hooks/useSessionTimer';
 import { StrengthInsightCard } from '../components/StrengthInsightCard';
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { Trash2, ArrowLeft } from 'lucide-react';
 import type { CompletedStrengthSession } from '@pacelog/shared';
 
 export const StrengthSessionDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { success, error: toastError } = useToast();
   const [session, setSession] = useState<CompletedStrengthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -20,6 +28,20 @@ export const StrengthSessionDetailsPage: React.FC = () => {
       .catch(() => setSession(null))
       .finally(() => setIsLoading(false));
   }, [id]);
+
+  const handleDelete = async () => {
+    if (!id) return;
+    setIsDeleting(true);
+    try {
+      await apiClient(`/api/sessions/${id}`, { method: 'DELETE' });
+      success('Sessão excluída com sucesso.');
+      navigate('/sessions', { replace: true });
+    } catch {
+      toastError('Erro ao excluir sessão.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -37,8 +59,8 @@ export const StrengthSessionDetailsPage: React.FC = () => {
         <p className="font-mono text-sm text-[#FF6B35] bg-[#FF6B35]/10 px-4 py-2 rounded-[4px] border border-[#FF6B35]/50">
           Sessão não encontrada.
         </p>
-        <button className="px-4 py-2 border border-[#1F2937] text-[#C5C8B4] hover:bg-[#161C24] font-mono text-xs uppercase tracking-widest rounded-[2px]" onClick={() => navigate(-1)}>
-          Voltar
+        <button className="px-4 py-2 border border-[#1F2937] text-[#C5C8B4] hover:bg-[#161C24] font-mono text-xs uppercase tracking-widest rounded-[2px]" onClick={() => navigate('/sessions')}>
+          Voltar para Treinos
         </button>
       </div>
     );
@@ -52,17 +74,25 @@ export const StrengthSessionDetailsPage: React.FC = () => {
 
   return (
     <div className="flex flex-col max-w-2xl mx-auto w-full p-4 sm:p-0 gap-6 pb-24">
-      <header className="flex items-center gap-4 mb-2">
+      <header className="flex items-center justify-between border-b border-[#1F2937] pb-4">
         <button
-          className="flex items-center justify-center w-10 h-10 rounded-[2px] border border-[#1F2937] text-[#8F9380] hover:text-[#D4E4FA] hover:bg-[#161C24] transition-colors"
-          onClick={() => navigate(-1)}
-          aria-label="Voltar"
+          className="flex items-center gap-2 font-mono text-xs text-[#8F9380] hover:text-[#D4E4FA] transition-colors"
+          onClick={() => navigate('/sessions')}
+          aria-label="Voltar para Histórico"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+          <ArrowLeft className="h-4 w-4" />
+          Histórico
         </button>
-        <h1 className="font-display text-2xl font-bold text-[#D4E4FA] uppercase tracking-wide">
-          Detalhes do treino
-        </h1>
+
+        <Button
+          variant="secondary"
+          size="sm"
+          leftIcon={<Trash2 className="h-3.5 w-3.5" />}
+          className="text-[#FFB4AB] border-[#FFB4AB]/20 hover:bg-[#FFB4AB]/10 hover:border-[#FFB4AB]"
+          onClick={() => setShowDeleteConfirm(true)}
+        >
+          Excluir
+        </Button>
       </header>
 
       <section className="flex flex-col p-4 bg-[#0D1C2D] border border-[#1F2937] rounded-[4px]">
@@ -133,6 +163,27 @@ export const StrengthSessionDetailsPage: React.FC = () => {
           <h3 className="font-mono text-[10px] uppercase tracking-widest text-[#8F9380]">Observações</h3>
           <p className="text-sm text-[#C5C8B4] whitespace-pre-wrap">{session.notes}</p>
         </section>
+      )}
+
+      {/* Modal de Confirmação de Exclusão */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <Card className="p-6 max-w-sm w-full bg-[#161C24] border-[#FFB4AB]/30 flex flex-col gap-4">
+            <h3 className="font-display text-lg font-bold text-[#FFB4AB] uppercase">Excluir Sessão?</h3>
+            <p className="font-mono text-xs text-[#C5C8B4]">Esta ação é irreversível. Os dados de telemetria desta sessão serão permanentemente removidos.</p>
+            <div className="flex gap-3 mt-2">
+              <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)} className="flex-1">Cancelar</Button>
+              <Button
+                variant="tactile"
+                isLoading={isDeleting}
+                onClick={handleDelete}
+                className="flex-1 bg-[#FFB4AB]/20 text-[#FFB4AB] border-[#FFB4AB]/30 hover:bg-[#FFB4AB]/30"
+              >
+                Confirmar Exclusão
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   );

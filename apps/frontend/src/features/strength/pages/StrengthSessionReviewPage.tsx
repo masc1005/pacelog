@@ -39,9 +39,9 @@ export const StrengthSessionReviewPage: React.FC = () => {
   }
 
   function handleSave() {
-    // Sessão já está salva no backend (status = completed).
-    // Redireciona para home limpando o estado de sessão ativa.
-    navigate('/strength', { replace: true });
+    // Sessão já está salva no backend (status = completed e sincronizada no SessionModel).
+    // Redireciona para o histórico unificado de treinos (/sessions).
+    navigate('/sessions', { replace: true });
   }
 
   if (isLoading) {
@@ -62,7 +62,7 @@ export const StrengthSessionReviewPage: React.FC = () => {
         </p>
         <button
           className="px-4 py-2 border border-[#1F2937] text-[#C5C8B4] hover:bg-[#161C24] font-mono text-xs uppercase tracking-widest rounded-[2px]"
-          onClick={() => navigate('/strength')}
+          onClick={() => navigate('/sessions')}
         >
           Voltar
         </button>

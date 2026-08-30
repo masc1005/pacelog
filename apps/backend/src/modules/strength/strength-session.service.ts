@@ -338,6 +338,7 @@ export class StrengthSessionService {
     const session = await repo.findByIdOrFail(userId, sessionId);
 
     if (session.status === 'completed') {
+      await this.syncToMainSessions(session, input.rpe);
       return session; // Idempotente
     }
 
@@ -370,7 +371,13 @@ export class StrengthSessionService {
     if (input.notes != null) session.notes = input.notes;
     session.lastActivityAt = new Date();
 
-    return session.save();
+    const savedSession = await session.save();
+
+    // Sincroniza com a coleção principal (SessionModel) para aparecer no Diário (/sessions),
+    // Dashboard (/), Progresso (ACWR), Metas e Alertas.
+    await this.syncToMainSessions(savedSession, input.rpe);
+
+    return savedSession;
   }
 
   async cancelSession(
@@ -386,7 +393,17 @@ export class StrengthSessionService {
     session.status = 'cancelled';
     session.lastActivityAt = new Date();
 
-    return session.save();
+    const saved = await session.save();
+
+    // Se houver registro sincronizado no SessionModel, remove
+    try {
+      const { SessionModel } = await import('../sessions/session.model.js');
+      await SessionModel.deleteOne({ _id: sessionId, userId });
+    } catch {
+      // Silencioso se não existir
+    }
+
+    return saved;
   }
 
   async patchSession(
@@ -412,6 +429,92 @@ export class StrengthSessionService {
   }
 
   // ==========================================
+  // SINCRONIZAÇÃO COM SESSÕES PRINCIPAIS
+  // ==========================================
+
+  async syncToMainSessions(
+    session: IActiveStrengthSessionDocument,
+    customRpe?: number
+  ): Promise<void> {
+    try {
+      const { SessionModel } = await import('../sessions/session.model.js');
+      const { buildSessionLoad } = await import('../progress/load/load.service.js');
+      const { notificationService } = await import('../notifications/notification.service.js');
+      const { progressService } = await import('../progress/progress.service.js');
+
+      const rpe = customRpe ?? this.calculateAverageRpe(session) ?? 6;
+      const durationSeconds = session.durationSeconds || 60;
+      const loadPayload = buildSessionLoad(rpe, durationSeconds, 'completed');
+
+      const mappedExercises = (session.exercises || []).map((e) => ({
+        exerciseName: e.exerciseNameSnapshot,
+        targetMuscleGroup: e.primaryMuscleGroup,
+        sets: (e.sets || []).map((s) => ({
+          setNumber: s.setNumber,
+          reps: s.reps ?? 0,
+          weightKg: s.load ?? 0,
+          rpe: s.rpe,
+          isWarmup: s.type === 'warmup',
+        })),
+      }));
+
+      await SessionModel.findOneAndUpdate(
+        { _id: session._id, userId: session.userId },
+        {
+          $set: {
+            userId: session.userId,
+            sportKey: 'strength',
+            startedAt: session.startedAt,
+            endedAt: session.finishedAt || session.startedAt,
+            durationSeconds,
+            rpe,
+            sessionalLoad: loadPayload.sessionalLoad ?? 0,
+            load: loadPayload.load,
+            status: 'completed',
+            metrics: {
+              totalVolumeKg: session.totalVolumeKg ?? 0,
+              totalSets: session.totalSets ?? 0,
+              completedSets: session.completedSets ?? 0,
+              totalReps: session.totalReps ?? 0,
+              estimatedOneRepMax: session.estimatedOneRepMax,
+              exercises: mappedExercises,
+            },
+            notes: session.notes,
+          },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
+      // Dispara alertas assíncronos (Metas, ACWR)
+      setImmediate(async () => {
+        try {
+          await notificationService.checkAndDispatchGoalAlerts(session.userId);
+          const overview = await progressService.getOverview(session.userId);
+          await notificationService.checkAndDispatchAcwrAlerts(session.userId, overview.acwr);
+        } catch (err) {
+          console.error('[StrengthSessionService] Error dispatching alerts:', err);
+        }
+      });
+    } catch (err) {
+      console.error('[StrengthSessionService] Erro ao sincronizar para SessionModel:', err);
+    }
+  }
+
+  calculateAverageRpe(session: IActiveStrengthSessionDocument): number | null {
+    const rpes: number[] = [];
+    for (const ex of session.exercises || []) {
+      for (const set of ex.sets || []) {
+        if (set.status === 'completed' && set.rpe != null && set.rpe >= 1 && set.rpe <= 10) {
+          rpes.push(set.rpe);
+        }
+      }
+    }
+    if (rpes.length === 0) return null;
+    const avg = rpes.reduce((a, b) => a + b, 0) / rpes.length;
+    return Math.max(1, Math.min(10, Math.round(avg)));
+  }
+
+  // ==========================================
   // HELPERS PRIVADOS
   // ==========================================
 
@@ -423,3 +526,18 @@ export class StrengthSessionService {
 }
 
 export const strengthSessionService = new StrengthSessionService();
+
+/**
+ * Garante que todas as sessões de musculação com status 'completed'
+ * existentes em ActiveStrengthSessionModel estejam sincronizadas em SessionModel.
+ */
+export async function syncCompletedStrengthSessions(): Promise<void> {
+  try {
+    const completedSessions = await ActiveStrengthSessionModel.find({ status: 'completed' });
+    for (const session of completedSessions) {
+      await strengthSessionService.syncToMainSessions(session);
+    }
+  } catch (err) {
+    console.error('[StrengthSessionService] Erro ao sincronizar sessões de musculação na inicialização:', err);
+  }
+}

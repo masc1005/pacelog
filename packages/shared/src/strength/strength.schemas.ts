@@ -133,6 +133,7 @@ export type EditSetInput = z.infer<typeof editSetInputSchema>;
 
 export const finishSessionInputSchema = z.object({
   operationId: z.string().uuid().optional(),
+  rpe: z.number().int().min(1).max(10).optional(),
   notes: z.string().max(1000).optional(),
   finishedAt: z.string().datetime().optional(),
 });

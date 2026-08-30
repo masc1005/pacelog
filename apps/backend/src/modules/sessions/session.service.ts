@@ -283,6 +283,22 @@ export class SessionService {
       });
     }
 
+    if (session.sportKey === 'strength') {
+      try {
+        const { ActiveStrengthSessionModel } = await import('../strength/strength-session.model.js');
+        await ActiveStrengthSessionModel.deleteOne({ _id: sessionId, userId });
+      } catch (err) {
+        console.error('[SessionService] Failed to delete active strength session:', err);
+      }
+    }
+
+    try {
+      const { InsightModel } = await import('../insights/insight.model.js');
+      await InsightModel.deleteMany({ sessionId, userId });
+    } catch {
+      // Silencioso se não houver insights
+    }
+
     await SessionModel.deleteOne(filter);
   }
 

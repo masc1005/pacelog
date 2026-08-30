@@ -71,7 +71,7 @@ export const SessionsPage: React.FC = () => {
                 key={session.id} 
                 variant="watch" 
                 className="p-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-[#161C24] hover:bg-[#1a232d] transition-colors cursor-pointer border-[#1F2937] hover:border-[#454839]"
-                onClick={() => navigate(`/sessions/${session.id}`)}
+                onClick={() => navigate(session.sportKey === 'strength' ? `/strength/sessions/${session.id}` : `/sessions/${session.id}`)}
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 flex items-center justify-center rounded-[2px] bg-[#051424] border border-[#1F2937]">
@@ -99,7 +99,7 @@ export const SessionsPage: React.FC = () => {
                       {session.sportKey === 'running' ? `${(session.metrics?.distanceMeters || 0)/1000} km` : 
                        session.sportKey === 'boxing' ? `${session.metrics?.roundsCount || 0} rds` : 
                        session.sportKey === 'swimming' ? `${session.metrics?.totalDistanceMeters || 0} m` : 
-                       session.sportKey === 'strength' ? `${session.metrics?.totalSets || 0} sets` : '100%'}
+                       session.sportKey === 'strength' ? (session.metrics?.totalVolumeKg ? `${Math.round(session.metrics.totalVolumeKg)} kg` : `${session.metrics?.totalSets || 0} sets`) : '100%'}
                     </span>
                   </div>
                 </div>

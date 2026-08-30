@@ -35,6 +35,10 @@ export const SessionDetailPage: React.FC = () => {
     async function load() {
       try {
         const data = await apiClient<SessionDTO>(`/api/sessions/${id}`);
+        if (data.sportKey === 'strength') {
+          navigate(`/strength/sessions/${id}`, { replace: true });
+          return;
+        }
         setSession(data);
         
         // Tenta buscar insight já existente para esta sessão (falha silenciosamente se não existir)

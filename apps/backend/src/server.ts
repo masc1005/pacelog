@@ -5,6 +5,7 @@ import { env } from './config/env.js';
 import { connectDatabase } from './config/database.js';
 import { seedSports } from './modules/sports/sport.seed.js';
 import { seedExercises } from './modules/strength/exercise.seed.js';
+import { syncCompletedStrengthSessions } from './modules/strength/strength-session.service.js';
 import { logger } from './utils/logger.js';
 
 async function start() {
@@ -12,6 +13,7 @@ async function start() {
     await connectDatabase();
     await seedSports();
     await seedExercises();
+    await syncCompletedStrengthSessions();
     app.listen(env.PORT, '0.0.0.0', () => {
       logger.info(`🚀 Servidor PACELOG API rodando na porta ${env.PORT} [${env.NODE_ENV}]`);
       logger.info(`🔗 Health check: http://0.0.0.0:${env.PORT}/health`);
