@@ -13,6 +13,7 @@ import type {
   ExerciseSearchParams,
   CreateCustomExerciseInput,
   Exercise,
+  AIInsightDTO,
 } from '@pacelog/shared';
 
 const BASE = '/api/strength';
@@ -126,4 +127,19 @@ export const strengthApi = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
+
+  // ==========================================
+  // INSIGHTS DE IA
+  // ==========================================
+
+  /** Retorna insight já gerado para a sessão, ou null (404) se ainda não existe. */
+  getInsight: (sessionId: string) =>
+    apiClient<AIInsightDTO>(`${BASE}/sessions/${sessionId}/insight`),
+
+  /** Gera (ou regenera com force=true) o insight de uma sessão finalizada. */
+  generateInsight: (sessionId: string, force = false) =>
+    apiClient<AIInsightDTO>(
+      `${BASE}/sessions/${sessionId}/insight/generate${force ? '?force=true' : ''}`,
+      { method: 'POST' }
+    ),
 };

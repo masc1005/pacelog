@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { strengthApi } from '../../../services/strength.api';
 import { formatDuration } from '../hooks/useSessionTimer';
+import { StrengthInsightCard } from '../components/StrengthInsightCard';
 import type { CompletedStrengthSession } from '@pacelog/shared';
 
 export const StrengthSessionDetailsPage: React.FC = () => {
@@ -85,6 +86,9 @@ export const StrengthSessionDetailsPage: React.FC = () => {
           )}
         </div>
       </section>
+
+      {/* Insight de IA */}
+      <StrengthInsightCard sessionId={id!} />
 
       <section className="flex flex-col gap-6">
         {session.exercises.map((exercise) => (

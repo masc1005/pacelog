@@ -4,11 +4,12 @@ import { StrengthHomePage } from './pages/StrengthHomePage';
 import { ActiveStrengthSessionPage } from './pages/ActiveStrengthSessionPage';
 import { StrengthSessionReviewPage } from './pages/StrengthSessionReviewPage';
 import { StrengthSessionDetailsPage } from './pages/StrengthSessionDetailsPage';
-import { StrengthSessionHistoryPage } from './pages/StrengthSessionHistoryPage';
 
 /**
  * Sub-rotas do módulo de musculação.
  * Montadas em /strength/* pelo AppRoutes principal.
+ *
+ * Histórico de sessões de musculação → /sessions (unificado com todos os esportes)
  */
 export const StrengthRoutes: React.FC = () => {
   return (
@@ -16,7 +17,6 @@ export const StrengthRoutes: React.FC = () => {
       <Route index element={<StrengthHomePage />} />
       <Route path="active" element={<ActiveStrengthSessionPage />} />
       <Route path="review" element={<StrengthSessionReviewPage />} />
-      <Route path="history" element={<StrengthSessionHistoryPage />} />
       <Route path="sessions/:id" element={<StrengthSessionDetailsPage />} />
     </Routes>
   );
