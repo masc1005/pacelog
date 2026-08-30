@@ -26,6 +26,7 @@ import {
   buildLoadStatusMessage,
   LOAD_DISCLAIMER,
 } from './baseline.service.js';
+import { calculateActiveStreak } from './streak.service.js';
 import { computePrimaryMetric } from '../sessions/sport.rules.js';
 import {
   calculateConfidence as calcComparisonConfidence,
@@ -595,15 +596,13 @@ export class ProgressService {
       disclaimer: LOAD_DISCLAIMER,
     };
 
-    // Streak
-    const uniqueDaysAgg = await SessionModel.aggregate([
-      { $match: { userId } },
-      { $project: { day: { $dateToString: { format: '%Y-%m-%d', date: '$startedAt' } } } },
-      { $group: { _id: '$day' } },
-      { $sort: { _id: -1 } },
-      { $limit: 30 },
-    ]);
-    const totalActiveDaysStreak = uniqueDaysAgg.length;
+    // Streak de dias consecutivos ativos
+    const recentSessions = await SessionModel.find({ userId })
+      .sort({ startedAt: -1 })
+      .limit(60)
+      .select('startedAt')
+      .lean();
+    const totalActiveDaysStreak = calculateActiveStreak(recentSessions.map((s) => s.startedAt));
 
     // Distribuição por esporte (7 dias)
     const sportsAgg = await SessionModel.aggregate([

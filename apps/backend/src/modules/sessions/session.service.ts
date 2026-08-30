@@ -15,6 +15,7 @@ import { HttpError } from '../../utils/httpError.js';
 import { notificationService } from '../notifications/notification.service.js';
 import { progressService } from '../progress/progress.service.js';
 import { ShoeService } from '../shoes/shoe.service.js';
+import { calculateActiveStreak } from '../progress/streak.service.js';
 import type { SessionSummaryDTO, SportKey, SportSummaryStats, RunningMetrics } from '@pacelog/shared';
 
 const shoeService = new ShoeService();
@@ -361,20 +362,13 @@ export class SessionService {
     const averageRpe =
       totalSessions > 0 ? Math.round((totalRpeSum / totalSessions) * 10) / 10 : 0;
 
-    // Cálculo simples de streak de dias únicos
-    const uniqueDaysAgg = await SessionModel.aggregate([
-      { $match: { userId } },
-      {
-        $project: {
-          day: { $dateToString: { format: '%Y-%m-%d', date: '$startedAt' } },
-        },
-      },
-      { $group: { _id: '$day' } },
-      { $sort: { _id: -1 } },
-      { $limit: 30 },
-    ]);
-
-    const streakDays = uniqueDaysAgg.length;
+    // Streak de dias consecutivos ativos
+    const recentSessions = await SessionModel.find({ userId })
+      .sort({ startedAt: -1 })
+      .limit(60)
+      .select('startedAt')
+      .lean();
+    const streakDays = calculateActiveStreak(recentSessions.map((s) => s.startedAt));
 
     return {
       totalSessions,
