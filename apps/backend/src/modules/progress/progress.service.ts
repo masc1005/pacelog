@@ -35,6 +35,7 @@ import {
   compareFutevolei,
   compareBoxing,
   compareStrength,
+  compareCycling,
 } from './comparison/index.js';
 import type { ProgressComparisonDTO, SportProgress, ProgressStatus } from '@pacelog/shared';
 
@@ -59,6 +60,7 @@ function buildSportLabel(sportKey: SportKey): string {
     boxing: 'Boxe',
     strength: 'Musculação',
     swimming: 'Natação',
+    cycling: 'Ciclismo',
   };
   return labels[sportKey] || sportKey;
 }
@@ -124,6 +126,7 @@ export class ProgressService {
       else if (sportKey === 'futevolei') compResult = compareFutevolei(sportCurrent as any, sportBaseline as any);
       else if (sportKey === 'boxing') compResult = compareBoxing(sportCurrent as any, sportBaseline as any);
       else if (sportKey === 'strength') compResult = compareStrength(sportCurrent as any, sportBaseline as any);
+      else if (sportKey === 'cycling') compResult = compareCycling(sportCurrent as any, sportBaseline as any);
 
       if (compResult.primaryMetric) {
         sportsList.push({
@@ -688,6 +691,8 @@ export class ProgressService {
           item.volume += session.metrics.totalVolumeKg;
         } else if (sportKey === 'boxing' && session.metrics?.roundsCount) {
           item.volume += session.metrics.roundsCount;
+        } else if (sportKey === 'cycling' && session.metrics?.distanceKm) {
+          item.volume += session.metrics.distanceKm;
         }
       }
     }
@@ -713,6 +718,10 @@ export class ProgressService {
     } else if (sportKey === 'boxing') {
       sportSpecificHighlights.totalRounds = sessions.reduce((acc, s) => acc + (s.metrics?.roundsCount || 0), 0);
       sportSpecificHighlights.totalPunchesEstimate = sessions.reduce((acc, s) => acc + (s.metrics?.punchesThrownEstimate || 0), 0);
+    } else if (sportKey === 'cycling') {
+      const speeds = sessions.map((s) => s.metrics?.averageSpeedKmh).filter((v): v is number => Boolean(v && v > 0));
+      sportSpecificHighlights.bestSpeedKmh = speeds.length > 0 ? Math.max(...speeds) : null;
+      sportSpecificHighlights.totalDistanceKm = Math.round(sessions.reduce((acc, s) => acc + (s.metrics?.distanceKm || 0), 0) * 10) / 10;
     }
 
     return { sportKey, totalSessions, totalDurationSeconds, totalSessionalLoad, weeklyTrend, sportSpecificHighlights };

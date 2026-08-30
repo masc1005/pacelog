@@ -7,7 +7,7 @@ import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 import type { SessionDTO, SportKey } from '@pacelog/shared';
 import { formatDuration } from '../../lib/utils';
-import { Activity, Zap, Sun, Dumbbell, Flame, Pencil, Trash2, ArrowLeft, Sparkles, RefreshCw, Waves } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, Pencil, Trash2, ArrowLeft, Sparkles, RefreshCw, Waves, Bike } from 'lucide-react';
 import type { AIInsightDTO } from '@pacelog/shared';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badge: 'cyan'|'amber'|'crimson'|'purple'|'green'|'blue' }> = {
@@ -17,6 +17,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badg
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap, badge: 'crimson' },
   strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell, badge: 'purple' },
   swimming: { name: 'Natação', color: '#38BDF8', icon: Waves, badge: 'blue' },
+  cycling: { name: 'Ciclismo', color: '#10B981', icon: Bike, badge: 'green' },
 };
 
 export const SessionDetailPage: React.FC = () => {
@@ -262,6 +263,46 @@ export const SessionDetailPage: React.FC = () => {
                 <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
                   <span className="font-mono text-[9px] text-[#8F9380] uppercase">SWOLF</span>
                   <span className="font-display text-xl font-bold text-[#38BDF8]">{session.metrics.swolf}</span>
+                </div>
+              )}
+            </>}
+            {session.sportKey === 'cycling' && <>
+              <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
+                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Distância</span>
+                <span className="font-display text-xl font-bold text-[#D4E4FA]">{session.metrics.distanceKm} km</span>
+              </div>
+              <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
+                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Velocidade Média</span>
+                <span className="font-display text-xl font-bold text-[#10B981]">
+                  {session.metrics.averageSpeedKmh ? `${session.metrics.averageSpeedKmh} km/h` : '--'}
+                </span>
+              </div>
+              {session.metrics.cyclingType && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Tipo de Pedal</span>
+                  <span className="font-display text-sm font-bold text-[#D4E4FA] uppercase">
+                    {session.metrics.cyclingType === 'road' ? 'Rua / Asfalto' :
+                     session.metrics.cyclingType === 'indoor' ? 'Indoor / Spinning' :
+                     session.metrics.cyclingType === 'mountain_bike' ? 'Mountain Bike (MTB)' : 'Misto'}
+                  </span>
+                </div>
+              )}
+              {session.metrics.cyclingType !== 'indoor' && session.metrics.elevationGainMeters !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Elevação</span>
+                  <span className="font-display text-xl font-bold text-[#10B981]">{session.metrics.elevationGainMeters} m</span>
+                </div>
+              )}
+              {session.metrics.averageHeartRate !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">FC Média</span>
+                  <span className="font-display text-xl font-bold text-[#10B981]">{session.metrics.averageHeartRate} bpm</span>
+                </div>
+              )}
+              {session.metrics.maxHeartRate !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">FC Máxima</span>
+                  <span className="font-display text-xl font-bold text-[#10B981]">{session.metrics.maxHeartRate} bpm</span>
                 </div>
               )}
             </>}

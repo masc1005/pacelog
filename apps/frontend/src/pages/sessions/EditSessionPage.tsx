@@ -6,7 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { SPORT_KEYS, type SportKey, type SessionDTO } from '@pacelog/shared';
 import { apiClient } from '../../lib/api';
-import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, AlertTriangle, Waves } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, AlertTriangle, Waves, Bike } from 'lucide-react';
 import { ShoePicker } from '../../components/shoes/ShoePicker';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
@@ -16,6 +16,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = 
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap },
   strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell },
   swimming: { name: 'Natação', color: '#38BDF8', icon: Waves },
+  cycling: { name: 'Ciclismo', color: '#10B981', icon: Bike },
 };
 
 export const EditSessionPage: React.FC = () => {
@@ -93,6 +94,14 @@ export const EditSessionPage: React.FC = () => {
       if (sportKey === 'running' && finalMetrics.distanceKm) {
         finalMetrics.distanceMeters = finalMetrics.distanceKm * 1000;
         finalMetrics.paceSecondsPerKm = (finalMetrics.paceMin * 60) + finalMetrics.paceSec;
+      }
+
+      if (sportKey === 'cycling' && finalMetrics.distanceKm) {
+        finalMetrics.distanceKm = Number(finalMetrics.distanceKm);
+        if (durationMinutes > 0) {
+          finalMetrics.averageSpeedKmh = Math.round((finalMetrics.distanceKm / (durationMinutes / 60)) * 10) / 10;
+          finalMetrics.paceSecondsPerKm = Math.round((durationMinutes * 60) / finalMetrics.distanceKm);
+        }
       }
 
       if (sportKey === 'strength' && (!finalMetrics.exercises || finalMetrics.exercises.length === 0)) {
@@ -351,6 +360,70 @@ export const EditSessionPage: React.FC = () => {
                   min={0}
                   value={metrics.swolf || ''}
                   onChange={e => setMetrics({...metrics, swolf: Number(e.target.value)})}
+                />
+              </div>
+            )}
+
+            {sportKey === 'cycling' && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-1.5 col-span-2 sm:col-span-1">
+                  <label className="text-[10px] uppercase font-mono tracking-widest text-[#8F9380]">
+                    Tipo de Pedal
+                  </label>
+                  <select
+                    className="input-precision py-2 text-sm bg-[#0D1C2D] border border-[#1F2937] text-[#D4E4FA] rounded px-3"
+                    value={metrics.cyclingType || 'road'}
+                    onChange={e => setMetrics({...metrics, cyclingType: e.target.value})}
+                  >
+                    <option value="road">Rua / Asfalto</option>
+                    <option value="indoor">Indoor / Spinning</option>
+                    <option value="mountain_bike">Mountain Bike (MTB)</option>
+                    <option value="mixed">Misto</option>
+                  </select>
+                </div>
+                <Input
+                  label="Distância (km)"
+                  type="number"
+                  step="0.1"
+                  min={0.1}
+                  value={metrics.distanceKm || ''}
+                  onChange={e => setMetrics({...metrics, distanceKm: Number(e.target.value)})}
+                />
+                
+                {/* Live Speed Preview */}
+                <div className="flex flex-col gap-1 p-3 bg-[#161C24] border border-[#10B981]/40 rounded justify-center">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Velocidade Prevista</span>
+                  <span className="font-display text-lg font-bold text-[#10B981]">
+                    {metrics.distanceKm && durationMinutes > 0
+                      ? `${((metrics.distanceKm / (durationMinutes / 60))).toFixed(1)} km/h`
+                      : '-- km/h'}
+                  </span>
+                </div>
+
+                {metrics.cyclingType !== 'indoor' && (
+                  <Input
+                    label="Ganho de Elevação (m)"
+                    type="number"
+                    min={0}
+                    value={metrics.elevationGainMeters || ''}
+                    onChange={e => setMetrics({...metrics, elevationGainMeters: Number(e.target.value)})}
+                  />
+                )}
+                <Input
+                  label="FC Média (bpm)"
+                  type="number"
+                  min={30}
+                  max={250}
+                  value={metrics.averageHeartRate || ''}
+                  onChange={e => setMetrics({...metrics, averageHeartRate: Number(e.target.value)})}
+                />
+                <Input
+                  label="FC Máx (bpm)"
+                  type="number"
+                  min={30}
+                  max={250}
+                  value={metrics.maxHeartRate || ''}
+                  onChange={e => setMetrics({...metrics, maxHeartRate: Number(e.target.value)})}
                 />
               </div>
             )}

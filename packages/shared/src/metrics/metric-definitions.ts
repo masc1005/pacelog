@@ -66,6 +66,17 @@ export const SWIMMING_METRICS: SportMetricDefinition[] = [
   { key: 'swolf', label: 'SWOLF', unit: 'score', category: 'performance', direction: 'lower_is_better', comparability: 'same_metric' },
 ];
 
+export const CYCLING_METRICS: SportMetricDefinition[] = [
+  // Carga externa
+  { key: 'distanceKm', label: 'Distância', unit: 'km', category: 'load', direction: 'higher_is_better', comparability: 'same_sport', required: true },
+  { key: 'durationMinutes', label: 'Duração', unit: 'min', category: 'load', direction: 'neutral', comparability: 'same_sport', required: true },
+  { key: 'elevationGainMeters', label: 'Ganho de elevação', unit: 'm', category: 'load', direction: 'higher_is_better', comparability: 'same_sport' },
+  { key: 'averageHeartRate', label: 'FC média', unit: 'bpm', category: 'context', direction: 'neutral', comparability: 'same_metric' },
+  // Desempenho
+  { key: 'averageSpeedKmh', label: 'Velocidade média', unit: 'km/h', category: 'performance', direction: 'higher_is_better', comparability: 'same_sport', required: true },
+  { key: 'paceSecondsPerKm', label: 'Pace médio', unit: 's/km', category: 'performance', direction: 'lower_is_better', comparability: 'same_metric' },
+];
+
 /**
  * Registry central de métricas por esporte.
  * Consulte este objeto para saber o que exibir, com qual unidade e direção.
@@ -77,6 +88,7 @@ export const SPORT_METRIC_REGISTRY: SportMetricRegistry = {
   boxing: BOXING_METRICS,
   strength: STRENGTH_METRICS,
   swimming: SWIMMING_METRICS,
+  cycling: CYCLING_METRICS,
 };
 
 /**
@@ -90,6 +102,7 @@ export const PRIMARY_METRIC_KEY: Record<string, string> = {
   boxing: 'roundCompletionRate',
   strength: 'totalVolumeKg',
   swimming: 'paceSecondsPer100m',
+  cycling: 'averageSpeedKmh',
 };
 
 /**

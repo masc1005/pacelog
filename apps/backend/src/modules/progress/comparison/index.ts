@@ -6,3 +6,4 @@ export * from './compare-football.js';
 export * from './compare-futevolei.js';
 export * from './compare-boxing.js';
 export * from './compare-strength.js';
+export * from './compare-cycling.js';

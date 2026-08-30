@@ -16,6 +16,7 @@ import {
   Sun,
   Activity,
   Waves,
+  Bike,
 } from 'lucide-react';
 import {
   SPORT_KEYS,
@@ -82,6 +83,7 @@ export const HomePage: React.FC = () => {
     boxing: { name: 'Boxe', color: '#FF6B35', badge: 'crimson', icon: Zap },
     strength: { name: 'Musculação', color: '#A855F7', badge: 'purple', icon: Dumbbell },
     swimming: { name: 'Natação', color: '#38BDF8', badge: 'blue', icon: Waves },
+    cycling: { name: 'Ciclismo', color: '#10B981', badge: 'green', icon: Bike },
   };
 
   const filteredSessions =
@@ -420,6 +422,31 @@ export const HomePage: React.FC = () => {
                             <span className="font-display text-lg font-bold text-[#38BDF8]">
                               {session.metrics?.paceSecondsPer100m
                                 ? `${Math.floor(session.metrics.paceSecondsPer100m / 60)}:${(session.metrics.paceSecondsPer100m % 60).toString().padStart(2, '0')}/100m`
+                                : '--'}
+                            </span>
+                          </div>
+                        </>
+                      )}
+
+                      {session.sportKey === 'cycling' && (
+                        <>
+                          <div>
+                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
+                              Distância
+                            </span>
+                            <span className="font-display text-lg font-bold text-[#D4E4FA]">
+                              {session.metrics?.distanceKm
+                                ? `${session.metrics.distanceKm} km`
+                                : '--'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
+                              Velocidade Média
+                            </span>
+                            <span className="font-display text-lg font-bold text-[#10B981]">
+                              {session.metrics?.averageSpeedKmh
+                                ? `${session.metrics.averageSpeedKmh} km/h`
                                 : '--'}
                             </span>
                           </div>

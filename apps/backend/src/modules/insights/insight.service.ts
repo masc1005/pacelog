@@ -323,10 +323,14 @@ Interpretação:`;
         ? `\n\nATENÇÃO ESPECIAL TÉCNICA: Como esta é uma sessão de ${sportName}, se as notas táticas contiverem alguma queixa ou dificuldade técnica (ex: "chapada ruim", "guarda baixa", etc), inclua de forma amigável no final da sua resposta 1 ou 2 dicas práticas e curtas sobre como melhorar ou ajustar o fundamento mencionado.`
         : '';
 
+      const cyclingInstruction = sportName === 'cycling'
+        ? `\n\nATENÇÃO ESPECIAL CICLISMO: No ciclismo, velocidade média maior é uma melhora (higher_is_better). Diferencie pedais de rua (road), indoor/spinning (indoor) e mountain bike (mountain_bike). Não confunda velocidade média (km/h) com pace (min/km).`
+        : '';
+
       const prompt = `Você é um assistente de treino do aplicativo Pacelog.
         ${sessionRules}
 
-        Você recebeu dados estruturados de duas sessões de ${sportName}. Interprete a evolução ou mudança entre elas.${sportTipsInstruction}
+        Você recebeu dados estruturados de duas sessões de ${sportName}. Interprete a evolução ou mudança entre elas.${sportTipsInstruction}${cyclingInstruction}
 
         SESSÃO ATUAL (${currentData.period}):
         - Duração: ${currentData.durationMinutes} minutos

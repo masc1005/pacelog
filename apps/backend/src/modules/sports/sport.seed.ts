@@ -79,6 +79,26 @@ export const OFFICIAL_SPORTS = [
     active: true,
     order: 6,
   },
+  {
+    sportKey: 'cycling',
+    name: 'Ciclismo',
+    category: 'individual',
+    icon: 'Bike',
+    color: '#10B981',
+    supportedMetrics: [
+      'cyclingType',
+      'distanceKm',
+      'averageSpeedKmh',
+      'durationSeconds',
+      'elevationGainMeters',
+      'averageHeartRate',
+      'maxHeartRate',
+      'paceSecondsPerKm',
+    ],
+    description: 'Pedais de rua, indoor, spinning, mountain bike e mistos.',
+    active: true,
+    order: 7,
+  },
 ];
 
 export async function seedSports(): Promise<void> {

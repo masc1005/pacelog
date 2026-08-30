@@ -3,7 +3,7 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { apiClient } from '../../lib/api';
 import type { SessionDTO, SportKey } from '@pacelog/shared';
-import { Activity, Zap, Sun, Dumbbell, Flame, Search, Waves } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, Search, Waves, Bike } from 'lucide-react';
 import { formatDuration } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 
@@ -14,6 +14,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badg
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap, badge: 'crimson' },
   strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell, badge: 'purple' },
   swimming: { name: 'Natação', color: '#38BDF8', icon: Waves, badge: 'blue' },
+  cycling: { name: 'Ciclismo', color: '#10B981', icon: Bike, badge: 'green' },
 };
 
 export const SessionsPage: React.FC = () => {
@@ -97,6 +98,7 @@ export const SessionsPage: React.FC = () => {
                     <span className="font-mono text-[9px] text-[#8F9380] uppercase">Destaque</span>
                     <span className="font-display text-sm font-bold text-[#D4E4FA]">
                       {session.sportKey === 'running' ? `${(session.metrics?.distanceMeters || 0)/1000} km` : 
+                       session.sportKey === 'cycling' ? (session.metrics?.averageSpeedKmh ? `${session.metrics.averageSpeedKmh} km/h` : `${session.metrics?.distanceKm || 0} km`) :
                        session.sportKey === 'boxing' ? `${session.metrics?.roundsCount || 0} rds` : 
                        session.sportKey === 'swimming' ? `${session.metrics?.totalDistanceMeters || 0} m` : 
                        session.sportKey === 'strength' ? (session.metrics?.totalVolumeKg ? `${Math.round(session.metrics.totalVolumeKg)} kg` : `${session.metrics?.totalSets || 0} sets`) : '100%'}

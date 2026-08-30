@@ -57,6 +57,8 @@ export const SPORT_LABELS: Record<string, string> = {
   futevolei: 'Futevôlei',
   boxing: 'Boxe',
   strength: 'Musculação',
+  swimming: 'Natação',
+  cycling: 'Ciclismo',
 };
 
 /**

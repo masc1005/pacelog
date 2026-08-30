@@ -67,4 +67,13 @@ export const SPORTS_REGISTRY: Record<SportKey, SportConfig> = {
     color: '#38BDF8',
     defaultMetrics: ['totalDistanceMeters', 'durationSeconds', 'paceSecondsPer100m'],
   },
+  cycling: {
+    key: 'cycling',
+    name: 'Ciclismo',
+    category: 'individual',
+    icon: 'directions_bike',
+    primaryMetric: 'averageSpeedKmh',
+    color: '#10B981',
+    defaultMetrics: ['distanceKm', 'durationSeconds', 'averageSpeedKmh', 'cyclingType'],
+  },
 };

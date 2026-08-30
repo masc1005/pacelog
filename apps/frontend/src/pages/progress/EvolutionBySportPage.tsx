@@ -14,6 +14,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 function formatMetricValue(value: number | null | undefined, unit: string, key: string): string {
   if (value == null) return '—';
   if (key === 'paceSecondsPerKm') return formatPace(value);
+  if (key === 'averageSpeedKmh' || unit === 'km/h') return `${value.toFixed(1)} km/h`;
   if (unit === '%') return `${value.toFixed(1)}%`;
   if (unit === 'kg' && value >= 1000) return `${(value / 1000).toFixed(1)} t`;
   if (unit === 'AU') return `${value} AU`;
@@ -272,7 +273,7 @@ export const EvolutionBySportPage: React.FC = () => {
           </div>
           <p className="font-mono text-[10px] text-[#4A5568] mb-4">
             Carga em AU (Unidades Arbitrárias) · Volume em {
-              sportKey === 'running' ? 'km' : sportKey === 'strength' ? 'kg' : sportKey === 'boxing' ? 'rounds' : 'unidade'
+              sportKey === 'running' || sportKey === 'cycling' ? 'km' : sportKey === 'strength' ? 'kg' : sportKey === 'boxing' ? 'rounds' : 'unidade'
             }
           </p>
 

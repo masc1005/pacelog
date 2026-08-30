@@ -105,7 +105,7 @@ export const AIProgressInsight: React.FC = () => {
           <div className="flex items-center gap-1.5 text-[#8F9380]">
             <Activity className="h-3.5 w-3.5" />
             <span className="font-mono text-[10px] uppercase tracking-wider">
-              Motor Gemini 2.5 Flash
+              Motor Gemini 3.5 Flash
             </span>
           </div>
         </div>

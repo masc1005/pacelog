@@ -153,6 +153,25 @@ export const swimmingMetricsSchema = z.discriminatedUnion('environment', [
 ]);
 
 // ==========================================
+// CYCLING SCHEMAS
+// ==========================================
+
+export const cyclingTypeSchema = z.enum(['road', 'indoor', 'mountain_bike', 'mixed']);
+
+export const cyclingMetricsSchema = z.object({
+  cyclingType: cyclingTypeSchema.default('road'),
+  distanceKm: z.number().positive('Distância deve ser maior que 0'),
+  durationSeconds: z.number().positive('Duração deve ser positiva').optional(),
+  averageSpeedKmh: z.number().nonnegative().optional(),
+  paceSecondsPerKm: z.number().nonnegative().optional(),
+  elevationGainMeters: z.number().nonnegative().optional(),
+  averageHeartRate: z.number().positive().optional(),
+  maxHeartRate: z.number().positive().optional(),
+  bikeId: z.string().optional(),
+  notes: z.string().max(500).optional(),
+});
+
+// ==========================================
 // SCHEMAS DE CRIAÇÃO DISCRIMINADA DE SESSÃO
 // ==========================================
 
@@ -201,6 +220,12 @@ export const createSwimmingSessionSchema = z.object({
   metrics: swimmingMetricsSchema,
 });
 
+export const createCyclingSessionSchema = z.object({
+  sportKey: z.literal('cycling'),
+  ...baseSessionFields,
+  metrics: cyclingMetricsSchema,
+});
+
 export const createSessionSchema = z.discriminatedUnion('sportKey', [
   createRunningSessionSchema,
   createFootballSessionSchema,
@@ -208,6 +233,7 @@ export const createSessionSchema = z.discriminatedUnion('sportKey', [
   createBoxingSessionSchema,
   createStrengthSessionSchema,
   createSwimmingSessionSchema,
+  createCyclingSessionSchema,
 ]);
 
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;

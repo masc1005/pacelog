@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { apiClient } from '../../lib/api';
 import type { GoalDTO, SportKey } from '@pacelog/shared';
 import { useNavigate } from 'react-router-dom';
-import { Target, Activity, Flame, Sun, Zap, Dumbbell, Plus, Waves } from 'lucide-react';
+import { Target, Activity, Flame, Sun, Zap, Dumbbell, Plus, Waves, Bike } from 'lucide-react';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badge: 'cyan'|'amber'|'crimson'|'purple'|'green'|'blue' }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity, badge: 'cyan' },
@@ -14,6 +14,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badg
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap, badge: 'crimson' },
   strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell, badge: 'purple' },
   swimming: { name: 'Natação', color: '#38BDF8', icon: Waves, badge: 'blue' },
+  cycling: { name: 'Ciclismo', color: '#10B981', icon: Bike, badge: 'green' },
 };
 
 export const GoalsPage: React.FC = () => {

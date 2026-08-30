@@ -42,6 +42,9 @@ export function extractSessionVolume(session: SessionDataForGoal): number {
   if (sportKey === 'running' && metrics?.distanceMeters) {
     return metrics.distanceMeters / 1000; // km
   }
+  if (sportKey === 'cycling' && metrics?.distanceKm) {
+    return metrics.distanceKm; // km
+  }
   if (sportKey === 'strength' && metrics?.totalVolumeKg) {
     return metrics.totalVolumeKg; // kg
   }

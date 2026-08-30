@@ -112,6 +112,34 @@ export function enrichBoxingMetrics(metrics: BoxingMetrics): BoxingMetrics {
 }
 
 /**
+ * Enriquecimento automático de métricas de Ciclismo:
+ * - Velocidade média em km/h = distanceKm / (durationSeconds / 3600)
+ * - Pace equivalente em segundos por km = durationSeconds / distanceKm
+ */
+export function enrichCyclingMetrics(metrics: any, durationSeconds?: number): any {
+  const duration = durationSeconds || metrics.durationSeconds || 60;
+  const distanceKm = Number(metrics.distanceKm) || 0;
+
+  // Calcula velocidade média diretamente: Distância (km) / Tempo (horas)
+  const averageSpeedKmh = distanceKm > 0 && duration > 0
+    ? Math.round((distanceKm / (duration / 3600)) * 10) / 10
+    : (metrics.averageSpeedKmh || undefined);
+
+  // Calcula ritmo em segundos por km: Tempo (segundos) / Distância (km)
+  const paceSecondsPerKm = distanceKm > 0 && duration > 0
+    ? Math.round(duration / distanceKm)
+    : (metrics.paceSecondsPerKm || undefined);
+
+  return {
+    ...metrics,
+    distanceKm,
+    durationSeconds: duration,
+    averageSpeedKmh,
+    paceSecondsPerKm,
+  };
+}
+
+/**
  * Despacha o enriquecimento de métricas de acordo com a modalidade.
  */
 export function enrichSportMetrics(sportKey: SportKey, metrics: any, durationSeconds?: number): any {
@@ -126,6 +154,8 @@ export function enrichSportMetrics(sportKey: SportKey, metrics: any, durationSec
       return enrichBoxingMetrics(metrics);
     case 'swimming':
       return enrichSwimmingMetrics(metrics, durationSeconds || 0);
+    case 'cycling':
+      return enrichCyclingMetrics(metrics, durationSeconds || 0);
     case 'football':
     case 'futevolei':
     default:
@@ -155,6 +185,12 @@ export function computePrimaryMetric(
         : (metrics.paceSecondsPerKm ?? null);
       if (pace === null || pace <= 0) return null;
       return { key: 'paceSecondsPerKm', label: 'Pace médio', value: pace, unit: 's/km', direction: 'lower_is_better', comparability: 'same_metric' };
+    }
+
+    case 'cycling': {
+      const speed = metrics.averageSpeedKmh ?? (metrics.distanceKm && durationSeconds > 0 ? Math.round((metrics.distanceKm / (durationSeconds / 3600)) * 10) / 10 : null);
+      if (speed === null || speed <= 0) return null;
+      return { key: 'averageSpeedKmh', label: 'Velocidade média', value: speed, unit: 'km/h', direction: 'higher_is_better', comparability: 'same_sport' };
     }
 
     case 'football': {
