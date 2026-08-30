@@ -13,6 +13,7 @@ import {
   cancelSessionController,
   addExerciseController,
   removeExerciseController,
+  reorderExercisesController,
   addSetController,
   completeSetController,
   editSetController,
@@ -34,6 +35,7 @@ import {
   listStrengthSessionsQuerySchema,
   exerciseSearchQuerySchema,
   createCustomExerciseSchema,
+  reorderExercisesInputSchema,
 } from './strength-session.schemas.js';
 
 export const strengthRoutes = Router();
@@ -88,6 +90,12 @@ strengthRoutes.delete(
   '/sessions/:id/exercises/:exerciseId',
   removeExerciseController
 );
+// Rota específica antes de /:exerciseId para evitar captura indevida
+strengthRoutes.put(
+  '/sessions/:id/exercises/order',
+  validate(reorderExercisesInputSchema),
+  reorderExercisesController
+);
 
 // Séries
 strengthRoutes.post(
@@ -120,10 +128,12 @@ strengthRoutes.get(
   searchExercisesController
 );
 
-strengthRoutes.get('/exercises/:key', getExerciseByKeyController);
-
+// Rota POST específica registrada ANTES de GET /:key para evitar sombra
+// caso um GET /exercises/custom seja adicionado no futuro.
 strengthRoutes.post(
   '/exercises/custom',
   validate(createCustomExerciseSchema),
   createCustomExerciseController
 );
+
+strengthRoutes.get('/exercises/:key', getExerciseByKeyController);

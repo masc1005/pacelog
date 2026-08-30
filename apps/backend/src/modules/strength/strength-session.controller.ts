@@ -211,6 +211,23 @@ export async function removeExerciseController(
   }
 }
 
+export async function reorderExercisesController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const session = await strengthSessionService.reorderExercises(
+      req.userId!,
+      p(req.params.id),
+      (req.body as { orderedIds: string[] }).orderedIds
+    );
+    res.status(200).json({ success: true, data: session.toJSON() });
+  } catch (error) {
+    next(error);
+  }
+}
+
 // ==========================================
 // SÉRIES
 // ==========================================

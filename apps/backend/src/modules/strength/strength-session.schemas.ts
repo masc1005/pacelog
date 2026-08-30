@@ -48,3 +48,9 @@ export const createCustomExerciseSchema = z.object({
   type: z.enum(['compound', 'isolation', 'cardio', 'mobility', 'other']).optional(),
 });
 export type CreateCustomExerciseInput = z.infer<typeof createCustomExerciseSchema>;
+
+export const reorderExercisesInputSchema = z.object({
+  /** Array de IDs de exercícios na nova ordem desejada. Deve conter todos os IDs presentes na sessão. */
+  orderedIds: z.array(z.string().uuid()).min(1),
+});
+export type ReorderExercisesInput = z.infer<typeof reorderExercisesInputSchema>;

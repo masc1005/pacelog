@@ -79,6 +79,11 @@ const strengthExerciseEntrySchema = new Schema<IStrengthExerciseEntryDocument>(
 // SESSÃO ATIVA DE MUSCULAÇÃO
 // ==========================================
 
+/**
+ * Representa um documento de sessão de musculação no MongoDB.
+ * O nome "Active" é histórico — a coleção única armazena todos os status
+ * do ciclo de vida: active, paused, finishing, completed, cancelled, abandoned.
+ */
 export interface IActiveStrengthSessionDocument extends Document {
   userId: string;
   sportKey: 'strength';

@@ -18,6 +18,7 @@ import type {
   FinishSessionInput,
   PatchSessionInput,
 } from '@pacelog/shared';
+import { reorderExercises } from '@pacelog/shared';
 import type { IActiveStrengthSessionDocument } from './strength-session.model.js';
 import type { ListStrengthSessionsQuery } from './strength-session.schemas.js';
 
@@ -167,6 +168,30 @@ export class StrengthSessionService {
     session.exercises.splice(index, 1);
     // Reindexar ordem
     session.exercises.forEach((e, i) => (e.order = i));
+    session.clientVersion += 1;
+    session.lastActivityAt = new Date();
+
+    return session.save();
+  }
+
+  async reorderExercises(
+    userId: string,
+    sessionId: string,
+    orderedIds: string[]
+  ): Promise<IActiveStrengthSessionDocument> {
+    const session = await repo.findByIdOrFail(userId, sessionId);
+    this.assertIsEditable(session);
+
+    // Valida que orderedIds contém exatamente os IDs presentes na sessão
+    const existingIds = new Set(session.exercises.map((e) => e.id));
+    const hasAll = orderedIds.length === existingIds.size && orderedIds.every((id) => existingIds.has(id));
+    if (!hasAll) {
+      throw new StrengthExerciseNotFoundError(
+        orderedIds.find((id) => !existingIds.has(id)) ?? 'unknown'
+      );
+    }
+
+    session.exercises = reorderExercises(session.exercises as any, orderedIds) as any;
     session.clientVersion += 1;
     session.lastActivityAt = new Date();
 

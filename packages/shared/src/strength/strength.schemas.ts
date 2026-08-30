@@ -4,6 +4,7 @@ import {
   SET_STATUSES,
   STRENGTH_SET_TYPES,
   ACTIVE_SESSION_STATUSES,
+  STRENGTH_SESSION_STATUSES,
 } from './strength.enums.js';
 
 // ==========================================
@@ -52,7 +53,10 @@ export const activeStrengthSessionSchema = z.object({
   id: z.string(),
   userId: z.string(),
   sportKey: z.literal('strength'),
-  status: z.enum(ACTIVE_SESSION_STATUSES),
+  // Usa STRENGTH_SESSION_STATUSES (não ACTIVE_SESSION_STATUSES) para cobrir
+  // também sessões já finalizadas (completed, cancelled, abandoned) ao serializar
+  // respostas de /sessions/:id e do histórico.
+  status: z.enum(STRENGTH_SESSION_STATUSES),
 
   startedAt: z.string().datetime(),
   pausedAt: z.string().datetime().optional(),
@@ -134,6 +138,12 @@ export const finishSessionInputSchema = z.object({
 });
 export type FinishSessionInput = z.infer<typeof finishSessionInputSchema>;
 
+/**
+ * ATENÇÃO: se `clientVersion` for enviado e diferir da versão atual no servidor,
+ * o endpoint lança `STRENGTH_SESSION_VERSION_CONFLICT` (409).
+ * Use para detectar edições concorrentes entre dispositivos.
+ * Omita se não quiser verificação de versão.
+ */
 export const patchSessionInputSchema = z.object({
   notes: z.string().max(1000).optional(),
   clientVersion: z.number().int().nonnegative().optional(),
