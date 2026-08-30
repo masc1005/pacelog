@@ -134,6 +134,157 @@ export class InsightService {
     return this.mapToDTO(newInsight);
   }
 
+  // ==========================================
+  // INSIGHTS DE FORÇA
+  // ==========================================
+
+  /**
+   * Retorna insight de sessão de força já gerado, sem chamar a IA.
+   * Retorna null se ainda não foi gerado.
+   */
+  async getStrengthSessionInsight(userId: string, sessionId: string): Promise<AIInsightDTO | null> {
+    const existing = await InsightModel.findOne({
+      userId,
+      sessionId,
+      type: 'strength_session_analysis',
+    });
+    if (!existing) return null;
+    return this.mapToDTO(existing);
+  }
+
+  /**
+   * Gera (ou regenera com force=true) o insight de uma sessão de força finalizada.
+   * Busca a sessão no ActiveStrengthSessionModel e compara com a anterior.
+   */
+  async generateStrengthSessionInsight(
+    userId: string,
+    sessionId: string,
+    force = false
+  ): Promise<AIInsightDTO> {
+    if (force) {
+      await InsightModel.deleteOne({ userId, sessionId, type: 'strength_session_analysis' });
+    }
+
+    const existing = await InsightModel.findOne({
+      userId,
+      sessionId,
+      type: 'strength_session_analysis',
+    });
+    if (existing) return this.mapToDTO(existing);
+
+    // Import lazy para evitar dependência circular
+    const { ActiveStrengthSessionModel } = await import('../strength/strength-session.model.js');
+
+    const current = await ActiveStrengthSessionModel.findOne({ _id: sessionId, userId });
+    if (!current) throw new Error('Sessão de força não encontrada');
+    if (current.status !== 'completed') throw new Error('A sessão ainda não foi finalizada');
+
+    const previous = await ActiveStrengthSessionModel.findOne({
+      userId,
+      status: 'completed',
+      startedAt: { $lt: current.startedAt },
+    }).sort({ startedAt: -1 });
+
+    const content = await this.generateStrengthInsightFromGemini(current, previous);
+
+    const newInsight = await InsightModel.create({
+      userId,
+      sessionId,
+      content,
+      type: 'strength_session_analysis',
+    });
+
+    return this.mapToDTO(newInsight);
+  }
+
+  /**
+   * Gera o texto do insight via Gemini com dados estruturados de força.
+   * A IA interpreta — não calcula — volume, séries e 1RM já computados pelo backend.
+   */
+  private async generateStrengthInsightFromGemini(current: any, previous: any | null): Promise<string> {
+    try {
+      const formatSession = (session: any) => {
+        const durationMin = session.durationSeconds ? Math.round(session.durationSeconds / 60) : null;
+        const exercises = (session.exercises ?? []).map((ex: any) => {
+          const completed = ex.sets.filter((s: any) => s.status === 'completed');
+          const volume = completed.reduce((acc: number, s: any) => {
+            if (s.load != null && s.reps != null && s.loadUnit === 'kg') {
+              return acc + s.load * s.reps;
+            }
+            return acc;
+          }, 0);
+          return {
+            name: ex.exerciseNameSnapshot,
+            completedSets: completed.length,
+            totalSets: ex.sets.length,
+            volumeKg: volume > 0 ? volume : null,
+          };
+        });
+        return {
+          date: new Date(session.startedAt).toLocaleDateString('pt-BR'),
+          durationMinutes: durationMin,
+          totalVolumeKg: session.totalVolumeKg ?? null,
+          completedSets: session.completedSets ?? null,
+          totalSets: session.totalSets ?? null,
+          estimatedOneRepMax: session.estimatedOneRepMax ?? null,
+          exercises,
+          notes: session.notes ?? null,
+        };
+      };
+
+      const currentData = formatSession(current);
+      const previousData = previous ? formatSession(previous) : null;
+
+      const strengthRules = AI_SYSTEM_RULES_V2.replace(
+        '- Retorne estritamente um objeto JSON estruturado. Não adicione markdown ou textos antes/depois do JSON.',
+        '- Retorne a interpretação em texto simples e direto, em até 3 frases curtas, sem markdown ou JSON.'
+      );
+
+      const prompt = `Você é um assistente de treino de musculação do aplicativo Pacelog.
+${strengthRules}
+
+Você recebeu dados de uma sessão de treino de força. Interprete a evolução ou o desempenho com base nos dados.
+
+SESSÃO ATUAL (${currentData.date}):
+- Duração: ${currentData.durationMinutes != null ? `${currentData.durationMinutes} min` : 'não informada'}
+- Volume total: ${currentData.totalVolumeKg != null ? `${currentData.totalVolumeKg.toFixed(1)} kg` : 'não calculado'}
+- Séries: ${currentData.completedSets ?? '?'}/${currentData.totalSets ?? '?'} completas
+- 1RM estimado: ${currentData.estimatedOneRepMax != null ? `${currentData.estimatedOneRepMax.toFixed(1)} kg` : 'não calculado'}
+- Exercícios: ${JSON.stringify(currentData.exercises)}
+${currentData.notes ? `- Notas do atleta: "${currentData.notes}"` : ''}
+
+${previousData
+  ? `SESSÃO ANTERIOR (${previousData.date}):
+- Duração: ${previousData.durationMinutes != null ? `${previousData.durationMinutes} min` : 'não informada'}
+- Volume total: ${previousData.totalVolumeKg != null ? `${previousData.totalVolumeKg.toFixed(1)} kg` : 'não calculado'}
+- Séries: ${previousData.completedSets ?? '?'}/${previousData.totalSets ?? '?'} completas
+- 1RM estimado: ${previousData.estimatedOneRepMax != null ? `${previousData.estimatedOneRepMax.toFixed(1)} kg` : 'não calculado'}
+- Exercícios: ${JSON.stringify(previousData.exercises)}
+${previousData.notes ? `- Notas do atleta: "${previousData.notes}"` : ''}
+
+Compare as sessões. Destaque evolução de volume, séries completas ou 1RM. Leve as notas em consideração se houver.`
+  : `Esta é a primeira sessão de musculação registrada. Descreva o que os dados mostram sem comparar com histórico inexistente.`}
+
+Interpretação:`;
+
+      if (!this.ai) {
+        return previousData
+          ? `Volume: de ${previousData.totalVolumeKg?.toFixed(0) ?? '?'} kg para ${currentData.totalVolumeKg?.toFixed(0) ?? '?'} kg. Continue registrando para construir seu histórico.`
+          : `Primeira sessão de musculação registrada. Volume total: ${currentData.totalVolumeKg?.toFixed(0) ?? 'não calculado'} kg. Continue registrando!`;
+      }
+
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+      });
+
+      return response.text || 'Sessão de musculação registrada. Acompanhe sua evolução de volume e séries.';
+    } catch (error) {
+      console.error('[InsightService] Gemini Strength Generation Failed:', error);
+      return 'Sessão registrada com sucesso. Continue treinando para construir seu histórico de força.';
+    }
+  }
+
   /**
    * Gera insight de sessão enviando dados estruturados — sem linguagem médica no prompt.
    */

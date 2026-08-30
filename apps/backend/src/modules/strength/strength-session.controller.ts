@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { strengthSessionService } from './strength-session.service.js';
+import { insightService } from '../insights/insight.service.js';
 import type {
   StartStrengthSessionInput,
   AddExerciseInput,
@@ -298,6 +299,45 @@ export async function removeSetController(
       p(req.params.setId)
     );
     res.status(200).json({ success: true, data: session.toJSON() });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ==========================================
+// INSIGHTS DE IA
+// ==========================================
+
+export async function getStrengthInsightController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.userId!;
+    const id = p(req.params.id);
+    const insight = await insightService.getStrengthSessionInsight(userId, id);
+    if (!insight) {
+      res.status(404).json({ success: false, message: 'Insight ainda não foi gerado para esta sessão.' });
+      return;
+    }
+    res.status(200).json({ success: true, data: insight });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function generateStrengthInsightController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.userId!;
+    const id = p(req.params.id);
+    const force = req.query.force === 'true';
+    const insight = await insightService.generateStrengthSessionInsight(userId, id, force);
+    res.status(200).json({ success: true, data: insight });
   } catch (error) {
     next(error);
   }

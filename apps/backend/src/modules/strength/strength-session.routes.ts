@@ -18,6 +18,8 @@ import {
   completeSetController,
   editSetController,
   removeSetController,
+  getStrengthInsightController,
+  generateStrengthInsightController,
 } from './strength-session.controller.js';
 import {
   searchExercisesController,
@@ -79,6 +81,15 @@ strengthRoutes.post(
   finishSessionController
 );
 strengthRoutes.post('/sessions/:id/cancel', cancelSessionController);
+
+// ==========================================
+// INSIGHTS DE IA
+// ==========================================
+
+// GET: retorna insight já gerado (404 se ainda não existe)
+strengthRoutes.get('/sessions/:id/insight', getStrengthInsightController);
+// POST: gera ou regenera o insight (?force=true para forçar regeração)
+strengthRoutes.post('/sessions/:id/insight/generate', generateStrengthInsightController);
 
 // Exercícios dentro da sessão
 strengthRoutes.post(
