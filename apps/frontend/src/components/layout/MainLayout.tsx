@@ -3,6 +3,7 @@ import { Outlet, NavLink } from 'react-router-dom';
 
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
+import { ActiveStrengthFloatingBar } from './ActiveStrengthFloatingBar';
 import { House, ListChecks, ChartNoAxesCombined, CircleUserRound, Plus } from 'lucide-react';
 import { clsx } from 'clsx';
 import { SessionCreatorSheet } from '../navigation/SessionCreatorSheet';
@@ -63,6 +64,9 @@ export const MainLayout: React.FC = () => {
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 pb-24 md:pb-12 animate-fadeIn">
         <Outlet />
       </main>
+
+      {/* Widget flutuante de treino ativo em segundo plano */}
+      <ActiveStrengthFloatingBar />
 
       <BottomNav />
 

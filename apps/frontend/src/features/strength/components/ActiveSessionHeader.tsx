@@ -1,7 +1,7 @@
 import React from 'react';
 import { formatDuration } from '../hooks/useSessionTimer';
 import type { ActiveStrengthSession } from '@pacelog/shared';
-import { X } from 'lucide-react';
+import { X, ArrowLeft } from 'lucide-react';
 
 interface ActiveSessionHeaderProps {
   session: ActiveStrengthSession;
@@ -10,6 +10,7 @@ interface ActiveSessionHeaderProps {
   onResume: () => void;
   onFinish: () => void;
   onCancel?: () => void;
+  onMinimize?: () => void;
   isLoading?: boolean;
 }
 
@@ -20,17 +21,32 @@ export const ActiveSessionHeader: React.FC<ActiveSessionHeaderProps> = ({
   onResume,
   onFinish,
   onCancel,
+  onMinimize,
   isLoading = false,
 }) => {
   const isPaused = session.status === 'paused';
 
   return (
     <div className="flex items-center justify-between p-4 bg-[#051424] border-b border-[#1F2937]">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-display text-lg font-bold text-[#D4E4FA] uppercase tracking-wide">
-          Sessão de Musculação
-        </h1>
-        <SessionTimer seconds={elapsedSeconds} isPaused={isPaused} />
+      <div className="flex items-center gap-3">
+        {onMinimize && (
+          <button
+            id="btn-minimize-session"
+            type="button"
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-[#1F2937]/70 text-[#D4E4FA] hover:bg-[#1F2937] hover:text-white border border-[#1F2937] transition-colors"
+            onClick={onMinimize}
+            title="Minimizar treino e voltar ao app"
+            aria-label="Minimizar treino"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+        )}
+        <div className="flex flex-col gap-0.5">
+          <h1 className="font-display text-base sm:text-lg font-bold text-[#D4E4FA] uppercase tracking-wide">
+            Sessão de Musculação
+          </h1>
+          <SessionTimer seconds={elapsedSeconds} isPaused={isPaused} />
+        </div>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">

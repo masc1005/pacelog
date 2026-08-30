@@ -118,6 +118,7 @@ export const ActiveStrengthSessionPage: React.FC = () => {
           onResume={mutations.resume}
           onFinish={handleFinish}
           onCancel={() => setShowDiscardModal(true)}
+          onMinimize={() => navigate('/sessions')}
         />
       </div>
 
