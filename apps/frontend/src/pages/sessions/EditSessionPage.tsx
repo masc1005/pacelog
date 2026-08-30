@@ -382,6 +382,13 @@ export const EditSessionPage: React.FC = () => {
                   </select>
                 </div>
                 <Input
+                  label="Duração da Atividade (min)"
+                  type="number"
+                  min={1}
+                  value={durationMinutes || ''}
+                  onChange={e => setDurationMinutes(Number(e.target.value))}
+                />
+                <Input
                   label="Distância (km)"
                   type="number"
                   step="0.1"
@@ -391,8 +398,8 @@ export const EditSessionPage: React.FC = () => {
                 />
                 
                 {/* Live Speed Preview */}
-                <div className="flex flex-col gap-1 p-3 bg-[#161C24] border border-[#10B981]/40 rounded justify-center">
-                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Velocidade Prevista</span>
+                <div className="flex flex-col gap-1 p-3 bg-[#161C24] border border-[#10B981]/40 rounded justify-center col-span-2 sm:col-span-1">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Velocidade Média Prevista</span>
                   <span className="font-display text-lg font-bold text-[#10B981]">
                     {metrics.distanceKm && durationMinutes > 0
                       ? `${((metrics.distanceKm / (durationMinutes / 60))).toFixed(1)} km/h`
