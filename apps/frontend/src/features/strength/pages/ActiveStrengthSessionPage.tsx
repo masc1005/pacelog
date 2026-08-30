@@ -19,6 +19,8 @@ export const ActiveStrengthSessionPage: React.FC = () => {
   const restTimerHook = useRestTimer();
 
   const [showExerciseSearch, setShowExerciseSearch] = useState(false);
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
   const handleMutationError = useCallback((err: Error) => {
@@ -82,8 +84,27 @@ export const ActiveStrengthSessionPage: React.FC = () => {
     restTimerHook.start(90, { exerciseId, setId });
   }
 
-  async function handleFinish() {
-    navigate('/strength/review', { state: { sessionId: session!.id } });
+  function handleFinish() {
+    if (!session || session.exercises.length === 0) {
+      setShowDiscardModal(true);
+      return;
+    }
+    navigate('/strength/review', { state: { sessionId: session.id } });
+  }
+
+  async function handleConfirmDiscard() {
+    if (!session) return;
+    setIsDiscarding(true);
+    try {
+      await mutations.cancel();
+      navigate('/sessions', { replace: true });
+    } catch (err) {
+      console.error('Erro ao descartar sessão:', err);
+      navigate('/sessions', { replace: true });
+    } finally {
+      setIsDiscarding(false);
+      setShowDiscardModal(false);
+    }
   }
 
   return (
@@ -96,6 +117,7 @@ export const ActiveStrengthSessionPage: React.FC = () => {
           onPause={mutations.pause}
           onResume={mutations.resume}
           onFinish={handleFinish}
+          onCancel={() => setShowDiscardModal(true)}
         />
       </div>
 
@@ -157,6 +179,43 @@ export const ActiveStrengthSessionPage: React.FC = () => {
             onSelect={handleSelectExercise}
             onClose={() => setShowExerciseSearch(false)}
           />
+        </div>
+      )}
+
+      {/* Modal de confirmação para Descartar / Cancelar Sessão */}
+      {showDiscardModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in" role="dialog" aria-modal="true">
+          <div className="bg-[#0D1C2D] border border-[#1F2937] p-6 rounded-[4px] max-w-sm w-full flex flex-col gap-4 shadow-2xl">
+            <div className="flex flex-col gap-1.5">
+              <h3 className="font-display text-lg font-bold text-[#D4E4FA] uppercase tracking-wide">
+                {session!.exercises.length === 0 ? 'Nenhum Exercício Registrado' : 'Descartar Treino?'}
+              </h3>
+              <p className="font-mono text-xs text-[#8F9380] leading-relaxed">
+                {session!.exercises.length === 0
+                  ? 'Você ainda não adicionou nenhum exercício nesta sessão. Deseja desistir e descartar este treino?'
+                  : 'Tem certeza que deseja desistir desta sessão? O progresso deste treino não será salvo no histórico.'}
+              </p>
+            </div>
+
+            <div className="flex gap-3 mt-2">
+              <button
+                type="button"
+                className="flex-1 py-2.5 px-3 border border-[#1F2937] text-[#C5C8B4] hover:bg-[#161C24] font-mono text-xs uppercase font-bold tracking-widest rounded-[2px] transition-colors"
+                onClick={() => setShowDiscardModal(false)}
+                disabled={isDiscarding}
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                className="flex-1 py-2.5 px-3 bg-[#FF6B35] text-[#0A0D14] hover:bg-[#e05a2b] font-mono text-xs uppercase font-bold tracking-widest rounded-[2px] transition-colors shadow-[0_0_10px_rgba(255,107,53,0.2)] disabled:opacity-50"
+                onClick={handleConfirmDiscard}
+                disabled={isDiscarding}
+              >
+                {isDiscarding ? 'Descartando…' : 'Descartar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
