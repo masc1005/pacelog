@@ -8,6 +8,8 @@ import { SPORT_KEYS, type SportKey, type SessionDTO } from '@pacelog/shared';
 import { apiClient } from '../../lib/api';
 import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, ChevronDown, Waves, Bike, Shield } from 'lucide-react';
 import { ShoePicker } from '../../components/shoes/ShoePicker';
+import { toLocalInputDateTime } from '../../lib/utils';
+import { RpeSelector } from '../../components/ui/RpeSelector';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity },
@@ -30,7 +32,7 @@ export const NewSessionPage: React.FC = () => {
 
   // Form State
   const [sportKey, setSportKey] = useState<SportKey>(stateKey || 'running');
-  const [startedAt, setStartedAt] = useState<string>(new Date().toISOString().slice(0, 16));
+  const [startedAt, setStartedAt] = useState<string>(() => toLocalInputDateTime(new Date()));
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
   const [rpe, setRpe] = useState<number>(5);
   const [notes, setNotes] = useState<string>('');
@@ -752,48 +754,14 @@ export const NewSessionPage: React.FC = () => {
       {/* STEP 3: RPE and Notes */}
       {step === 3 && (
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4">
-          <Card className="p-6 bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-6">
-            <div>
-              <label className="block font-mono text-xs text-[#C5C8B4] uppercase tracking-widest mb-4">
-                Percepção Subjetiva de Esforço (RPE)
-              </label>
-              
-              <div className="flex items-center gap-4 mb-2">
-                <span className="font-display text-4xl font-bold text-[#FF6B35]">{rpe}</span>
-                <div className="flex-1 flex flex-col gap-1">
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    step="1"
-                    value={rpe}
-                    onChange={e => setRpe(Number(e.target.value))}
-                    className="w-full accent-[#FF6B35]"
-                  />
-                  <div className="flex justify-between font-mono text-[9px] text-[#8F9380] px-1">
-                    <span>1 (Muito Leve)</span>
-                    <span>10 (Exaustivo)</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 p-3 bg-[#161C24] border border-[#1F2937] rounded-[2px] flex items-center justify-between">
-                <span className="font-mono text-[10px] text-[#C5C8B4] uppercase">Carga Sessional (Foster TRIMP)</span>
-                <span className="font-mono text-sm font-bold text-[#D4F684]">{rpe * durationMinutes}</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-mono text-xs text-[#C5C8B4] uppercase tracking-widest mb-2">
-                Notas Táticas (Opcional)
-              </label>
-              <textarea
-                className="w-full input-precision min-h-[80px] p-2 text-sm resize-y"
-                placeholder="Como foi o desempenho? Sentiu alguma dor?"
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-              />
-            </div>
+          <Card className="p-6 bg-[#0D1C2D] border-[#1F2937]">
+            <RpeSelector
+              rpe={rpe}
+              onChangeRpe={setRpe}
+              durationMinutes={durationMinutes}
+              notes={notes}
+              onChangeNotes={setNotes}
+            />
           </Card>
         </div>
       )}

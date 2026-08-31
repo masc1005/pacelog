@@ -330,7 +330,7 @@ export const HomePage: React.FC = () => {
                         {new Date(session.startedAt).toLocaleDateString('pt-BR', {
                           day: '2-digit',
                           month: 'short',
-                        })}
+                        })} • {new Date(session.startedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
 

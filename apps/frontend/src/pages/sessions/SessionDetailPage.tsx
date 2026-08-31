@@ -136,7 +136,7 @@ export const SessionDetailPage: React.FC = () => {
             <Badge variant={meta.badge} size="sm">Completo</Badge>
           </div>
           <span className="font-mono text-xs text-[#8F9380]">
-            {new Date(session.startedAt).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+            {new Date(session.startedAt).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })} às {new Date(session.startedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
       </Card>

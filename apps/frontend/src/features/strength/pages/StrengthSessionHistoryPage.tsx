@@ -65,7 +65,7 @@ export const StrengthSessionHistoryPage: React.FC = () => {
                     weekday: 'long',
                     day: '2-digit',
                     month: 'short',
-                  })}
+                  })} • {new Date(session.startedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <span className="font-mono text-xs text-[#8F9380] uppercase tracking-widest">
                   {formatDuration(session.durationSeconds)}

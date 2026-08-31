@@ -82,7 +82,9 @@ export const SessionsPage: React.FC = () => {
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
                       <span className="font-display text-lg font-bold text-[#D4E4FA] uppercase">{meta.name}</span>
-                      <Badge variant={meta.badge} size="sm">{new Date(session.startedAt).toLocaleDateString('pt-BR')}</Badge>
+                      <Badge variant={meta.badge} size="sm">
+                        {new Date(session.startedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} • {new Date(session.startedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </Badge>
                     </div>
                     <span className="font-mono text-[10px] text-[#8F9380] uppercase mt-1">
                       DURAÇÃO: {formatDuration(session.durationSeconds)} | CARGA sRPE: {session.sessionalLoad}

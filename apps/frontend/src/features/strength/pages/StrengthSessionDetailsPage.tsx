@@ -66,11 +66,14 @@ export const StrengthSessionDetailsPage: React.FC = () => {
     );
   }
 
-  const date = new Date(session.startedAt).toLocaleDateString('pt-BR', {
+  const date = `${new Date(session.startedAt).toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  });
+  })} às ${new Date(session.startedAt).toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
 
   return (
     <div className="flex flex-col max-w-2xl mx-auto w-full p-4 sm:p-0 gap-6 pb-24">

@@ -9,27 +9,8 @@ import { ExerciseEntryCard } from '../components/ExerciseEntryCard';
 import { ExerciseSearch } from '../components/ExerciseSearch';
 import { RestTimer } from '../components/RestTimer';
 import { strengthApi } from '../../../services/strength.api';
+import { RpeSelector } from '../../../components/ui/RpeSelector';
 import type { Exercise, StrengthSet } from '@pacelog/shared';
-
-const RPE_LABELS: Record<number, string> = {
-  1: '1 · Muito Leve / Recuperação',
-  2: '2 · Leve / Fácil',
-  3: '3 · Moderado / Confortável',
-  4: '4 · Relativamente Difícil',
-  5: '5 · Difícil / Ritmo Firme',
-  6: '6 · Intenso',
-  7: '7 · Muito Difícil (2-3 reps na reserva)',
-  8: '8 · Pesado (1-2 reps na reserva)',
-  9: '9 · Extremo (Limite da falha)',
-  10: '10 · Exaustão Máxima / Falha Total',
-};
-
-function getRpeColor(val: number): string {
-  if (val <= 4) return '#39FF14';
-  if (val <= 6) return '#FFB800';
-  if (val <= 8) return '#FF6B35';
-  return '#FF3366';
-}
 
 export const ActiveStrengthSessionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -172,7 +153,6 @@ export const ActiveStrengthSessionPage: React.FC = () => {
   }
 
   const durationMinutes = Math.max(1, Math.round(elapsedSeconds / 60));
-  const estimatedSrpe = finishRpe * durationMinutes;
   const completedSetsCount = session?.exercises.reduce(
     (acc, ex) => acc + ex.sets.filter((s) => s.status === 'completed').length,
     0
@@ -312,83 +292,15 @@ export const ActiveStrengthSessionPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Percepção Subjetiva de Esforço (RPE) */}
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <label className="font-mono text-xs text-[#C5C8B4] uppercase tracking-widest">
-                  Esforço Percebido (RPE)
-                </label>
-                <span
-                  className="font-display text-2xl font-bold"
-                  style={{ color: getRpeColor(finishRpe) }}
-                >
-                  {finishRpe} / 10
-                </span>
-              </div>
-
-              {/* Rótulo descritivo da Escala Borg */}
-              <div
-                className="p-2.5 rounded-lg border font-mono text-xs font-semibold text-center transition-colors"
-                style={{
-                  backgroundColor: `${getRpeColor(finishRpe)}15`,
-                  borderColor: `${getRpeColor(finishRpe)}40`,
-                  color: getRpeColor(finishRpe),
-                }}
-              >
-                {RPE_LABELS[finishRpe]}
-              </div>
-
-              {/* Slider interativo */}
-              <input
-                type="range"
-                min="1"
-                max="10"
-                step="1"
-                value={finishRpe}
-                onChange={(e) => setFinishRpe(Number(e.target.value))}
-                className="w-full accent-[#A855F7] h-2 bg-[#161C24] rounded-lg cursor-pointer"
-              />
-
-              {/* Botões numéricos rápidos 1-10 */}
-              <div className="grid grid-cols-10 gap-1 mt-1">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                  <button
-                    key={num}
-                    type="button"
-                    onClick={() => setFinishRpe(num)}
-                    className={`py-1.5 rounded text-xs font-mono font-bold transition-all ${
-                      finishRpe === num
-                        ? 'bg-[#A855F7] text-white shadow-[0_0_10px_rgba(168,85,247,0.5)] scale-105'
-                        : 'bg-[#161C24] text-[#8F9380] border border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
-                    }`}
-                  >
-                    {num}
-                  </button>
-                ))}
-              </div>
-
-              {/* Card de Carga Sessional Calculada (Foster TRIMP) */}
-              <div className="p-3 bg-[#161C24] border border-[#1F2937] rounded-lg flex items-center justify-between mt-1">
-                <div className="flex flex-col">
-                  <span className="font-mono text-[10px] text-[#C5C8B4] uppercase">Carga Sessional Prevista</span>
-                  <span className="font-mono text-[9px] text-[#8F9380]">Foster TRIMP ({durationMinutes} min × RPE {finishRpe})</span>
-                </div>
-                <span className="font-mono text-base font-bold text-[#D4F684]">{estimatedSrpe} AU</span>
-              </div>
-            </div>
-
-            {/* Notas Táticas / Observações */}
-            <div className="flex flex-col gap-1.5">
-              <label className="font-mono text-xs text-[#C5C8B4] uppercase tracking-widest">
-                Notas do Treino (Opcional)
-              </label>
-              <textarea
-                className="w-full input-precision min-h-[70px] p-2.5 text-xs rounded border border-[#1F2937] bg-[#161C24] text-[#D4E4FA] placeholder-[#8F9380] focus:border-[#A855F7] outline-none resize-none"
-                placeholder="Como sentiu o treino? Dor articular, bom pump, ajuste de carga..."
-                value={finishNotes}
-                onChange={(e) => setFinishNotes(e.target.value)}
-              />
-            </div>
+            {/* Percepção Subjetiva de Esforço (RPE) & Notas */}
+            <RpeSelector
+              rpe={finishRpe}
+              onChangeRpe={setFinishRpe}
+              durationMinutes={durationMinutes}
+              notes={finishNotes}
+              onChangeNotes={setFinishNotes}
+              notesPlaceholder="Como sentiu o treino? Dor articular, bom pump, ajuste de carga..."
+            />
 
             {/* Botões de Ação */}
             <div className="flex gap-3 mt-1">
