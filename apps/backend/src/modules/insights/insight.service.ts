@@ -8,13 +8,20 @@ import { LOAD_DISCLAIMER } from '../progress/baseline.service.js';
 import { z } from 'zod';
 
 const aiProgressInsightSchema = z.object({
-  headline: z.string().describe('Um título curto e motivador resumindo a evolução atual (ex: "Consistência no Boxe e Melhora no Pace")'),
-  summary: z.string().describe('Um parágrafo curto (max 2 frases) avaliando o progresso do usuário no período. Foco em consistência, evolução relativa e esforço investido.'),
-  topProgress: z.array(z.object({
-    sportKey: z.string(),
-    metric: z.string(),
-    description: z.string().describe('Explicação de uma frase do porquê foi uma evolução (ex: "Seu pace caiu de 6:05 para 5:45 mantendo o mesmo volume.")')
-  })).describe('Lista dos 2 maiores destaques de progresso no período, baseados em métricas ou consistência.')
+  headline: z.string().describe('string, máximo 60 caracteres, foco na maior evolução do período'),
+  summary: z.string().describe('string, 2 a 4 frases, explica a evolução central usando valores concretos'),
+  topProgress: z.array(
+    z.object({
+      sportKey: z.string().describe('string, chave exata do esporte nos dados fornecidos'),
+      metric: z.string().describe('string, nome da métrica que evoluiu'),
+      previousValue: z.string().optional().nullable(),
+      currentValue: z.string().optional().nullable(),
+      variation: z.string().optional().nullable(),
+      loadNote: z.string().optional().nullable(),
+      description: z.string().describe('string, 1 a 2 frases explicando a evolução com os valores acima'),
+    })
+  ).describe('Lista dos destaques de evolução no período.'),
+  hasEvolution: z.boolean().optional().default(true),
 });
 
 // ==========================================
@@ -393,40 +400,88 @@ Interpretação:`;
         loadContext: comparison.loadContext
       };
 
-      const prompt = `Você é o analista de progresso esportivo do PACELOG.
+      const prompt = `Você é o analista de evolução esportiva do PACELOG.
 ${AI_SYSTEM_RULES_V2}
 
-Você recebeu os seguintes dados de progresso dos últimos ${aiContext.period}:
+## OBJETIVO PRINCIPAL
+Sua única prioridade é identificar e explicar EVOLUÇÃO real do atleta no período.
+Evolução = melhoria em uma métrica de desempenho (ex: pace, volume, distância, 1RM)
+mantendo ou reduzindo a carga (sRPE-TL) necessária para atingi-la.
+Consistência (frequência) é evolução secundária: treinar mais vezes que o período
+anterior também conta como progresso, mesmo sem melhoria de métrica.
 
-DADOS DE CONSISTÊNCIA GERAL:
+## O QUE NÃO É EVOLUÇÃO
+- Carga mais alta sozinha, sem melhoria de métrica, NÃO é evolução.
+- Volume maior sem melhoria de métrica é "aumento de volume", não "evolução".
+- Se uma métrica melhorou mas a carga aumentou proporcionalmente mais, trate como
+  "manutenção com maior esforço", não como evolução.
+
+## REGRAS OBRIGATÓRIAS
+1. Nunca use termos como "risco de lesão", "zona de perigo", "overtraining",
+   "fadiga", "sobrecarga" ou qualquer linguagem médica/clínica.
+2. Nunca faça diagnóstico, nunca recomende tratamento, nunca sugira ajuste de
+   treino como se fosse prescrição.
+3. Use SOMENTE os dados fornecidos abaixo. Não invente valores, datas, esportes
+   ou relações de causa e efeito que não estejam explícitas nos dados.
+4. Se os dados não permitirem identificar evolução clara em nenhum esporte,
+   retorne "topProgress": [] e diga isso explicitamente no summary.
+5. Toda métrica citada deve vir acompanhada do valor atual e do valor anterior
+   (ou variação percentual), nunca uma afirmação de melhora sem os dois pontos.
+6. Retorne ESTRITAMENTE um único objeto JSON válido. Sem markdown, sem \`\`\`json,
+   sem texto antes ou depois do JSON.
+
+## DADOS DISPONÍVEIS
+
+Período analisado: ${aiContext.period}
+
+Consistência geral:
 ${aiContext.overallConsistency}
 
-PROGRESSO POR ESPORTE (Apenas as modalidades com dados recentes):
+Progresso por esporte (apenas modalidades com dados recentes):
 ${JSON.stringify(aiContext.sports, null, 2)}
 
-RANKING CALCULADO:
-- Maior Evolução (mostImproved): ${aiContext.ranking.mostImproved ?? 'Nenhum'}
-- Maior Consistência (mostConsistent): ${aiContext.ranking.mostConsistent ?? 'Nenhum'}
-- Mais Eficiente (mostEfficient): ${aiContext.ranking.mostEfficient ?? 'Nenhum'}
+Ranking calculado:
+- Maior evolução (mostImproved): ${aiContext.ranking.mostImproved ?? 'Nenhum'}
+- Maior consistência (mostConsistent): ${aiContext.ranking.mostConsistent ?? 'Nenhum'}
+- Mais eficiente (mostEfficient): ${aiContext.ranking.mostEfficient ?? 'Nenhum'}
 
-CONTEXTO DE CARGA (Para não interpretar carga isolada como evolução):
+Contexto de carga (use apenas para qualificar se a evolução veio com mais ou
+menos esforço; NUNCA trate isoladamente como evolução):
 ${JSON.stringify(aiContext.loadContext, null, 2)}
 
-Sua tarefa: Retornar um JSON válido com a seguinte estrutura:
-{
-  "headline": "Título curto",
-  "summary": "Parágrafo resumindo a evolução",
-  "topProgress": [{"sportKey": "...", "metric": "...", "description": "..."}]
-}
-Lembre que: ${LOAD_DISCLAIMER}
+## FORMATO DE SAÍDA (JSON estrito)
 
-Apenas o JSON, sem markdown.`;
+{
+  "headline": "string, máximo 60 caracteres, foco na maior evolução do período",
+  "summary": "string, 2 a 4 frases, explica a evolução central usando valores concretos",
+  "topProgress": [
+    {
+      "sportKey": "string, chave exata do esporte nos dados fornecidos",
+      "metric": "string, nome da métrica que evoluiu",
+      "previousValue": "string, valor anterior formatado",
+      "currentValue": "string, valor atual formatado",
+      "variation": "string, variação percentual ou absoluta",
+      "loadNote": "string ou null, nota sobre carga apenas se relevante para qualificar a evolução",
+      "description": "string, 1 a 2 frases explicando a evolução com os valores acima"
+    }
+  ],
+  "hasEvolution": true ou false
+}
+
+Se não houver evolução identificável em nenhum esporte, retorne:
+"topProgress": [] e "hasEvolution": false, com o summary explicando isso
+de forma direta, sem inventar progresso.
+
+Lembre-se: ${LOAD_DISCLAIMER}
+
+Apenas o JSON. Nenhum texto antes ou depois.`;
 
       if (!this.ai) {
         return JSON.stringify({
-          headline: 'Acompanhe seu progresso',
-          summary: 'Continue registrando seus treinos para construir seu histórico.',
-          topProgress: []
+          headline: 'Acompanhe sua evolução',
+          summary: 'Continue registrando seus treinos para construir seu histórico de evolução.',
+          topProgress: [],
+          hasEvolution: false,
         });
       }
 
@@ -446,8 +501,9 @@ Apenas o JSON, sem markdown.`;
       console.error('[InsightService] Gemini Generation Failed:', error);
       return JSON.stringify({
         headline: 'Dados Insuficientes',
-        summary: 'Não foi possível gerar seu insight de evolução agora. Continue registrando seus treinos.',
-        topProgress: []
+        summary: 'Não foi possível identificar sua evolução no momento. Continue registrando seus treinos.',
+        topProgress: [],
+        hasEvolution: false,
       });
     }
   }
