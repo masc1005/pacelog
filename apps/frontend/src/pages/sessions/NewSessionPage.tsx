@@ -5,11 +5,14 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { SPORT_KEYS, type SportKey, type SessionDTO } from '@pacelog/shared';
-import { apiClient } from '../../lib/api';
+import { apiClient, ApiError } from '../../lib/api';
 import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, ChevronDown, Waves, Bike, Shield } from 'lucide-react';
 import { ShoePicker } from '../../components/shoes/ShoePicker';
 import { toLocalInputDateTime } from '../../lib/utils';
 import { RpeSelector } from '../../components/ui/RpeSelector';
+import { useSyncQueue } from '../../pwa/hooks/useSyncQueue';
+import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity },
@@ -25,6 +28,9 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = 
 export const NewSessionPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const { addToast } = useToast();
+  const { enqueue } = useSyncQueue();
   const stateKey = (location.state as { sportKey?: SportKey } | null)?.sportKey;
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -90,10 +96,10 @@ export const NewSessionPage: React.FC = () => {
     try {
       // Pre-process metrics
       const finalMetrics = { ...metrics };
-      
+
       // Injeta durationSeconds dentro de metrics, já que vários schemas (como futevolei e football) exigem isso
       finalMetrics.durationSeconds = durationMinutes * 60;
-      
+
       if (sportKey === 'running' && finalMetrics.distanceKm) {
         finalMetrics.distanceMeters = finalMetrics.distanceKm * 1000;
         finalMetrics.paceSecondsPerKm = (finalMetrics.paceMin * 60) + finalMetrics.paceSec;
@@ -106,7 +112,6 @@ export const NewSessionPage: React.FC = () => {
           finalMetrics.paceSecondsPerKm = Math.round((durationMinutes * 60) / finalMetrics.distanceKm);
         }
       }
-
 
       const clientUuid = crypto.randomUUID();
       const payload: Partial<SessionDTO> = {
@@ -121,15 +126,42 @@ export const NewSessionPage: React.FC = () => {
         notes,
       };
 
-      await apiClient('/api/sessions', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
+      try {
+        await apiClient('/api/sessions', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        navigate('/', { replace: true });
+      } catch (networkErr) {
+        // Se offline ou falha de rede (ApiError status 0), salvar na fila
+        const isNetworkError =
+          networkErr instanceof ApiError && networkErr.status === 0;
 
-      navigate('/', { replace: true });
+        if (isNetworkError && user) {
+          await enqueue(
+            'create_session',
+            payload as Record<string, unknown>,
+            {
+              clientUuid,
+              entityTable: 'sessions',
+              apiEndpoint: '/api/sessions',
+              method: 'POST',
+            }
+          );
+          addToast('Treino salvo offline. Será sincronizado quando a conexão voltar.', 'info');
+          navigate('/', { replace: true });
+        } else {
+          // Erro de validação ou servidor — exibir toast de erro
+          const msg =
+            networkErr instanceof ApiError
+              ? networkErr.code
+              : 'Erro desconhecido ao salvar sessão.';
+          addToast(msg, 'error');
+        }
+      }
     } catch (err) {
       console.error(err);
-      alert('Erro ao salvar sessão.');
+      addToast('Erro inesperado. Tente novamente.', 'error');
     } finally {
       setIsSubmitting(false);
     }

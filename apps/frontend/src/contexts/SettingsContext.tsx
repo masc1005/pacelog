@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { apiClient } from '../lib/api';
+import { apiClient, ApiError } from '../lib/api';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
+import { enqueueOperation } from '../pwa/services/syncQueue.service';
 import type {
   UserSettingsDTO,
   TrainingReminder,
@@ -138,6 +139,24 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       addToast('Preferências salvas com sucesso', 'success');
       return data;
     } catch (error) {
+      const isNetworkError = error instanceof ApiError && error.status === 0;
+      if (isNetworkError && user) {
+        // Enfileirar para sincronização posterior
+        const clientUuid = crypto.randomUUID();
+        await enqueueOperation(
+          'update_settings',
+          partial as Record<string, unknown>,
+          {
+            userId: user.id,
+            clientUuid,
+            entityTable: 'settings',
+            apiEndpoint: '/api/settings',
+            method: 'PATCH',
+          }
+        );
+        addToast('Preferências salvas offline. Sincronizando quando a conexão voltar.', 'info');
+        return updatedLocally;
+      }
       addToast('Erro ao salvar preferências no servidor', 'error');
       throw error;
     }

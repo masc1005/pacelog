@@ -10,10 +10,12 @@ import { ExerciseSearch } from '../components/ExerciseSearch';
 import { RestTimer } from '../components/RestTimer';
 import { strengthApi } from '../../../services/strength.api';
 import { RpeSelector } from '../../../components/ui/RpeSelector';
+import { useAuth } from '../../../contexts/AuthContext';
 import type { Exercise, StrengthSet } from '@pacelog/shared';
 
 export const ActiveStrengthSessionPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { session, isLoading, error, setSession } = useActiveStrengthSession();
   const elapsedSeconds = useSessionTimer(session);
   const restTimerHook = useRestTimer();
@@ -36,7 +38,8 @@ export const ActiveStrengthSessionPage: React.FC = () => {
   const mutations = useStrengthMutations(
     session?.id ?? null,
     setSession,
-    handleMutationError
+    handleMutationError,
+    user?.id
   );
 
   // Redireciona para home se não há sessão ativa

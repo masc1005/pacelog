@@ -1,6 +1,8 @@
 import { useCallback, useRef } from 'react';
 import { randomUUID } from '../../../lib/utils';
 import { strengthApi } from '../../../services/strength.api';
+import { ApiError } from '../../../lib/api';
+import { enqueueOperation } from '../../../pwa/services/syncQueue.service';
 import type {
   ActiveStrengthSession,
   AddExerciseInput,
@@ -13,11 +15,13 @@ import type {
 /**
  * Hook de mutações da sessão ativa de musculação.
  * Cada mutação gera um operationId único para garantir idempotência.
+ * As mutações de finalização caem na fila offline em caso de falha de rede.
  */
 export function useStrengthMutations(
   sessionId: string | null,
   onUpdate: (session: ActiveStrengthSession) => void,
-  onError?: (err: Error) => void
+  onError?: (err: Error) => void,
+  userId?: string | null
 ) {
   const pendingRef = useRef(new Set<string>());
 
@@ -147,11 +151,33 @@ export function useStrengthMutations(
     async (input?: FinishSessionInput) => {
       if (!sessionId) return;
       return withMutation(async () => {
-        const completed = await strengthApi.finishSession(sessionId, input ?? {});
-        return completed;
+        try {
+          const completed = await strengthApi.finishSession(sessionId, input ?? {});
+          return completed;
+        } catch (err) {
+          // Offline fallback: enfileirar finalização para quando a rede voltar
+          const isNetworkError = err instanceof ApiError && err.status === 0;
+          if (isNetworkError && userId) {
+            const clientUuid = crypto.randomUUID();
+            await enqueueOperation(
+              'strength_finish_session',
+              { sessionId, ...(input ?? {}) } as Record<string, unknown>,
+              {
+                userId,
+                clientUuid,
+                entityTable: 'strength_sessions',
+                apiEndpoint: `/api/strength/sessions/${sessionId}/finish`,
+                method: 'POST',
+              }
+            );
+            // Retornar null sinaliza à página que deve navegar para home
+            return null;
+          }
+          throw err;
+        }
       });
     },
-    [sessionId, withMutation]
+    [sessionId, userId, withMutation]
   );
 
   const cancel = useCallback(async () => {

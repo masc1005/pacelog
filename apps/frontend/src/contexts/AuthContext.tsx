@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { authClient } from '../lib/authClient';
+import { dbPurgeUser } from '../pwa/services/indexedDb.service';
 
 
 export interface AuthUser {
@@ -95,9 +96,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const handleSignOut = async () => {
+    const currentUserId = user?.id;
     try {
       await authClient.signOut();
     } finally {
+      // Purgar dados offline do usuário antes de limpar o estado
+      if (currentUserId) {
+        await dbPurgeUser(currentUserId).catch(() => {
+          // silencioso — não bloquear o logout se o IndexedDB falhar
+        });
+      }
       setUser(null);
       setSession(null);
     }

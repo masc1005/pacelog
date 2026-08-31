@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['pwa-icon.svg'],
       manifest: {
         name: 'PACELOG',
@@ -37,6 +37,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // SPA: servir index.html para rotas desconhecidas (permite navegação offline)
+        navigateFallback: 'index.html',
         // Não cachear rotas de API — sempre buscar do servidor
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Gauge, User, Settings, LogOut, ChevronDown } from 'lucide-react';
 import { clsx } from 'clsx';
+import { SyncStatusIndicator } from '../../pwa/components/SyncStatusIndicator';
 
 interface HeaderProps {
   onOpenSessionCreator?: () => void;
@@ -65,12 +66,8 @@ export const Header: React.FC<HeaderProps> = () => {
 
         {/* Status + Avatar */}
         <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-2 border border-[#1F2937] px-3 py-1 rounded-[2px] bg-[#0D1C2D]">
-            <span className="w-2 h-2 rounded-full bg-[#5CA9E6] animate-pulse" />
-            <span className="font-mono text-[10px] text-[#C5C8B4] uppercase tracking-widest">
-              SYNC ACTIVE
-            </span>
-          </div>
+          {/* Status de sincronização offline */}
+          <SyncStatusIndicator />
 
           {user && (
             <div className="relative" ref={dropdownRef}>

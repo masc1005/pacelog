@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Card } from '../ui/Card';
 import { useToast } from '../../contexts/ToastContext';
-import { Smartphone, RefreshCw, CheckCircle2, Wifi } from 'lucide-react';
+import { useServiceWorker } from '../../pwa/hooks/useServiceWorker';
+import { Smartphone, RefreshCw, CheckCircle2, Wifi, Download } from 'lucide-react';
 
 export const PwaUpdateSection: React.FC = () => {
   const { addToast } = useToast();
+  const { isInstalled, updateAvailable, applyUpdate } = useServiceWorker();
   const [isChecking, setIsChecking] = useState(false);
 
   const handleCheckUpdate = async () => {
@@ -17,7 +19,9 @@ export const PwaUpdateSection: React.FC = () => {
         }
       }
       setTimeout(() => {
-        addToast('O PACELOG está atualizado na versão mais recente!', 'success');
+        if (!updateAvailable) {
+          addToast('O PACELOG está atualizado na versão mais recente!', 'success');
+        }
         setIsChecking(false);
       }, 700);
     } catch {
@@ -37,6 +41,28 @@ export const PwaUpdateSection: React.FC = () => {
         </p>
       </div>
 
+      {/* Atualização disponível */}
+      {updateAvailable && (
+        <Card className="p-4 bg-[#1A2A1A] border border-[#D4F684]/30 flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-0.5">
+            <span className="font-mono text-xs text-[#D4F684] uppercase font-bold">
+              Nova versão disponível
+            </span>
+            <span className="font-mono text-xs text-[#8F9380]">
+              Aplique a atualização para usar os recursos mais recentes.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={applyUpdate}
+            className="flex items-center gap-1.5 py-2 px-3 bg-[#D4F684] text-[#051424] font-mono text-xs uppercase font-bold tracking-wider rounded-[4px] hover:bg-[#C4E574] transition-colors whitespace-nowrap flex-shrink-0"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Atualizar agora
+          </button>
+        </Card>
+      )}
+
       <Card className="p-5 bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -52,8 +78,10 @@ export const PwaUpdateSection: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 bg-[#161C24] px-3 py-1.5 rounded-full border border-[#1F2937]">
-            <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-            <span className="font-mono text-[10px] text-[#D4E4FA] uppercase">Instalado / PWA</span>
+            <CheckCircle2 className={`w-4 h-4 ${isInstalled ? 'text-[#10B981]' : 'text-[#8F9380]'}`} />
+            <span className="font-mono text-[10px] text-[#D4E4FA] uppercase">
+              {isInstalled ? 'Instalado / PWA' : 'Modo web'}
+            </span>
           </div>
         </div>
 
