@@ -6,7 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { SPORT_KEYS, type SportKey, type SessionDTO } from '@pacelog/shared';
 import { apiClient } from '../../lib/api';
-import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, AlertTriangle, Waves, Bike, Shield } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, ChevronDown, AlertTriangle, Waves, Bike, Shield } from 'lucide-react';
 import { ShoePicker } from '../../components/shoes/ShoePicker';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
@@ -31,11 +31,12 @@ export const EditSessionPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form State
-  const [sportKey, setSportKey] = useState<SportKey | ''>('');
+  const [sportKey, setSportKey] = useState<SportKey>('running');
   const [startedAt, setStartedAt] = useState<string>('');
-  const [durationMinutes, setDurationMinutes] = useState<number>(60);
+  const [durationMinutes, setDurationMinutes] = useState<number>(0);
   const [rpe, setRpe] = useState<number>(5);
   const [notes, setNotes] = useState<string>('');
+  const [shoeId, setShoeId] = useState<string | null>(null);
   
   // Dynamic metrics state
   const [metrics, setMetrics] = useState<Record<string, any>>({});
@@ -43,23 +44,22 @@ export const EditSessionPage: React.FC = () => {
   useEffect(() => {
     async function loadSession() {
       try {
-        const session = await apiClient<SessionDTO>(`/api/sessions/${id}`);
-        setSportKey(session.sportKey);
-        setStartedAt(new Date(session.startedAt).toISOString().slice(0, 16));
-        setDurationMinutes(Math.round(session.durationSeconds / 60));
-        setRpe(session.rpe);
-        setNotes(session.notes || '');
+        setLoading(true);
+        const data = await apiClient<SessionDTO>(`/api/sessions/${id}`);
+        setSportKey(data.sportKey as SportKey);
         
-        // Populate metrics based on sport
-        const m = { ...session.metrics };
-        if (session.sportKey === 'running' && m.distanceMeters) {
-          m.distanceKm = m.distanceMeters / 1000;
-          if (m.paceSecondsPerKm) {
-            m.paceMin = Math.floor(m.paceSecondsPerKm / 60);
-            m.paceSec = m.paceSecondsPerKm % 60;
-          }
-        }
-        setMetrics(m);
+        // Formatar startedAt para input datetime-local (YYYY-MM-DDTHH:mm)
+        const dateObj = new Date(data.startedAt);
+        const localIso = new Date(dateObj.getTime() - dateObj.getTimezoneOffset() * 60000)
+          .toISOString()
+          .slice(0, 16);
+        setStartedAt(localIso);
+        
+        setDurationMinutes(Math.round(data.durationSeconds / 60));
+        setRpe(data.rpe);
+        setNotes(data.notes || '');
+        setShoeId((data as any).shoeId || null);
+        setMetrics(data.metrics || {});
       } catch (err: any) {
         setError(err.message || 'Erro ao carregar sessão.');
       } finally {
@@ -70,7 +70,11 @@ export const EditSessionPage: React.FC = () => {
   }, [id]);
 
   const handleNext = () => {
-    if (step === 1 && sportKey) {
+    if (step === 1) {
+      if (!sportKey || !startedAt || durationMinutes <= 0) {
+        alert('Preencha os campos obrigatórios do Passo 1.');
+        return;
+      }
       setStep(2);
     } else if (step === 2) {
       setStep(3);
@@ -78,66 +82,41 @@ export const EditSessionPage: React.FC = () => {
   };
 
   const handleBack = () => {
+    if (step === 2) setStep(1);
     if (step === 3) setStep(2);
-    else if (step === 2) setStep(1);
-    else navigate(-1);
   };
 
   const handleSubmit = async () => {
-    if (!sportKey) return;
     setIsSubmitting(true);
     try {
-      // Pre-process metrics
       const finalMetrics = { ...metrics };
-      
-      finalMetrics.durationSeconds = durationMinutes * 60;
-      
-      if (sportKey === 'running' && finalMetrics.distanceKm) {
-        finalMetrics.distanceMeters = finalMetrics.distanceKm * 1000;
-        finalMetrics.paceSecondsPerKm = (finalMetrics.paceMin * 60) + finalMetrics.paceSec;
-      }
-
-      if (sportKey === 'cycling' && finalMetrics.distanceKm) {
-        finalMetrics.distanceKm = Number(finalMetrics.distanceKm);
-        if (durationMinutes > 0) {
-          finalMetrics.averageSpeedKmh = Math.round((finalMetrics.distanceKm / (durationMinutes / 60)) * 10) / 10;
-          finalMetrics.paceSecondsPerKm = Math.round((durationMinutes * 60) / finalMetrics.distanceKm);
+      if (sportKey === 'cycling') {
+        const dist = Number(metrics.distanceKm || 0);
+        const durMin = Number(durationMinutes || 0);
+        if (dist > 0 && durMin > 0) {
+          finalMetrics.avgSpeedKmh = Number((dist / (durMin / 60)).toFixed(1));
         }
       }
 
-      if (sportKey === 'strength' && (!finalMetrics.exercises || finalMetrics.exercises.length === 0)) {
-        finalMetrics.exercises = [
-          {
-            exerciseName: 'Treino Geral',
-            sets: [
-              {
-                setNumber: 1,
-                reps: Math.max(finalMetrics.totalReps || 10, 1),
-                weightKg: Math.max(finalMetrics.totalVolumeKg || 0, 0),
-              }
-            ]
-          }
-        ];
-      }
-
-      const payload: Partial<SessionDTO> = {
-        sportKey: sportKey as SportKey,
+      const payload = {
+        sportKey,
         startedAt: new Date(startedAt).toISOString(),
         durationSeconds: durationMinutes * 60,
         rpe,
-        sessionalLoad: rpe * durationMinutes, // Foster TRIMP
+        sessionalLoad: rpe * durationMinutes,
+        status: 'completed',
         metrics: finalMetrics,
         notes,
+        shoeId: sportKey === 'running' ? shoeId : null,
       };
 
-      await apiClient(`/api/sessions/${id}`, {
+      await apiClient<SessionDTO>(`/api/sessions/${id}`, {
         method: 'PUT',
         body: JSON.stringify(payload),
       });
 
-      navigate(`/sessions/${id}`, { replace: true });
-    } catch (err) {
-      console.error(err);
+      navigate(`/sessions/${id}`);
+    } catch (err: any) {
       alert('Erro ao atualizar sessão.');
     } finally {
       setIsSubmitting(false);
@@ -164,6 +143,8 @@ export const EditSessionPage: React.FC = () => {
     );
   }
 
+  const CurrentSportIcon = sportMeta[sportKey].icon;
+
   return (
     <div className="flex flex-col gap-6 font-sans max-w-2xl mx-auto w-full">
       {/* Header */}
@@ -182,53 +163,52 @@ export const EditSessionPage: React.FC = () => {
       {/* STEP 1: Foundation */}
       {step === 1 && (
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4">
-          <Card className="p-6 bg-[#0D1C2D] border-[#1F2937]">
-            <label className="block font-mono text-xs text-[#C5C8B4] uppercase tracking-widest mb-4">
-              Modalidade
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {SPORT_KEYS.map(key => {
-                const meta = sportMeta[key];
-                const Icon = meta.icon;
-                const isSelected = sportKey === key;
-                return (
-                  <div
-                    key={key}
-                    onClick={() => setSportKey(key)}
-                    className={`flex flex-col items-center justify-center gap-2 p-4 rounded-[2px] cursor-pointer transition-all border ${
-                      isSelected
-                        ? 'bg-[#161C24] border-[#D4F684] shadow-[0_0_15px_rgba(212,246,132,0.1)]'
-                        : 'bg-[#051424] border-[#1F2937] hover:border-[#454839]'
-                    }`}
-                  >
-                    <Icon className="h-6 w-6" style={{ color: isSelected ? meta.color : '#8F9380' }} />
-                    <span className={`font-mono text-[10px] uppercase font-bold tracking-wider ${isSelected ? 'text-[#D4E4FA]' : 'text-[#8F9380]'}`}>
-                      {meta.name}
-                    </span>
-                  </div>
-                );
-              })}
+          <Card className="p-6 bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="select-edit-sport-key" className="block font-mono text-xs text-[#C5C8B4] uppercase tracking-widest">
+                Modalidade
+              </label>
+              <div className="relative flex items-center">
+                <div className="absolute left-3.5 pointer-events-none flex items-center justify-center">
+                  <CurrentSportIcon className="h-5 w-5" style={{ color: sportMeta[sportKey].color }} />
+                </div>
+                <select
+                  id="select-edit-sport-key"
+                  value={sportKey}
+                  onChange={(e) => setSportKey(e.target.value as SportKey)}
+                  className="w-full pl-11 pr-10 py-3 bg-[#161C24] border border-[#1F2937] focus:border-[#D4F684] text-[#D4E4FA] font-mono text-sm rounded-[4px] outline-none transition-colors appearance-none cursor-pointer hover:border-[#454839]"
+                >
+                  {SPORT_KEYS.map((key) => (
+                    <option key={key} value={key} className="bg-[#0D1C2D] text-[#D4E4FA] py-2">
+                      {sportMeta[key].name}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-3.5 pointer-events-none text-[#8F9380]">
+                  <ChevronDown className="h-4 w-4" />
+                </div>
+              </div>
             </div>
-          </Card>
 
-          <Card className="p-6 bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-4">
-            <label className="block font-mono text-xs text-[#C5C8B4] uppercase tracking-widest">
-              Parâmetros Básicos
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="Data e Hora"
-                type="datetime-local"
-                value={startedAt}
-                onChange={e => setStartedAt(e.target.value)}
-              />
-              <Input
-                label="Duração (minutos)"
-                type="number"
-                min={1}
-                value={durationMinutes}
-                onChange={e => setDurationMinutes(Number(e.target.value))}
-              />
+            <div className="border-t border-[#1F2937] pt-4 flex flex-col gap-4">
+              <label className="block font-mono text-xs text-[#C5C8B4] uppercase tracking-widest">
+                Parâmetros Básicos
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Data e Hora"
+                  type="datetime-local"
+                  value={startedAt}
+                  onChange={e => setStartedAt(e.target.value)}
+                />
+                <Input
+                  label="Duração (minutos)"
+                  type="number"
+                  min={1}
+                  value={durationMinutes}
+                  onChange={e => setDurationMinutes(Number(e.target.value))}
+                />
+              </div>
             </div>
           </Card>
         </div>

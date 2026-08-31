@@ -7,15 +7,23 @@ import type { CompletedStrengthSession } from '@pacelog/shared';
 export const StrengthSessionReviewPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const sessionId: string | undefined = (location.state as any)?.sessionId;
+  const state = location.state as any;
+  const sessionId: string | undefined = state?.sessionId;
+  const completedFromState: CompletedStrengthSession | undefined = state?.completedSession;
 
-  const [session, setSession] = useState<CompletedStrengthSession | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [session, setSession] = useState<CompletedStrengthSession | null>(completedFromState ?? null);
+  const [isLoading, setIsLoading] = useState(!completedFromState);
   const [isSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isEmptySession, setIsEmptySession] = useState(false);
 
   useEffect(() => {
+    if (completedFromState) {
+      setSession(completedFromState);
+      setIsLoading(false);
+      return;
+    }
+
     if (!sessionId) {
       navigate('/strength', { replace: true });
       return;
@@ -45,7 +53,7 @@ export const StrengthSessionReviewPage: React.FC = () => {
     }
 
     finishAndLoad();
-  }, [sessionId, navigate]);
+  }, [sessionId, completedFromState, navigate]);
 
   function handleEdit() {
     navigate('/strength/active');

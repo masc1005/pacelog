@@ -1,16 +1,35 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useActiveStrengthSession } from '../hooks/useActiveStrengthSession';
-import { useSessionTimer } from '../hooks/useSessionTimer';
+import { useSessionTimer, formatDuration } from '../hooks/useSessionTimer';
 import { useRestTimer } from '../hooks/useRestTimer';
 import { useStrengthMutations } from '../hooks/useStrengthMutations';
 import { ActiveSessionHeader } from '../components/ActiveSessionHeader';
 import { ExerciseEntryCard } from '../components/ExerciseEntryCard';
 import { ExerciseSearch } from '../components/ExerciseSearch';
 import { RestTimer } from '../components/RestTimer';
+import { strengthApi } from '../../../services/strength.api';
 import type { Exercise, StrengthSet } from '@pacelog/shared';
 
+const RPE_LABELS: Record<number, string> = {
+  1: '1 · Muito Leve / Recuperação',
+  2: '2 · Leve / Fácil',
+  3: '3 · Moderado / Confortável',
+  4: '4 · Relativamente Difícil',
+  5: '5 · Difícil / Ritmo Firme',
+  6: '6 · Intenso',
+  7: '7 · Muito Difícil (2-3 reps na reserva)',
+  8: '8 · Pesado (1-2 reps na reserva)',
+  9: '9 · Extremo (Limite da falha)',
+  10: '10 · Exaustão Máxima / Falha Total',
+};
 
+function getRpeColor(val: number): string {
+  if (val <= 4) return '#39FF14';
+  if (val <= 6) return '#FFB800';
+  if (val <= 8) return '#FF6B35';
+  return '#FF3366';
+}
 
 export const ActiveStrengthSessionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,6 +41,12 @@ export const ActiveStrengthSessionPage: React.FC = () => {
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [isDiscarding, setIsDiscarding] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
+
+  // Modal de Finalização (RPE + Notas)
+  const [showFinishModal, setShowFinishModal] = useState(false);
+  const [finishRpe, setFinishRpe] = useState<number>(7);
+  const [finishNotes, setFinishNotes] = useState<string>('');
+  const [isFinishing, setIsFinishing] = useState(false);
 
   const handleMutationError = useCallback((err: Error) => {
     setMutationError(err.message);
@@ -89,7 +114,46 @@ export const ActiveStrengthSessionPage: React.FC = () => {
       setShowDiscardModal(true);
       return;
     }
-    navigate('/strength/review', { state: { sessionId: session.id } });
+
+    // Calcula RPE sugerido a partir das séries se preenchido
+    const completedSetsWithRpe: number[] = [];
+    session.exercises.forEach((ex) => {
+      ex.sets.forEach((s) => {
+        if (s.status === 'completed' && s.rpe != null && s.rpe >= 1 && s.rpe <= 10) {
+          completedSetsWithRpe.push(s.rpe);
+        }
+      });
+    });
+
+    if (completedSetsWithRpe.length > 0) {
+      const avg = Math.round(
+        completedSetsWithRpe.reduce((a, b) => a + b, 0) / completedSetsWithRpe.length
+      );
+      setFinishRpe(Math.max(1, Math.min(10, avg)));
+    } else {
+      setFinishRpe(7);
+    }
+
+    setShowFinishModal(true);
+  }
+
+  async function handleConfirmFinish() {
+    if (!session) return;
+    setIsFinishing(true);
+    try {
+      const completed = await strengthApi.finishSession(session.id, {
+        rpe: finishRpe,
+        notes: finishNotes.trim() || undefined,
+      });
+      navigate('/strength/review', {
+        state: { sessionId: session.id, completedSession: completed },
+      });
+    } catch (err: any) {
+      setMutationError(err?.message || 'Erro ao finalizar treino.');
+      setShowFinishModal(false);
+    } finally {
+      setIsFinishing(false);
+    }
   }
 
   async function handleConfirmDiscard() {
@@ -106,6 +170,21 @@ export const ActiveStrengthSessionPage: React.FC = () => {
       setShowDiscardModal(false);
     }
   }
+
+  const durationMinutes = Math.max(1, Math.round(elapsedSeconds / 60));
+  const estimatedSrpe = finishRpe * durationMinutes;
+  const completedSetsCount = session?.exercises.reduce(
+    (acc, ex) => acc + ex.sets.filter((s) => s.status === 'completed').length,
+    0
+  ) ?? 0;
+  const totalVolumeKg = session?.exercises.reduce(
+    (acc, ex) =>
+      acc +
+      ex.sets
+        .filter((s) => s.status === 'completed')
+        .reduce((sum, s) => sum + (s.load || 0) * (s.reps || 0), 0),
+    0
+  ) ?? 0;
 
   return (
     <div className="flex flex-col h-full bg-[#051424] min-h-screen relative pb-32">
@@ -140,7 +219,14 @@ export const ActiveStrengthSessionPage: React.FC = () => {
       )}
 
       {/* Lista de exercícios */}
-      <div className="flex flex-col gap-4 p-4">
+      <div className="flex flex-col gap-4 p-4 max-w-2xl mx-auto w-full">
+        {session!.exercises.length === 0 && (
+          <div className="flex flex-col items-center justify-center p-8 border border-dashed border-[#1F2937] rounded-[4px] gap-2 text-center text-[#8F9380]">
+            <p className="font-mono text-sm uppercase">Nenhum exercício adicionado</p>
+            <p className="text-xs">Toque em "Adicionar Exercício" para começar seu treino.</p>
+          </div>
+        )}
+
         {session!.exercises
           .slice()
           .sort((a, b) => a.order - b.order)
@@ -180,6 +266,157 @@ export const ActiveStrengthSessionPage: React.FC = () => {
             onSelect={handleSelectExercise}
             onClose={() => setShowExerciseSearch(false)}
           />
+        </div>
+      )}
+
+      {/* Modal de Finalização do Treino (RPE + Notas) */}
+      {showFinishModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in" role="dialog" aria-modal="true">
+          <div className="bg-[#0D1C2D] border border-[#A855F7]/40 p-6 rounded-xl max-w-md w-full flex flex-col gap-5 shadow-[0_0_50px_rgba(168,85,247,0.2)]">
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between border-b border-[#1F2937] pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#A855F7] animate-pulse" />
+                <h3 className="font-display text-lg font-bold text-[#D4E4FA] uppercase tracking-wide">
+                  Finalizar Treino
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFinishModal(false)}
+                className="text-[#8F9380] hover:text-[#D4E4FA] text-lg leading-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Resumo da Sessão */}
+            <div className="grid grid-cols-3 gap-2 p-3 bg-[#161C24] border border-[#1F2937] rounded-lg">
+              <div className="flex flex-col items-center">
+                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Tempo</span>
+                <span className="font-display text-base font-bold text-[#D4E4FA]">
+                  {formatDuration(elapsedSeconds)}
+                </span>
+              </div>
+              <div className="flex flex-col items-center border-x border-[#1F2937]">
+                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Séries Feitas</span>
+                <span className="font-display text-base font-bold text-[#A855F7]">
+                  {completedSetsCount} sets
+                </span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Volume</span>
+                <span className="font-display text-base font-bold text-[#D4F684]">
+                  {Math.round(totalVolumeKg)} kg
+                </span>
+              </div>
+            </div>
+
+            {/* Percepção Subjetiva de Esforço (RPE) */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <label className="font-mono text-xs text-[#C5C8B4] uppercase tracking-widest">
+                  Esforço Percebido (RPE)
+                </label>
+                <span
+                  className="font-display text-2xl font-bold"
+                  style={{ color: getRpeColor(finishRpe) }}
+                >
+                  {finishRpe} / 10
+                </span>
+              </div>
+
+              {/* Rótulo descritivo da Escala Borg */}
+              <div
+                className="p-2.5 rounded-lg border font-mono text-xs font-semibold text-center transition-colors"
+                style={{
+                  backgroundColor: `${getRpeColor(finishRpe)}15`,
+                  borderColor: `${getRpeColor(finishRpe)}40`,
+                  color: getRpeColor(finishRpe),
+                }}
+              >
+                {RPE_LABELS[finishRpe]}
+              </div>
+
+              {/* Slider interativo */}
+              <input
+                type="range"
+                min="1"
+                max="10"
+                step="1"
+                value={finishRpe}
+                onChange={(e) => setFinishRpe(Number(e.target.value))}
+                className="w-full accent-[#A855F7] h-2 bg-[#161C24] rounded-lg cursor-pointer"
+              />
+
+              {/* Botões numéricos rápidos 1-10 */}
+              <div className="grid grid-cols-10 gap-1 mt-1">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => setFinishRpe(num)}
+                    className={`py-1.5 rounded text-xs font-mono font-bold transition-all ${
+                      finishRpe === num
+                        ? 'bg-[#A855F7] text-white shadow-[0_0_10px_rgba(168,85,247,0.5)] scale-105'
+                        : 'bg-[#161C24] text-[#8F9380] border border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+
+              {/* Card de Carga Sessional Calculada (Foster TRIMP) */}
+              <div className="p-3 bg-[#161C24] border border-[#1F2937] rounded-lg flex items-center justify-between mt-1">
+                <div className="flex flex-col">
+                  <span className="font-mono text-[10px] text-[#C5C8B4] uppercase">Carga Sessional Prevista</span>
+                  <span className="font-mono text-[9px] text-[#8F9380]">Foster TRIMP ({durationMinutes} min × RPE {finishRpe})</span>
+                </div>
+                <span className="font-mono text-base font-bold text-[#D4F684]">{estimatedSrpe} AU</span>
+              </div>
+            </div>
+
+            {/* Notas Táticas / Observações */}
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-xs text-[#C5C8B4] uppercase tracking-widest">
+                Notas do Treino (Opcional)
+              </label>
+              <textarea
+                className="w-full input-precision min-h-[70px] p-2.5 text-xs rounded border border-[#1F2937] bg-[#161C24] text-[#D4E4FA] placeholder-[#8F9380] focus:border-[#A855F7] outline-none resize-none"
+                placeholder="Como sentiu o treino? Dor articular, bom pump, ajuste de carga..."
+                value={finishNotes}
+                onChange={(e) => setFinishNotes(e.target.value)}
+              />
+            </div>
+
+            {/* Botões de Ação */}
+            <div className="flex gap-3 mt-1">
+              <button
+                type="button"
+                className="flex-1 py-3 px-3 border border-[#1F2937] text-[#C5C8B4] hover:bg-[#161C24] font-mono text-xs uppercase font-bold tracking-widest rounded-lg transition-colors"
+                onClick={() => setShowFinishModal(false)}
+                disabled={isFinishing}
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                className="flex-1 py-3 px-3 bg-gradient-to-r from-[#A855F7] to-[#7B2CBF] text-white hover:opacity-90 font-mono text-xs uppercase font-bold tracking-widest rounded-lg transition-all shadow-[0_0_15px_rgba(168,85,247,0.3)] disabled:opacity-50 flex items-center justify-center gap-2"
+                onClick={handleConfirmFinish}
+                disabled={isFinishing}
+              >
+                {isFinishing ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Salvando…
+                  </>
+                ) : (
+                  'Concluir Treino'
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

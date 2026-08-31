@@ -6,7 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { SPORT_KEYS, type SportKey, type SessionDTO } from '@pacelog/shared';
 import { apiClient } from '../../lib/api';
-import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, Waves, Bike, Shield } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, ChevronDown, Waves, Bike, Shield } from 'lucide-react';
 import { ShoePicker } from '../../components/shoes/ShoePicker';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
@@ -29,7 +29,7 @@ export const NewSessionPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form State
-  const [sportKey, setSportKey] = useState<SportKey | ''>(stateKey ?? '');
+  const [sportKey, setSportKey] = useState<SportKey>(stateKey || 'running');
   const [startedAt, setStartedAt] = useState<string>(new Date().toISOString().slice(0, 16));
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
   const [rpe, setRpe] = useState<number>(5);
@@ -113,7 +113,7 @@ export const NewSessionPage: React.FC = () => {
         startedAt: new Date(startedAt).toISOString(),
         durationSeconds: durationMinutes * 60,
         rpe,
-        sessionalLoad: rpe * durationMinutes, // Foster TRIMP
+        sessionalLoad: rpe * durationMinutes,
         status: 'completed',
         metrics: finalMetrics,
         notes,
@@ -133,9 +133,10 @@ export const NewSessionPage: React.FC = () => {
     }
   };
 
+  const CurrentSportIcon = sportMeta[sportKey].icon;
+
   return (
     <div className="flex flex-col gap-6 font-sans max-w-2xl mx-auto w-full">
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-[#1F2937] pb-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-[#D4E4FA] uppercase tracking-wide">
@@ -150,62 +151,59 @@ export const NewSessionPage: React.FC = () => {
         </Badge>
       </div>
 
-      {/* STEP 1: Foundation */}
       {step === 1 && (
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4">
-          <Card className="p-6 bg-[#0D1C2D] border-[#1F2937]">
-            <label className="block font-mono text-xs text-[#C5C8B4] uppercase tracking-widest mb-4">
-              Selecione a Modalidade
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {SPORT_KEYS.map(key => {
-                const meta = sportMeta[key];
-                const Icon = meta.icon;
-                const isSelected = sportKey === key;
-                return (
-                  <div
-                    key={key}
-                    onClick={() => setSportKey(key)}
-                    className={`flex flex-col items-center justify-center gap-2 p-4 rounded-[2px] cursor-pointer transition-all border ${
-                      isSelected
-                        ? 'bg-[#161C24] border-[#D4F684] shadow-[0_0_15px_rgba(212,246,132,0.1)]'
-                        : 'bg-[#051424] border-[#1F2937] hover:border-[#454839]'
-                    }`}
-                  >
-                    <Icon className="h-6 w-6" style={{ color: isSelected ? meta.color : '#8F9380' }} />
-                    <span className={`font-mono text-[10px] uppercase font-bold tracking-wider ${isSelected ? 'text-[#D4E4FA]' : 'text-[#8F9380]'}`}>
-                      {meta.name}
-                    </span>
-                  </div>
-                );
-              })}
+          <Card className="p-6 bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="select-sport-key" className="block font-mono text-xs text-[#C5C8B4] uppercase tracking-widest">
+                Selecione a Modalidade
+              </label>
+              <div className="relative flex items-center">
+                <div className="absolute left-3.5 pointer-events-none flex items-center justify-center">
+                  <CurrentSportIcon className="h-5 w-5" style={{ color: sportMeta[sportKey].color }} />
+                </div>
+                <select
+                  id="select-sport-key"
+                  value={sportKey}
+                  onChange={(e) => setSportKey(e.target.value as SportKey)}
+                  className="w-full pl-11 pr-10 py-3 bg-[#161C24] border border-[#1F2937] focus:border-[#D4F684] text-[#D4E4FA] font-mono text-sm rounded-[4px] outline-none transition-colors appearance-none cursor-pointer hover:border-[#454839]"
+                >
+                  {SPORT_KEYS.map((key) => (
+                    <option key={key} value={key} className="bg-[#0D1C2D] text-[#D4E4FA] py-2">
+                      {sportMeta[key].name}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-3.5 pointer-events-none text-[#8F9380]">
+                  <ChevronDown className="h-4 w-4" />
+                </div>
+              </div>
             </div>
-          </Card>
 
-          <Card className="p-6 bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-4">
-            <label className="block font-mono text-xs text-[#C5C8B4] uppercase tracking-widest">
-              Parâmetros Básicos
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="Data e Hora"
-                type="datetime-local"
-                value={startedAt}
-                onChange={e => setStartedAt(e.target.value)}
-              />
-              <Input
-                label="Duração (minutos)"
-                type="number"
-                min={1}
-                value={durationMinutes}
-                onChange={e => setDurationMinutes(Number(e.target.value))}
-              />
+            <div className="border-t border-[#1F2937] pt-4 flex flex-col gap-4">
+              <label className="block font-mono text-xs text-[#C5C8B4] uppercase tracking-widest">
+                Parâmetros Básicos
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Data e Hora"
+                  type="datetime-local"
+                  value={startedAt}
+                  onChange={e => setStartedAt(e.target.value)}
+                />
+                <Input
+                  label="Duração (minutos)"
+                  type="number"
+                  min={1}
+                  value={durationMinutes}
+                  onChange={e => setDurationMinutes(Number(e.target.value))}
+                />
+              </div>
             </div>
           </Card>
         </div>
       )}
 
-      {/* STEP 2: Dynamic Metrics */}
       {step === 2 && (
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4">
           <Card className="p-6 bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-4">
