@@ -7,6 +7,7 @@ import { AIProgressInsight } from '../../components/ui/AIProgressInsight';
 import { LoadSummaryCard } from '../../components/progress/LoadSummaryCard';
 import { SportDistributionCard } from '../../components/progress/SportDistributionCard';
 import { ShoeUsageSummary } from '../../components/shoes/ShoeUsageSummary';
+import { GoalHighlightCard } from '../../components/goals/GoalHighlightCard';
 import { shoeApi } from '../../services/shoe.api';
 import {
   Flame,
@@ -117,7 +118,12 @@ export const HomePage: React.FC = () => {
       </div>
 
       {/* ==========================================
-          1. INSIGHT DE ANÁLISE E TÊNIS
+          1. META EM DESTAQUE
+      ========================================== */}
+      <GoalHighlightCard />
+
+      {/* ==========================================
+          2. INSIGHT DE ANÁLISE E TÊNIS
       ========================================== */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <AIProgressInsight />

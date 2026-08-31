@@ -6,6 +6,9 @@ import {
   listGoalsController,
   getGoalByIdController,
   updateGoalController,
+  pauseGoalController,
+  resumeGoalController,
+  completeGoalController,
   deleteGoalController,
 } from './goal.controller.js';
 import {
@@ -40,6 +43,27 @@ goalRoutes.put(
   '/:id',
   validate(updateGoalSchema),
   updateGoalController
+);
+
+goalRoutes.patch(
+  '/:id',
+  validate(updateGoalSchema),
+  updateGoalController
+);
+
+goalRoutes.post(
+  '/:id/pause',
+  pauseGoalController
+);
+
+goalRoutes.post(
+  '/:id/resume',
+  resumeGoalController
+);
+
+goalRoutes.post(
+  '/:id/complete',
+  completeGoalController
 );
 
 goalRoutes.delete(

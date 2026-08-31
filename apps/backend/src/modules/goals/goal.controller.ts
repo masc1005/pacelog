@@ -87,6 +87,66 @@ export async function updateGoalController(
   }
 }
 
+export async function pauseGoalController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.userId!;
+    const id = String(req.params.id);
+
+    const goal = await goalService.pauseGoal(userId, id);
+
+    res.status(200).json({
+      success: true,
+      data: goal,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function resumeGoalController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.userId!;
+    const id = String(req.params.id);
+
+    const goal = await goalService.resumeGoal(userId, id);
+
+    res.status(200).json({
+      success: true,
+      data: goal,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function completeGoalController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.userId!;
+    const id = String(req.params.id);
+
+    const goal = await goalService.completeGoal(userId, id);
+
+    res.status(200).json({
+      success: true,
+      data: goal,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function deleteGoalController(
   req: Request,
   res: Response,

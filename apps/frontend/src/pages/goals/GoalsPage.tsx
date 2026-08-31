@@ -1,134 +1,183 @@
-import React, { useEffect, useState } from 'react';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
+import { GoalCard } from '../../components/goals/GoalCard';
+import { GoalFilters, type GoalStatusFilter } from '../../components/goals/GoalFilters';
+import { EmptyGoals } from '../../components/goals/EmptyGoals';
 import { apiClient } from '../../lib/api';
 import type { GoalDTO, SportKey } from '@pacelog/shared';
-import { useNavigate } from 'react-router-dom';
-import { Target, Activity, Flame, Sun, Zap, Dumbbell, Plus, Waves, Bike, Shield } from 'lucide-react';
-
-const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badge: 'cyan'|'amber'|'crimson'|'purple'|'green'|'blue' }> = {
-  running: { name: 'Corrida', color: '#5CA9E6', icon: Activity, badge: 'cyan' },
-  football: { name: 'Futebol', color: '#D4F684', icon: Flame, badge: 'green' },
-  futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun, badge: 'amber' },
-  boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap, badge: 'crimson' },
-  jiujitsu: { name: 'Jiu-Jitsu', color: '#E11D48', icon: Shield, badge: 'crimson' },
-  strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell, badge: 'purple' },
-  swimming: { name: 'Natação', color: '#38BDF8', icon: Waves, badge: 'blue' },
-  cycling: { name: 'Ciclismo', color: '#10B981', icon: Bike, badge: 'green' },
-};
+import { Plus, Target, CheckCircle2, TrendingUp } from 'lucide-react';
 
 export const GoalsPage: React.FC = () => {
   const navigate = useNavigate();
   const [goals, setGoals] = useState<GoalDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadGoals() {
-      try {
-        const data = await apiClient<GoalDTO[]>('/api/goals');
-        setGoals(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
+  // Filtros
+  const [statusFilter, setStatusFilter] = useState<GoalStatusFilter>('active');
+  const [sportFilter, setSportFilter] = useState<SportKey | 'all'>('all');
+
+  const loadGoals = async () => {
+    try {
+      const data = await apiClient<GoalDTO[]>('/api/goals');
+      setGoals(data);
+    } catch (err) {
+      console.error('Erro ao carregar metas:', err);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadGoals();
   }, []);
 
+  // Contagens para as abas
+  const counts = useMemo(() => {
+    const active = goals.filter(
+      (g) => g.status === 'active' && (g.progressPercent || 0) < 100
+    ).length;
+    const paused = goals.filter((g) => g.status === 'paused').length;
+    const completed = goals.filter(
+      (g) => g.status === 'completed' || g.status === 'achieved' || (g.progressPercent || 0) >= 100
+    ).length;
+    return {
+      all: goals.length,
+      active,
+      paused,
+      completed,
+    };
+  }, [goals]);
+
+  // Metas filtradas
+  const filteredGoals = useMemo(() => {
+    return goals.filter((goal) => {
+      // Filtro de Status
+      if (statusFilter === 'active') {
+        if (goal.status !== 'active' || (goal.progressPercent || 0) >= 100) return false;
+      } else if (statusFilter === 'paused') {
+        if (goal.status !== 'paused') return false;
+      } else if (statusFilter === 'completed') {
+        if (
+          goal.status !== 'completed' &&
+          goal.status !== 'achieved' &&
+          (goal.progressPercent || 0) < 100
+        )
+          return false;
+      }
+
+      // Filtro de Esporte
+      if (sportFilter !== 'all') {
+        if (goal.sportKey !== sportFilter) return false;
+      }
+
+      return true;
+    });
+  }, [goals, statusFilter, sportFilter]);
+
   return (
-    <div className="flex flex-col gap-6 font-sans max-w-4xl mx-auto w-full">
-      <div className="flex items-center justify-between border-b border-[#1F2937] pb-4">
+    <div className="flex flex-col gap-6 font-sans max-w-5xl mx-auto w-full pb-16">
+      {/* Header com Ação */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#1F2937] pb-4">
         <div>
-          <h1 className="font-display text-2xl font-bold text-[#D4E4FA] uppercase tracking-wide">
-            Metas & Marcos
-          </h1>
+          <div className="flex items-center gap-2">
+            <Target className="w-6 h-6 text-[#D4F684]" />
+            <h1 className="font-display text-2xl font-bold text-[#D4E4FA] uppercase tracking-wide">
+              Metas & Marcos
+            </h1>
+          </div>
           <p className="font-mono text-xs text-[#8F9380] mt-1 uppercase">
-            Acompanhamento de alvos táticos
+            Acompanhamento de alvos de volume, tempo e performance tática
           </p>
         </div>
-        <Button variant="tactile" size="sm" leftIcon={<Plus className="h-4 w-4" />}>
-          NOVA META
+
+        <Button
+          variant="tactile"
+          size="sm"
+          onClick={() => navigate('/goals/new')}
+          leftIcon={<Plus className="h-4 w-4" />}
+          className="font-mono text-xs uppercase tracking-wider self-start sm:self-auto"
+        >
+          Nova Meta
         </Button>
       </div>
 
+      {/* Resumo Rápido em Cards Táticos */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="p-3.5 bg-[#0D1C2D] border border-[#1F2937] rounded-[4px] flex items-center gap-3">
+          <div className="w-8 h-8 rounded-[4px] bg-[#5CA9E6]/10 border border-[#5CA9E6]/30 flex items-center justify-center text-[#5CA9E6]">
+            <TrendingUp className="w-4 h-4" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">
+              Em Andamento
+            </span>
+            <span className="font-display text-lg font-bold text-[#D4E4FA]">
+              {counts.active}
+            </span>
+          </div>
+        </div>
+
+        <div className="p-3.5 bg-[#0D1C2D] border border-[#1F2937] rounded-[4px] flex items-center gap-3">
+          <div className="w-8 h-8 rounded-[4px] bg-[#D4F684]/10 border border-[#D4F684]/30 flex items-center justify-center text-[#D4F684]">
+            <CheckCircle2 className="w-4 h-4" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">
+              Concluídas
+            </span>
+            <span className="font-display text-lg font-bold text-[#D4F684]">
+              {counts.completed}
+            </span>
+          </div>
+        </div>
+
+        <div className="p-3.5 bg-[#0D1C2D] border border-[#1F2937] rounded-[4px] hidden sm:flex items-center gap-3">
+          <div className="w-8 h-8 rounded-[4px] bg-[#A855F7]/10 border border-[#A855F7]/30 flex items-center justify-center text-[#A855F7]">
+            <Target className="w-4 h-4" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">
+              Total de Metas
+            </span>
+            <span className="font-display text-lg font-bold text-[#D4E4FA]">
+              {counts.all}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Barra de Filtros */}
+      <GoalFilters
+        statusFilter={statusFilter}
+        onStatusChange={setStatusFilter}
+        sportFilter={sportFilter}
+        onSportChange={setSportFilter}
+        counts={counts}
+      />
+
+      {/* Conteúdo Principal */}
       {isLoading ? (
-        <div className="flex justify-center p-12">
-          <div className="font-mono text-xs text-[#8F9380] animate-pulse">Carregando metas...</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-pulse">
+          {[1, 2, 3, 4].map((n) => (
+            <div key={n} className="h-40 bg-[#0D1C2D] border border-[#1F2937] rounded-[4px]" />
+          ))}
         </div>
       ) : goals.length === 0 ? (
-        <Card className="p-12 flex flex-col items-center justify-center gap-3 border-dashed border-[#454839]">
-          <Target className="h-8 w-8 text-[#8F9380]" />
-          <span className="font-mono text-sm text-[#C5C8B4] uppercase">Nenhuma meta ativa</span>
-          <Button variant="secondary" size="sm" className="mt-2 text-xs">Criar Primeira Meta</Button>
-        </Card>
+        <EmptyGoals variant="no-goals" />
+      ) : filteredGoals.length === 0 ? (
+        <EmptyGoals
+          variant="no-results"
+          onResetFilters={() => {
+            setStatusFilter('all');
+            setSportFilter('all');
+          }}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {goals.map(goal => {
-            const meta = goal.sportKey ? sportMeta[goal.sportKey] : null;
-            const Icon = meta ? meta.icon : Target;
-            const color = meta ? meta.color : '#D4F684';
-            
-            const circumference = 2 * Math.PI * 35;
-            const strokeDashoffset = circumference - ((goal.progressPercent || 0) / 100) * circumference;
-
-            return (
-              <Card 
-                key={goal.id} 
-                variant="watch" 
-                className="p-5 flex flex-col gap-4 bg-[#0D1C2D] border-[#1F2937] cursor-pointer hover:border-[#5CA9E6] transition-colors"
-                onClick={() => navigate(`/goals/${goal.id}`)}
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-[2px] bg-[#161C24] flex items-center justify-center border border-[#1F2937]">
-                      <Icon className="h-4 w-4" style={{ color }} />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-display font-bold text-[#D4E4FA]">{goal.title}</span>
-                      <span className="font-mono text-[9px] text-[#8F9380] uppercase">
-                        {goal.period === 'weekly' ? 'SEMANAL' : goal.period === 'monthly' ? 'MENSAL' : 'CUSTOMIZADO'}
-                      </span>
-                    </div>
-                  </div>
-                  <Badge variant={goal.status === 'achieved' ? 'sage' : 'neutral'} size="sm">
-                    {goal.status === 'achieved' ? 'CONCLUÍDO' : 'EM ANDAMENTO'}
-                  </Badge>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  {/* SVG Circle Progress */}
-                  <div className="relative w-20 h-20 flex items-center justify-center">
-                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
-                      <circle cx="40" cy="40" r="35" stroke="#1D2630" strokeWidth="4" fill="none" />
-                      <circle 
-                        cx="40" 
-                        cy="40" 
-                        r="35" 
-                        stroke={color} 
-                        strokeWidth="4" 
-                        fill="none" 
-                        strokeLinecap="round"
-                        strokeDasharray={circumference}
-                        strokeDashoffset={strokeDashoffset}
-                        style={{ transition: 'stroke-dashoffset 1s ease-in-out' }}
-                      />
-                    </svg>
-                    <span className="absolute font-mono text-xs font-bold text-[#D4E4FA]">{Math.round(goal.progressPercent || 0)}%</span>
-                  </div>
-
-                  <div className="flex flex-col gap-1 flex-1">
-                    <span className="font-mono text-[10px] text-[#8F9380] uppercase">Progresso Atual</span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="font-display text-2xl font-bold text-[#D4E4FA]">{goal.currentValue}</span>
-                      <span className="font-mono text-xs text-[#8F9380]">/ {goal.targetValue} {goal.unit}</span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+          {filteredGoals.map((goal) => (
+            <GoalCard key={goal.id} goal={goal} />
+          ))}
         </div>
       )}
     </div>

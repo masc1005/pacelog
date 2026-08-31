@@ -207,30 +207,75 @@ export interface SessionSummaryDTO {
 // MÓDULO DE METAS (GOALS)
 // ==========================================
 
+export const GOAL_SCOPES = ['sport', 'overall'] as const;
+export type GoalScope = (typeof GOAL_SCOPES)[number];
+
+export const GOAL_METRIC_TYPES = [
+  'distance_km',
+  'duration_minutes',
+  'sessions_count',
+  'rounds_count',
+  'volume_kg',
+  'weight_kg',
+  'average_speed_kmh',
+  'average_pace_seconds_per_km',
+  'streak_days',
+] as const;
+export type GoalMetricType = (typeof GOAL_METRIC_TYPES)[number];
+
+export const GOAL_DIRECTIONS = ['increase', 'decrease'] as const;
+export type GoalDirection = (typeof GOAL_DIRECTIONS)[number];
+
 export const GOAL_TYPES = ['frequency', 'volume', 'consistency'] as const;
 export type GoalType = (typeof GOAL_TYPES)[number];
 
 export const GOAL_PERIODS = ['weekly', 'monthly', 'custom'] as const;
 export type GoalPeriod = (typeof GOAL_PERIODS)[number];
 
-export const GOAL_STATUSES = ['active', 'achieved', 'paused', 'abandoned'] as const;
+export const GOAL_STATUSES = [
+  'active',
+  'paused',
+  'completed',
+  'achieved',
+  'expired',
+  'cancelled',
+] as const;
 export type GoalStatus = (typeof GOAL_STATUSES)[number];
 
 export interface GoalDTO extends BaseEntity {
   userId: string;
+  clientUuid?: string;
   title: string;
-  type: GoalType;
+  scope: GoalScope;
   sportKey?: SportKey | null;
+  metricType: GoalMetricType;
+  direction: GoalDirection;
+  type?: GoalType;
   targetValue: number;
   currentValue: number;
+  startValue?: number;
   progressPercent: number;
-  unit: string; // 'sessions' | 'km' | 'kg' | 'rounds' | 'days'
-  period: GoalPeriod;
+  unit: string;
+  period?: GoalPeriod;
   startDate: Date | string;
   deadline?: Date | string | null;
   status: GoalStatus;
   notes?: string;
+  completedAt?: Date | string | null;
+  pausedAt?: Date | string | null;
+  celebrationShown?: boolean;
+  daysRemaining?: number;
+  requiredPacePerWeek?: string;
+  contributingSessionsCount?: number;
+  contributingSessions?: Array<{
+    id: string;
+    startedAt: string;
+    sportKey: SportKey;
+    value: number;
+    unit: string;
+  }>;
 }
+
 
 // ==========================================
 // MÓDULO DE TELEMETRIA & EVOLUÇÃO (PROGRESS)
@@ -488,4 +533,31 @@ export const importBackupSchema = z.object({
     userSports: z.array(z.record(z.any())).optional().nullable(),
   }),
 });
+
+export const createGoalSchema = z.object({
+  title: z.string().min(1, 'Título é obrigatório').max(120, 'Título deve ter no máximo 120 caracteres').optional(),
+  scope: z.enum(GOAL_SCOPES).default('sport'),
+  sportKey: z.enum(SPORT_KEYS).optional().nullable(),
+  metricType: z.enum(GOAL_METRIC_TYPES).optional(),
+  type: z.enum(GOAL_TYPES).optional(),
+  direction: z.enum(GOAL_DIRECTIONS).default('increase'),
+  targetValue: z.number().positive('Valor alvo deve ser positivo'),
+  startValue: z.number().optional().nullable(),
+  unit: z.string().optional(),
+  period: z.enum(GOAL_PERIODS).optional().default('weekly'),
+  startDate: z.string().or(z.date()).optional(),
+  deadline: z.string().or(z.date()).optional().nullable(),
+  notes: z.string().max(500, 'Notas devem ter no máximo 500 caracteres').optional().nullable(),
+  clientUuid: z.string().optional(),
+});
+
+export const updateGoalSchema = z.object({
+  title: z.string().min(1).max(120).optional(),
+  targetValue: z.number().positive().optional(),
+  deadline: z.string().or(z.date()).optional().nullable(),
+  status: z.enum(GOAL_STATUSES).optional(),
+  notes: z.string().max(500).optional().nullable(),
+  celebrationShown: z.boolean().optional(),
+});
+
 
