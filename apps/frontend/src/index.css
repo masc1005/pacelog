@@ -113,6 +113,31 @@
 .module-border .inner-ticks::before { bottom: 0; left: -4px; }
 .module-border .inner-ticks::after { bottom: 0; right: -4px; }
 
+/* Global Form Controls & Select Dark Mode */
+:root {
+  color-scheme: dark;
+}
+
+select {
+  color-scheme: dark;
+  background-color: #0d1c2d;
+  color: #d4e4fa;
+}
+
+select option,
+select optgroup {
+  background-color: #0d1c2d;
+  color: #d4e4fa;
+  padding: 8px 12px;
+}
+
+select option:hover,
+select option:focus,
+select option:checked {
+  background-color: #1c2b3c;
+  color: #ffffff;
+}
+
 /* Stitch Tactile & Precision Inputs */
 .input-precision, .tactile-input {
   background: transparent;
@@ -124,14 +149,21 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+select.input-precision {
+  background-color: #0d1c2d;
+  border: 1px solid #1f2937;
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
 .input-precision:focus, .tactile-input:focus {
   outline: none;
   box-shadow: none;
-  border-bottom-color: #d4f684;
+  border-color: #d4f684;
 }
 
 .input-precision.error, .tactile-input.error {
-  border-bottom-color: #ffb4ab;
+  border-color: #ffb4ab;
 }
 
 /* Stitch Tactile Physical Button */

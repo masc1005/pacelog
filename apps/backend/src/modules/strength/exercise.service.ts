@@ -108,7 +108,7 @@ export class ExerciseService {
     const ops = exercises.map((ex) => ({
       updateOne: {
         filter: { key: ex.key },
-        update: { $setOnInsert: { ...ex, isSystem: true, isActive: true } },
+        update: { $set: { ...ex, isSystem: true, isActive: true } },
         upsert: true,
       },
     }));

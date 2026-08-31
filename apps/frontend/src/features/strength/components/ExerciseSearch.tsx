@@ -26,6 +26,7 @@ export const ExerciseSearch: React.FC<ExerciseSearchProps> = ({
     { key: 'quadriceps', label: 'Quadríceps' },
     { key: 'posteriores', label: 'Posteriores' },
     { key: 'gluteos', label: 'Glúteos' },
+    { key: 'panturrilhas', label: 'Panturrilhas' },
     { key: 'abdomen', label: 'Abdômen' },
     { key: 'corpo_inteiro', label: 'Corpo inteiro' },
   ];
