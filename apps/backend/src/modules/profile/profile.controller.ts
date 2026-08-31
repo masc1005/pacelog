@@ -49,3 +49,21 @@ export async function completeOnboarding(req: Request, res: Response, next: Next
     next(error);
   }
 }
+
+export async function deleteAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.userId) {
+      throw new HttpError(401, 'UNAUTHORIZED');
+    }
+    const { confirmation } = req.body;
+    if (confirmation !== 'EXCLUIR') {
+      throw new HttpError(400, 'INVALID_CONFIRMATION', {
+        message: 'Digite EXCLUIR para confirmar a exclusão da conta',
+      });
+    }
+    await profileService.deleteAccountAndData(req.userId);
+    res.status(200).json({ success: true, message: 'Conta e dados excluídos com sucesso' });
+  } catch (error) {
+    next(error);
+  }
+}

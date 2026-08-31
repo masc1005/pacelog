@@ -25,6 +25,7 @@ import { CreateShoePage } from './pages/shoes/CreateShoePage';
 import { ShoeDetailsPage } from './pages/shoes/ShoeDetailsPage';
 import { EditShoePage } from './pages/shoes/EditShoePage';
 import { StrengthRoutes } from './features/strength/strength.routes';
+import { SettingsPage } from './pages/settings/SettingsPage';
 
 
 export const AppRoutes: React.FC = () => {
@@ -61,8 +62,9 @@ export const AppRoutes: React.FC = () => {
         <Route path="progress/goals/:id" element={<GoalDetailsPage />} />
         <Route path="progress/insights" element={<InsightsPage />} />
 
-        {/* Perfil */}
+        {/* Perfil & Configurações */}
         <Route path="profile" element={<ProfilePage />} />
+        <Route path="settings" element={<SettingsPage />} />
 
         {/* Tênis (Running Shoes Tracker) */}
         <Route path="shoes" element={<ShoesPage />} />

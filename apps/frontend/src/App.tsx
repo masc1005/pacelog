@@ -1,6 +1,7 @@
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { SettingsProvider } from './contexts/SettingsContext';
 import { AppRoutes } from './routes';
 
 export function App() {
@@ -8,7 +9,9 @@ export function App() {
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
-          <AppRoutes />
+          <SettingsProvider>
+            <AppRoutes />
+          </SettingsProvider>
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
@@ -16,4 +19,3 @@ export function App() {
 }
 
 export default App;
-

@@ -10,10 +10,12 @@ interface Toast {
 }
 
 interface ToastContextType {
-  toast: (message: string, variant?: ToastVariant) => void;
+  toast: (message: string, variant?: ToastVariant | 'info') => void;
+  addToast: (message: string, variant?: ToastVariant | 'info') => void;
   success: (message: string) => void;
   error: (message: string) => void;
   warning: (message: string) => void;
+  info: (message: string) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -37,18 +39,21 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const addToast = useCallback((message: string, variant: ToastVariant = 'success') => {
+  const addToast = useCallback((message: string, variant: ToastVariant | 'info' = 'success') => {
     const id = crypto.randomUUID();
-    setToasts(prev => [...prev.slice(-2), { id, message, variant }]);
+    const actualVariant: ToastVariant = variant === 'info' ? 'success' : variant;
+    setToasts(prev => [...prev.slice(-2), { id, message, variant: actualVariant }]);
     setTimeout(() => removeToast(id), 4000);
   }, [removeToast]);
 
   return (
     <ToastContext.Provider value={{
       toast: addToast,
+      addToast,
       success: (m) => addToast(m, 'success'),
       error: (m) => addToast(m, 'error'),
       warning: (m) => addToast(m, 'warning'),
+      info: (m) => addToast(m, 'info'),
     }}>
       {children}
       {/* Toast Container */}

@@ -8,6 +8,8 @@ router.use(requireAuth);
 
 router.get('/sessions.csv', exportController.exportSessionsCSV);
 router.get('/sessions.json', exportController.exportSessionsJSON);
+router.get('/backup.json', exportController.exportBackup);
+router.post('/import', exportController.importBackup);
 router.get('/weekly-report', exportController.getWeeklyReport);
 
 export default router;

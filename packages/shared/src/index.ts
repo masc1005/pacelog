@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 // ==========================================
 // MÓDULO DE MUSCULAÇÃO (SESSÃO ATIVA)
 // ==========================================
@@ -350,3 +352,140 @@ export interface AIInsightDTO extends BaseEntity {
   type: 'daily_coach' | 'daily_progress' | 'recovery_warning' | 'milestone_celebration' | 'session_analysis';
   sessionId?: string;
 }
+
+// ==========================================
+// MÓDULO DE CONFIGURAÇÕES & PREFERÊNCIAS (SETTINGS)
+// ==========================================
+
+export type DistanceUnit = 'km' | 'mi';
+export type WeightUnit = 'kg' | 'lb';
+export type TimeFormat = '24h' | '12h';
+export type Language = 'pt-BR' | 'en-US';
+export type Theme = 'dark' | 'light' | 'system';
+export type WeekStart = 'monday' | 'sunday';
+
+export interface TrainingReminder {
+  id: string;
+  weekday: number; // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+  time: string; // HH:mm
+  sportKey?: string;
+  enabled: boolean;
+}
+
+export interface SportMetricConfig {
+  metricKey: string;
+  label: string;
+  visible: boolean;
+  order: number;
+  isDefault: boolean;
+  isMandatory?: boolean;
+}
+
+export interface UserSportDTO extends BaseEntity {
+  userId: string;
+  sportKey: string;
+  isCustom: boolean;
+  displayName: string;
+  icon: string;
+  color: string;
+  isActive: boolean;
+  metricsConfig: SportMetricConfig[];
+}
+
+export interface UserSettingsDTO extends BaseEntity {
+  userId: string;
+  distanceUnit: DistanceUnit;
+  weightUnit: WeightUnit;
+  timeFormat: TimeFormat;
+  timezone: string;
+  language: Language;
+  theme: Theme;
+  weekStart: WeekStart;
+  weeklyVolumeGoalMinutes?: number;
+  streakGraceDays: number;
+  weeklyDigestEnabled: boolean;
+  notificationsEnabled: boolean;
+  trainingReminders: TrainingReminder[];
+  achievementNotificationsEnabled: boolean;
+}
+
+export const updateSettingsSchema = z.object({
+  distanceUnit: z.enum(['km', 'mi']).optional(),
+  weightUnit: z.enum(['kg', 'lb']).optional(),
+  timeFormat: z.enum(['24h', '12h']).optional(),
+  timezone: z.string().optional(),
+  language: z.enum(['pt-BR', 'en-US']).optional(),
+  theme: z.enum(['dark', 'light', 'system']).optional(),
+  weekStart: z.enum(['monday', 'sunday']).optional(),
+  weeklyVolumeGoalMinutes: z.number().int().positive().optional().nullable(),
+  streakGraceDays: z.number().int().min(0).max(3).optional(),
+  weeklyDigestEnabled: z.boolean().optional(),
+  notificationsEnabled: z.boolean().optional(),
+  achievementNotificationsEnabled: z.boolean().optional(),
+});
+
+export const trainingReminderSchema = z.object({
+  id: z.string().optional(),
+  weekday: z.number().int().min(0).max(6),
+  time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Horário deve estar no formato HH:mm'),
+  sportKey: z.string().optional(),
+  enabled: z.boolean().default(true),
+});
+
+export const createCustomSportSchema = z.object({
+  displayName: z.string().min(2, 'Nome do esporte deve ter no mínimo 2 caracteres').max(50),
+  icon: z.string().default('Activity'),
+  color: z.string().regex(/^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/, 'Cor deve ser hexadecimal válido').default('#D4F684'),
+  metricsConfig: z.array(
+    z.object({
+      metricKey: z.string(),
+      label: z.string(),
+      visible: z.boolean(),
+      order: z.number(),
+      isDefault: z.boolean(),
+      isMandatory: z.boolean().optional(),
+    })
+  ).optional(),
+});
+
+export const updateSportMetricsSchema = z.object({
+  isActive: z.boolean().optional(),
+  metricsConfig: z.array(
+    z.object({
+      metricKey: z.string(),
+      label: z.string(),
+      visible: z.boolean(),
+      order: z.number(),
+      isDefault: z.boolean(),
+      isMandatory: z.boolean().optional(),
+    })
+  ).optional(),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(6, 'Senha atual é obrigatória'),
+  newPassword: z.string().min(6, 'Nova senha deve ter no mínimo 6 caracteres'),
+  confirmPassword: z.string().min(6, 'Confirmação de senha é obrigatória'),
+}).refine(data => data.newPassword === data.confirmPassword, {
+  message: 'Nova senha e confirmação não conferem',
+  path: ['confirmPassword'],
+});
+
+export const deleteAccountSchema = z.object({
+  confirmation: z.literal('EXCLUIR', {
+    errorMap: () => ({ message: 'Digite EXCLUIR para confirmar a exclusão' }),
+  }),
+});
+
+export const importBackupSchema = z.object({
+  mode: z.enum(['merge', 'replace']).default('merge'),
+  data: z.object({
+    sessions: z.array(z.record(z.any())).optional().nullable(),
+    goals: z.array(z.record(z.any())).optional().nullable(),
+    shoes: z.array(z.record(z.any())).optional().nullable(),
+    settings: z.record(z.any()).optional().nullable(),
+    profile: z.record(z.any()).optional().nullable(),
+    userSports: z.array(z.record(z.any())).optional().nullable(),
+  }),
+});
+

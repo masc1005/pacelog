@@ -17,3 +17,5 @@ profileRoutes.get('/', profileController.getProfile);
 profileRoutes.put('/', validate(updateProfileSchema), profileController.updateProfile);
 profileRoutes.patch('/sports', validate(updateSportsSchema), profileController.updateActiveSports);
 profileRoutes.post('/onboarding', validate(onboardingSchema), profileController.completeOnboarding);
+profileRoutes.delete('/account', profileController.deleteAccount);
+

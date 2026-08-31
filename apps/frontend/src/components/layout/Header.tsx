@@ -113,7 +113,7 @@ export const Header: React.FC<HeaderProps> = () => {
                     Ver perfil
                   </Link>
                   <Link
-                    to="/profile"
+                    to="/settings"
                     role="menuitem"
                     onClick={() => setDropdownOpen(false)}
                     className="flex items-center gap-3 px-4 py-3 text-sm font-mono text-[#D4E4FA] hover:bg-[#161C24] transition-colors"

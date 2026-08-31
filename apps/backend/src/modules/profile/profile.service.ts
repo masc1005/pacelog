@@ -1,4 +1,11 @@
 import { ProfileModel, type IProfile } from './profile.model.js';
+import { SessionModel } from '../sessions/session.model.js';
+import { GoalModel } from '../goals/goal.model.js';
+import { ShoeModel } from '../shoes/shoe.model.js';
+import { InsightModel } from '../insights/insight.model.js';
+import { Notification as NotificationModel } from '../notifications/notification.model.js';
+import { UserSettingsModel } from '../settings/settings.model.js';
+import { UserSportModel } from '../settings/userSport.model.js';
 import { scopedFilter } from '../../utils/scopedQuery.js';
 import { HttpError } from '../../utils/httpError.js';
 import type { UpdateProfileInput, UpdateSportsInput, OnboardingInput } from './profile.schemas.js';
@@ -54,7 +61,6 @@ export async function updateActiveSports(
     }
     updateData.primarySportKey = payload.primarySportKey;
   } else if (payload.activeSports.length > 0) {
-    // Se não informou esporte principal, garante que o atual ainda é válido ou usa o primeiro
     const current = await ProfileModel.findOne(scopedFilter(userId));
     if (current && !payload.activeSports.includes(current.primarySportKey as any)) {
       updateData.primarySportKey = payload.activeSports[0];
@@ -99,4 +105,17 @@ export async function completeOnboarding(
   );
 
   return profile;
+}
+
+export async function deleteAccountAndData(userId: string): Promise<void> {
+  await Promise.all([
+    ProfileModel.deleteMany({ userId }),
+    SessionModel.deleteMany({ userId }),
+    GoalModel.deleteMany({ userId }),
+    ShoeModel.deleteMany({ userId }),
+    InsightModel.deleteMany({ userId }),
+    NotificationModel.deleteMany({ userId }),
+    UserSettingsModel.deleteMany({ userId }),
+    UserSportModel.deleteMany({ userId }),
+  ]);
 }
