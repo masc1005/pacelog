@@ -76,4 +76,13 @@ export const SPORTS_REGISTRY: Record<SportKey, SportConfig> = {
     color: '#10B981',
     defaultMetrics: ['distanceKm', 'durationSeconds', 'averageSpeedKmh', 'cyclingType'],
   },
+  jiujitsu: {
+    key: 'jiujitsu',
+    name: 'Jiu-Jitsu',
+    category: 'combat',
+    icon: 'shield',
+    primaryMetric: 'roundsCount',
+    color: '#E11D48',
+    defaultMetrics: ['trainingType', 'gi', 'beltRank', 'roundsCount', 'submissionsLanded'],
+  },
 };

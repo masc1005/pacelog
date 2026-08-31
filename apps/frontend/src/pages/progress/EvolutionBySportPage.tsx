@@ -222,6 +222,16 @@ export const EvolutionBySportPage: React.FC = () => {
             </div>
           )}
 
+          {/* Nota para jiu-jitsu */}
+          {sportKey === 'jiujitsu' && hasComparison && (
+            <div className="flex items-start gap-2 bg-[#1F2937]/50 p-3 rounded-lg">
+              <Info className="h-3.5 w-3.5 text-[#8F9380] mt-0.5 flex-shrink-0" />
+              <p className="font-mono text-[10px] text-[#8F9380]">
+                Volume de rolas e consistência no tatame são os sinais principais de progresso. Submissões sofridas fazem parte do aprendizado.
+              </p>
+            </div>
+          )}
+
           {/* Evidências */}
           {v2Data.evidence.length > 0 && (
             <div className="flex flex-col gap-1 border-t border-[#1F2937] pt-3">
@@ -273,7 +283,7 @@ export const EvolutionBySportPage: React.FC = () => {
           </div>
           <p className="font-mono text-[10px] text-[#4A5568] mb-4">
             Carga em AU (Unidades Arbitrárias) · Volume em {
-              sportKey === 'running' || sportKey === 'cycling' ? 'km' : sportKey === 'strength' ? 'kg' : sportKey === 'boxing' ? 'rounds' : 'unidade'
+              sportKey === 'running' || sportKey === 'cycling' ? 'km' : sportKey === 'strength' ? 'kg' : sportKey === 'jiujitsu' ? 'rolas' : sportKey === 'boxing' ? 'rounds' : 'unidade'
             }
           </p>
 

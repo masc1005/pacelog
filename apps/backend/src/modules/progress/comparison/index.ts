@@ -7,3 +7,4 @@ export * from './compare-futevolei.js';
 export * from './compare-boxing.js';
 export * from './compare-strength.js';
 export * from './compare-cycling.js';
+export * from './compare-jiujitsu.js';

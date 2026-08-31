@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 import type { GoalDTO, SportKey } from '@pacelog/shared';
-import { Target, Activity, Flame, Sun, Zap, Dumbbell, ArrowLeft, CheckCircle, PauseCircle, Trash2, Calendar, Waves, Bike } from 'lucide-react';
+import { Target, Activity, Flame, Sun, Zap, Dumbbell, ArrowLeft, CheckCircle, PauseCircle, Trash2, Calendar, Waves, Bike, Shield } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
@@ -14,6 +14,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = 
   football: { name: 'Futebol', color: '#D4F684', icon: Flame },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun },
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap },
+  jiujitsu: { name: 'Jiu-Jitsu', color: '#E11D48', icon: Shield },
   strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell },
   swimming: { name: 'Natação', color: '#38BDF8', icon: Waves },
   cycling: { name: 'Ciclismo', color: '#10B981', icon: Bike },

@@ -172,6 +172,40 @@ export const cyclingMetricsSchema = z.object({
 });
 
 // ==========================================
+// JIU-JITSU SCHEMAS
+// ==========================================
+
+export const jiuJitsuTrainingTypeSchema = z.enum([
+  'technique',
+  'sparring',
+  'competition',
+  'drilling',
+  'seminar',
+]);
+
+export const beltRankSchema = z.enum([
+  'white',
+  'blue',
+  'purple',
+  'brown',
+  'black',
+]);
+
+export const jiuJitsuMetricsSchema = z.object({
+  trainingType: jiuJitsuTrainingTypeSchema.default('technique'),
+  durationSeconds: z.number().positive('Duração deve ser positiva').optional(),
+  beltRank: beltRankSchema.optional(),
+  beltDegree: z.number().int().min(0).max(4).optional(),
+  roundsCount: z.number().int().nonnegative().optional(),
+  averageRoundDurationSeconds: z.number().positive().optional(),
+  submissionsLanded: z.number().int().nonnegative().optional(),
+  submissionsReceived: z.number().int().nonnegative().optional(),
+  techniquesFocus: z.array(z.string()).optional(),
+  gi: z.boolean().default(true),
+  notes: z.string().max(500).optional(),
+});
+
+// ==========================================
 // SCHEMAS DE CRIAÇÃO DISCRIMINADA DE SESSÃO
 // ==========================================
 
@@ -226,6 +260,12 @@ export const createCyclingSessionSchema = z.object({
   metrics: cyclingMetricsSchema,
 });
 
+export const createJiuJitsuSessionSchema = z.object({
+  sportKey: z.literal('jiujitsu'),
+  ...baseSessionFields,
+  metrics: jiuJitsuMetricsSchema,
+});
+
 export const createSessionSchema = z.discriminatedUnion('sportKey', [
   createRunningSessionSchema,
   createFootballSessionSchema,
@@ -234,6 +274,7 @@ export const createSessionSchema = z.discriminatedUnion('sportKey', [
   createStrengthSessionSchema,
   createSwimmingSessionSchema,
   createCyclingSessionSchema,
+  createJiuJitsuSessionSchema,
 ]);
 
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;

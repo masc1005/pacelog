@@ -25,15 +25,15 @@ describe('Sports Module Integration Tests', () => {
     await SportModel.deleteMany({});
   });
 
-  it('seedSports deve inserir os 7 esportes oficiais no banco de forma idempotente', async () => {
+  it('seedSports deve inserir os 8 esportes oficiais no banco de forma idempotente', async () => {
     await seedSports();
     const countFirst = await SportModel.countDocuments();
-    expect(countFirst).toBe(7);
+    expect(countFirst).toBe(8);
 
     // Executar novamente não deve duplicar registros
     await seedSports();
     const countSecond = await SportModel.countDocuments();
-    expect(countSecond).toBe(7);
+    expect(countSecond).toBe(8);
   });
 
   it('GET /api/sports deve retornar lista dos esportes ativos ordenados', async () => {
@@ -44,9 +44,9 @@ describe('Sports Module Integration Tests', () => {
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('sports');
     expect(Array.isArray(res.body.sports)).toBe(true);
-    expect(res.body.sports.length).toBe(7);
+    expect(res.body.sports.length).toBe(8);
 
     const keys = res.body.sports.map((s: any) => s.sportKey);
-    expect(keys).toEqual(['running', 'football', 'futevolei', 'boxing', 'strength', 'swimming', 'cycling']);
+    expect(keys).toEqual(['running', 'football', 'futevolei', 'boxing', 'strength', 'swimming', 'cycling', 'jiujitsu']);
   });
 });

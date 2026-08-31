@@ -36,6 +36,7 @@ import {
   compareBoxing,
   compareStrength,
   compareCycling,
+  compareJiuJitsu,
 } from './comparison/index.js';
 import type { ProgressComparisonDTO, SportProgress, ProgressStatus } from '@pacelog/shared';
 
@@ -61,6 +62,7 @@ function buildSportLabel(sportKey: SportKey): string {
     strength: 'Musculação',
     swimming: 'Natação',
     cycling: 'Ciclismo',
+    jiujitsu: 'Jiu-Jitsu',
   };
   return labels[sportKey] || sportKey;
 }
@@ -127,6 +129,7 @@ export class ProgressService {
       else if (sportKey === 'boxing') compResult = compareBoxing(sportCurrent as any, sportBaseline as any);
       else if (sportKey === 'strength') compResult = compareStrength(sportCurrent as any, sportBaseline as any);
       else if (sportKey === 'cycling') compResult = compareCycling(sportCurrent as any, sportBaseline as any);
+      else if (sportKey === 'jiujitsu') compResult = compareJiuJitsu(sportCurrent as any, sportBaseline as any);
 
       if (compResult.primaryMetric) {
         sportsList.push({
@@ -693,6 +696,8 @@ export class ProgressService {
           item.volume += session.metrics.roundsCount;
         } else if (sportKey === 'cycling' && session.metrics?.distanceKm) {
           item.volume += session.metrics.distanceKm;
+        } else if (sportKey === 'jiujitsu' && session.metrics?.roundsCount) {
+          item.volume += session.metrics.roundsCount;
         }
       }
     }
@@ -722,6 +727,9 @@ export class ProgressService {
       const speeds = sessions.map((s) => s.metrics?.averageSpeedKmh).filter((v): v is number => Boolean(v && v > 0));
       sportSpecificHighlights.bestSpeedKmh = speeds.length > 0 ? Math.max(...speeds) : null;
       sportSpecificHighlights.totalDistanceKm = Math.round(sessions.reduce((acc, s) => acc + (s.metrics?.distanceKm || 0), 0) * 10) / 10;
+    } else if (sportKey === 'jiujitsu') {
+      sportSpecificHighlights.totalRounds = sessions.reduce((acc, s) => acc + (s.metrics?.roundsCount || 0), 0);
+      sportSpecificHighlights.totalSubmissionsLanded = sessions.reduce((acc, s) => acc + (s.metrics?.submissionsLanded || 0), 0);
     }
 
     return { sportKey, totalSessions, totalDurationSeconds, totalSessionalLoad, weeklyTrend, sportSpecificHighlights };

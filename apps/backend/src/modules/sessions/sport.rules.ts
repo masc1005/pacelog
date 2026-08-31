@@ -140,6 +140,22 @@ export function enrichCyclingMetrics(metrics: any, durationSeconds?: number): an
 }
 
 /**
+ * Enriquecimento de métricas de Jiu-Jitsu:
+ * - Injeta durationSeconds se omitido
+ * - Garante valores numéricos padrão
+ */
+export function enrichJiuJitsuMetrics(metrics: any, durationSeconds?: number): any {
+  const duration = durationSeconds || metrics.durationSeconds || 60;
+  return {
+    ...metrics,
+    durationSeconds: duration,
+    roundsCount: metrics.roundsCount != null ? Number(metrics.roundsCount) : undefined,
+    submissionsLanded: metrics.submissionsLanded != null ? Number(metrics.submissionsLanded) : undefined,
+    submissionsReceived: metrics.submissionsReceived != null ? Number(metrics.submissionsReceived) : undefined,
+  };
+}
+
+/**
  * Despacha o enriquecimento de métricas de acordo com a modalidade.
  */
 export function enrichSportMetrics(sportKey: SportKey, metrics: any, durationSeconds?: number): any {
@@ -156,6 +172,8 @@ export function enrichSportMetrics(sportKey: SportKey, metrics: any, durationSec
       return enrichSwimmingMetrics(metrics, durationSeconds || 0);
     case 'cycling':
       return enrichCyclingMetrics(metrics, durationSeconds || 0);
+    case 'jiujitsu':
+      return enrichJiuJitsuMetrics(metrics, durationSeconds || 0);
     case 'football':
     case 'futevolei':
     default:
@@ -234,6 +252,12 @@ export function computePrimaryMetric(
       const pace = metrics.paceSecondsPer100m ?? null;
       if (pace === null || pace <= 0) return null;
       return { key: 'paceSecondsPer100m', label: 'Pace médio', value: pace, unit: 's/100m', direction: 'lower_is_better', comparability: 'same_metric' };
+    }
+
+    case 'jiujitsu': {
+      const rounds = metrics.roundsCount ?? 0;
+      if (rounds <= 0) return null;
+      return { key: 'roundsCount', label: 'Rolas por sessão', value: rounds, unit: 'rolas', direction: 'higher_is_better', comparability: 'same_sport' };
     }
 
     default:

@@ -7,7 +7,7 @@ import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 import type { SessionDTO, SportKey } from '@pacelog/shared';
 import { formatDuration } from '../../lib/utils';
-import { Activity, Zap, Sun, Dumbbell, Flame, Pencil, Trash2, ArrowLeft, Sparkles, RefreshCw, Waves, Bike } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, Pencil, Trash2, ArrowLeft, Sparkles, RefreshCw, Waves, Bike, Shield } from 'lucide-react';
 import type { AIInsightDTO } from '@pacelog/shared';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badge: 'cyan'|'amber'|'crimson'|'purple'|'green'|'blue' }> = {
@@ -15,6 +15,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badg
   football: { name: 'Futebol', color: '#D4F684', icon: Flame, badge: 'green' },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun, badge: 'amber' },
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap, badge: 'crimson' },
+  jiujitsu: { name: 'Jiu-Jitsu', color: '#E11D48', icon: Shield, badge: 'crimson' },
   strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell, badge: 'purple' },
   swimming: { name: 'Natação', color: '#38BDF8', icon: Waves, badge: 'blue' },
   cycling: { name: 'Ciclismo', color: '#10B981', icon: Bike, badge: 'green' },
@@ -303,6 +304,63 @@ export const SessionDetailPage: React.FC = () => {
                 <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
                   <span className="font-mono text-[9px] text-[#8F9380] uppercase">FC Máxima</span>
                   <span className="font-display text-xl font-bold text-[#10B981]">{session.metrics.maxHeartRate} bpm</span>
+                </div>
+              )}
+            </>}
+            {session.sportKey === 'jiujitsu' && <>
+              <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3">
+                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Tipo de Treino</span>
+                <span className="font-display text-base font-bold text-[#D4E4FA] uppercase">
+                  {session.metrics.trainingType === 'technique' ? 'Técnica' :
+                   session.metrics.trainingType === 'sparring' ? 'Sparring (Rolas)' :
+                   session.metrics.trainingType === 'competition' ? 'Competição' :
+                   session.metrics.trainingType === 'drilling' ? 'Drilling' :
+                   session.metrics.trainingType === 'seminar' ? 'Seminário' : session.metrics.trainingType}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3">
+                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Estilo</span>
+                <span className="font-display text-base font-bold text-[#E11D48]">
+                  {session.metrics.gi === false ? 'Sem Kimono (No-Gi)' : 'Com Kimono (Gi)'}
+                </span>
+              </div>
+              {session.metrics.beltRank && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Faixa / Grau</span>
+                  <span className="font-display text-base font-bold text-[#D4E4FA] capitalize">
+                    Faixa {session.metrics.beltRank === 'white' ? 'Branca' :
+                           session.metrics.beltRank === 'blue' ? 'Azul' :
+                           session.metrics.beltRank === 'purple' ? 'Roxa' :
+                           session.metrics.beltRank === 'brown' ? 'Marrom' :
+                           session.metrics.beltRank === 'black' ? 'Preta' : session.metrics.beltRank}
+                    {session.metrics.beltDegree != null ? ` · ${session.metrics.beltDegree}º Grau` : ''}
+                  </span>
+                </div>
+              )}
+              {session.metrics.roundsCount != null && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Rolas</span>
+                  <span className="font-display text-xl font-bold text-[#E11D48]">{session.metrics.roundsCount}</span>
+                </div>
+              )}
+              {session.metrics.submissionsLanded != null && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Finalizações Aplicadas</span>
+                  <span className="font-display text-xl font-bold text-[#E11D48]">{session.metrics.submissionsLanded}</span>
+                </div>
+              )}
+              {session.metrics.submissionsReceived != null && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Finalizações Sofridas</span>
+                  <span className="font-display text-xl font-bold text-[#8F9380]">{session.metrics.submissionsReceived}</span>
+                </div>
+              )}
+              {Array.isArray(session.metrics.techniquesFocus) && session.metrics.techniquesFocus.length > 0 && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3 col-span-2">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Foco Técnico / Posições</span>
+                  <span className="font-display text-sm text-[#D4E4FA]">
+                    {session.metrics.techniquesFocus.join(', ')}
+                  </span>
                 </div>
               )}
             </>}

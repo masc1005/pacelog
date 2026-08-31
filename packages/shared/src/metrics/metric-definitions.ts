@@ -77,6 +77,16 @@ export const CYCLING_METRICS: SportMetricDefinition[] = [
   { key: 'paceSecondsPerKm', label: 'Pace médio', unit: 's/km', category: 'performance', direction: 'lower_is_better', comparability: 'same_metric' },
 ];
 
+export const JIUJITSU_METRICS: SportMetricDefinition[] = [
+  // Carga externa
+  { key: 'durationMinutes', label: 'Duração', unit: 'min', category: 'load', direction: 'neutral', comparability: 'same_sport', required: true },
+  { key: 'roundsCount', label: 'Rolas por sessão', unit: 'rolas', category: 'performance', direction: 'higher_is_better', comparability: 'same_sport' },
+  { key: 'averageRoundDurationSeconds', label: 'Duração média por rola', unit: 's', category: 'load', direction: 'neutral', comparability: 'same_sport' },
+  // Contexto pedagógico
+  { key: 'submissionsLanded', label: 'Finalizações aplicadas', unit: 'submissões', category: 'performance', direction: 'higher_is_better', comparability: 'same_sport' },
+  { key: 'submissionsReceived', label: 'Finalizações sofridas', unit: 'submissões', category: 'context', direction: 'neutral', comparability: 'same_sport' },
+];
+
 /**
  * Registry central de métricas por esporte.
  * Consulte este objeto para saber o que exibir, com qual unidade e direção.
@@ -89,6 +99,7 @@ export const SPORT_METRIC_REGISTRY: SportMetricRegistry = {
   strength: STRENGTH_METRICS,
   swimming: SWIMMING_METRICS,
   cycling: CYCLING_METRICS,
+  jiujitsu: JIUJITSU_METRICS,
 };
 
 /**
@@ -103,6 +114,7 @@ export const PRIMARY_METRIC_KEY: Record<string, string> = {
   strength: 'totalVolumeKg',
   swimming: 'paceSecondsPer100m',
   cycling: 'averageSpeedKmh',
+  jiujitsu: 'roundsCount',
 };
 
 /**

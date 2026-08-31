@@ -17,6 +17,7 @@ import {
   Activity,
   Waves,
   Bike,
+  Shield,
 } from 'lucide-react';
 import {
   SPORT_KEYS,
@@ -84,6 +85,7 @@ export const HomePage: React.FC = () => {
     strength: { name: 'Musculação', color: '#A855F7', badge: 'purple', icon: Dumbbell },
     swimming: { name: 'Natação', color: '#38BDF8', badge: 'blue', icon: Waves },
     cycling: { name: 'Ciclismo', color: '#10B981', badge: 'green', icon: Bike },
+    jiujitsu: { name: 'Jiu-Jitsu', color: '#E11D48', badge: 'crimson', icon: Shield },
   };
 
   const filteredSessions =
@@ -448,6 +450,27 @@ export const HomePage: React.FC = () => {
                               {session.metrics?.averageSpeedKmh
                                 ? `${session.metrics.averageSpeedKmh} km/h`
                                 : '--'}
+                            </span>
+                          </div>
+                        </>
+                      )}
+
+                      {session.sportKey === 'jiujitsu' && (
+                        <>
+                          <div>
+                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
+                              Rolas / Treino
+                            </span>
+                            <span className="font-display text-lg font-bold text-[#D4E4FA]">
+                              {session.metrics?.roundsCount ? `${session.metrics.roundsCount} rolas` : (session.metrics?.trainingType === 'technique' ? 'Técnica' : 'Treino')}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
+                              Estilo
+                            </span>
+                            <span className="font-display text-lg font-bold text-[#E11D48]">
+                              {session.metrics?.gi === false ? 'No-Gi' : 'Gi'}
                             </span>
                           </div>
                         </>

@@ -6,7 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { SPORT_KEYS, type SportKey, type SessionDTO } from '@pacelog/shared';
 import { apiClient } from '../../lib/api';
-import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, AlertTriangle, Waves, Bike } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, AlertTriangle, Waves, Bike, Shield } from 'lucide-react';
 import { ShoePicker } from '../../components/shoes/ShoePicker';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
@@ -14,6 +14,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = 
   football: { name: 'Futebol', color: '#D4F684', icon: Flame },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun },
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap },
+  jiujitsu: { name: 'Jiu-Jitsu', color: '#E11D48', icon: Shield },
   strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell },
   swimming: { name: 'Natação', color: '#38BDF8', icon: Waves },
   cycling: { name: 'Ciclismo', color: '#10B981', icon: Bike },
@@ -432,6 +433,125 @@ export const EditSessionPage: React.FC = () => {
                   value={metrics.maxHeartRate || ''}
                   onChange={e => setMetrics({...metrics, maxHeartRate: Number(e.target.value)})}
                 />
+              </div>
+            )}
+
+            {sportKey === 'jiujitsu' && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-1.5 col-span-2 sm:col-span-1">
+                  <label className="text-[10px] uppercase font-mono tracking-widest text-[#8F9380]">
+                    Tipo de Treino
+                  </label>
+                  <select
+                    className="input-precision py-2 text-sm bg-[#0D1C2D] border border-[#1F2937] text-[#D4E4FA] rounded px-3"
+                    value={metrics.trainingType || 'technique'}
+                    onChange={e => setMetrics({...metrics, trainingType: e.target.value})}
+                  >
+                    <option value="technique">Técnica</option>
+                    <option value="sparring">Sparring (Rolas)</option>
+                    <option value="competition">Competição</option>
+                    <option value="drilling">Drilling</option>
+                    <option value="seminar">Seminário</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5 col-span-2 sm:col-span-1">
+                  <label className="text-[10px] uppercase font-mono tracking-widest text-[#8F9380]">
+                    Estilo / Vestimenta
+                  </label>
+                  <select
+                    className="input-precision py-2 text-sm bg-[#0D1C2D] border border-[#1F2937] text-[#D4E4FA] rounded px-3"
+                    value={metrics.gi === false ? 'no_gi' : 'gi'}
+                    onChange={e => setMetrics({...metrics, gi: e.target.value === 'gi'})}
+                  >
+                    <option value="gi">Com Kimono (Gi)</option>
+                    <option value="no_gi">Sem Kimono (No-Gi)</option>
+                  </select>
+                </div>
+
+                <Input
+                  label="Duração no Tatame (min)"
+                  type="number"
+                  min={1}
+                  value={durationMinutes || ''}
+                  onChange={e => setDurationMinutes(Number(e.target.value))}
+                />
+
+                {(metrics.trainingType === 'sparring' || metrics.trainingType === 'competition') && (
+                  <>
+                    <Input
+                      label="Qtd. de Rolas"
+                      type="number"
+                      min={0}
+                      value={metrics.roundsCount || ''}
+                      onChange={e => setMetrics({...metrics, roundsCount: Number(e.target.value)})}
+                    />
+                    <Input
+                      label="Duração Média por Rola (min)"
+                      type="number"
+                      min={1}
+                      value={metrics.averageRoundDurationSeconds ? Math.round(metrics.averageRoundDurationSeconds / 60) : ''}
+                      onChange={e => setMetrics({...metrics, averageRoundDurationSeconds: Number(e.target.value) * 60})}
+                    />
+                    <Input
+                      label="Finalizações Aplicadas"
+                      type="number"
+                      min={0}
+                      value={metrics.submissionsLanded ?? ''}
+                      onChange={e => setMetrics({...metrics, submissionsLanded: Number(e.target.value)})}
+                    />
+                    <Input
+                      label="Finalizações Sofridas"
+                      type="number"
+                      min={0}
+                      value={metrics.submissionsReceived ?? ''}
+                      onChange={e => setMetrics({...metrics, submissionsReceived: Number(e.target.value)})}
+                    />
+                  </>
+                )}
+
+                <div className="flex flex-col gap-1.5 col-span-2 sm:col-span-1">
+                  <label className="text-[10px] uppercase font-mono tracking-widest text-[#8F9380]">
+                    Faixa
+                  </label>
+                  <select
+                    className="input-precision py-2 text-sm bg-[#0D1C2D] border border-[#1F2937] text-[#D4E4FA] rounded px-3"
+                    value={metrics.beltRank || 'white'}
+                    onChange={e => setMetrics({...metrics, beltRank: e.target.value})}
+                  >
+                    <option value="white">Faixa Branca</option>
+                    <option value="blue">Faixa Azul</option>
+                    <option value="purple">Faixa Roxa</option>
+                    <option value="brown">Faixa Marrom</option>
+                    <option value="black">Faixa Preta</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5 col-span-2 sm:col-span-1">
+                  <label className="text-[10px] uppercase font-mono tracking-widest text-[#8F9380]">
+                    Grau na Faixa
+                  </label>
+                  <select
+                    className="input-precision py-2 text-sm bg-[#0D1C2D] border border-[#1F2937] text-[#D4E4FA] rounded px-3"
+                    value={metrics.beltDegree ?? 0}
+                    onChange={e => setMetrics({...metrics, beltDegree: Number(e.target.value)})}
+                  >
+                    <option value="0">0º Grau</option>
+                    <option value="1">1º Grau</option>
+                    <option value="2">2º Grau</option>
+                    <option value="3">3º Grau</option>
+                    <option value="4">4º Grau</option>
+                  </select>
+                </div>
+
+                <div className="col-span-2 sm:col-span-3">
+                  <Input
+                    label="Foco Técnico / Posições"
+                    type="text"
+                    value={Array.isArray(metrics.techniquesFocus) ? metrics.techniquesFocus.join(', ') : (metrics.techniquesFocus || '')}
+                    onChange={e => setMetrics({...metrics, techniquesFocus: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean)})}
+                  />
+                </div>
               </div>
             )}
 

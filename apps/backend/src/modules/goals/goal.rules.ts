@@ -51,6 +51,9 @@ export function extractSessionVolume(session: SessionDataForGoal): number {
   if (sportKey === 'boxing' && metrics?.roundsCount) {
     return metrics.roundsCount; // rounds
   }
+  if (sportKey === 'jiujitsu' && metrics?.roundsCount) {
+    return metrics.roundsCount; // rolas
+  }
   return Math.round(durationSeconds / 60); // minutos como fallback
 }
 

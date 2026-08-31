@@ -99,6 +99,28 @@ export const OFFICIAL_SPORTS = [
     active: true,
     order: 7,
   },
+  {
+    sportKey: 'jiujitsu',
+    name: 'Jiu-Jitsu',
+    category: 'combat',
+    icon: 'Shield',
+    color: '#E11D48',
+    supportedMetrics: [
+      'trainingType',
+      'gi',
+      'beltRank',
+      'beltDegree',
+      'roundsCount',
+      'averageRoundDurationSeconds',
+      'submissionsLanded',
+      'submissionsReceived',
+      'techniquesFocus',
+      'durationSeconds',
+    ],
+    description: 'Treinos técnicos, rolas/sparring, competição, drilling e seminários.',
+    active: true,
+    order: 8,
+  },
 ];
 
 export async function seedSports(): Promise<void> {

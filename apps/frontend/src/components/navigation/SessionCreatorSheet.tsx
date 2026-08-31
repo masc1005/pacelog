@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Activity, Flame, Sun, Zap, Dumbbell, Waves, Bike } from 'lucide-react';
+import { X, Activity, Flame, Sun, Zap, Dumbbell, Waves, Bike, Shield } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { SportKey } from '@pacelog/shared';
 
@@ -40,6 +40,13 @@ const SPORTS: Sport[] = [
     description: 'Rounds, sparring ou saco',
     icon: Zap,
     color: '#FF6B35',
+  },
+  {
+    key: 'jiujitsu',
+    name: 'Jiu-Jitsu',
+    description: 'Técnica, rolas, no-gi, submissões e drilling',
+    icon: Shield,
+    color: '#E11D48',
   },
   {
     key: 'strength',

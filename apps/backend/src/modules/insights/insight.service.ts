@@ -327,10 +327,14 @@ Interpretação:`;
         ? `\n\nATENÇÃO ESPECIAL CICLISMO: No ciclismo, velocidade média maior é uma melhora (higher_is_better). Diferencie pedais de rua (road), indoor/spinning (indoor) e mountain bike (mountain_bike). Não confunda velocidade média (km/h) com pace (min/km).`
         : '';
 
+      const jiujitsuInstruction = sportName === 'jiujitsu'
+        ? `\n\nATENÇÃO ESPECIAL JIU-JITSU: Trate frequência e volume de rolas/treino como sinais de evolução. Nunca interprete submissões sofridas como fraqueza ou retrocesso — são parte essencial do aprendizado. Não compare gi com no-gi diretamente. NUNCA diga que o atleta está pronto para a próxima faixa ou graduação (isso é decisão exclusiva do professor).`
+        : '';
+
       const prompt = `Você é um assistente de treino do aplicativo Pacelog.
         ${sessionRules}
 
-        Você recebeu dados estruturados de duas sessões de ${sportName}. Interprete a evolução ou mudança entre elas.${sportTipsInstruction}${cyclingInstruction}
+        Você recebeu dados estruturados de duas sessões de ${sportName}. Interprete a evolução ou mudança entre elas.${sportTipsInstruction}${cyclingInstruction}${jiujitsuInstruction}
 
         SESSÃO ATUAL (${currentData.period}):
         - Duração: ${currentData.durationMinutes} minutos

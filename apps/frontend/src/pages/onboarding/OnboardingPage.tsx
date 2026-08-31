@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { SPORT_KEYS, type SportKey } from '@pacelog/shared';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { Activity, Zap, Sun, Dumbbell, Flame, ChevronRight, Target, Waves, Bike } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, ChevronRight, Target, Waves, Bike, Shield } from 'lucide-react';
 import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -12,6 +12,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any; desc
   football: { name: 'Futebol', color: '#D4F684', icon: Flame, desc: 'Campo, society ou futsal' },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun, desc: 'Praia ou quadra de areia' },
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap, desc: 'Rounds, sparring e condicionamento' },
+  jiujitsu: { name: 'Jiu-Jitsu', color: '#E11D48', icon: Shield, desc: 'Técnica, rolas, no-gi e submissões' },
   strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell, desc: 'Séries, reps e tonelagem' },
   swimming: { name: 'Natação', color: '#38BDF8', icon: Waves, desc: 'Piscina ou águas abertas' },
   cycling: { name: 'Ciclismo', color: '#10B981', icon: Bike, desc: 'Rua, indoor, mountain bike e misto' },

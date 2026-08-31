@@ -27,6 +27,8 @@ import { SwimmingMetrics } from './swimming/swimming.types.js';
 export * from './cycling/cycling.types.js';
 export { calculateCyclingSpeed, calculateCyclingPace } from './cycling/cycling.metrics.js';
 import { CyclingMetrics } from './cycling/cycling.types.js';
+export * from './jiujitsu/jiujitsu.types.js';
+import { JiuJitsuMetrics } from './jiujitsu/jiujitsu.types.js';
 
 // Tênis / Shoes Tracker
 export * from './shoes/index.js';
@@ -39,6 +41,7 @@ export const SPORT_KEYS = [
   'strength',
   'swimming',
   'cycling',
+  'jiujitsu',
 ] as const;
 
 export type SportKey = (typeof SPORT_KEYS)[number];
@@ -161,7 +164,8 @@ export type SportMetrics =
   | BoxingMetrics
   | LegacyStrengthMetrics
   | SwimmingMetrics
-  | CyclingMetrics;
+  | CyclingMetrics
+  | JiuJitsuMetrics;
 
 // ==========================================
 // SESSÃO DE TREINO DTO
