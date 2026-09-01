@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { useActiveStrengthSession } from '../hooks/useActiveStrengthSession';
 import { useSessionTimer, formatDuration } from '../hooks/useSessionTimer';
 import { useRestTimer } from '../hooks/useRestTimer';
@@ -43,18 +43,22 @@ export const ActiveStrengthSessionPage: React.FC = () => {
     session
   );
 
-  // Redireciona para home se não há sessão ativa
-  if (!isLoading && !session) {
-    navigate('/strength', { replace: true });
-    return null;
-  }
-
   if (isLoading) {
     return (
-      <div className="active-session active-session--loading" aria-busy="true">
-        Carregando sessão…
+      <div className="flex flex-col items-center justify-center min-h-[60vh] w-full gap-4 p-8" aria-busy="true">
+        <div className="w-10 h-10 rounded-xl bg-[#A855F7]/10 border border-[#A855F7]/30 flex items-center justify-center animate-pulse">
+          <div className="w-4 h-4 rounded-full bg-[#A855F7]" />
+        </div>
+        <span className="font-mono text-xs text-[#8F9380] uppercase tracking-widest animate-pulse">
+          Carregando treino ativo…
+        </span>
       </div>
     );
+  }
+
+  // Redireciona de forma declarativa para /strength caso não haja treino ativo
+  if (!session) {
+    return <Navigate to="/strength" replace />;
   }
 
   async function handleSelectExercise(exercise: Exercise) {
@@ -68,7 +72,7 @@ export const ActiveStrengthSessionPage: React.FC = () => {
   }
 
   async function handleAddSet(exerciseId: string) {
-    const exercise = session!.exercises.find((e) => e.id === exerciseId);
+    const exercise = session?.exercises.find((e) => e.id === exerciseId);
     const lastSet = exercise?.sets.filter((s) => s.status === 'completed').at(-1);
 
     await mutations.addSet({
@@ -162,31 +166,33 @@ export const ActiveStrengthSessionPage: React.FC = () => {
   );
 
   const completedSetsCount = useMemo(() => {
-    if (!session) return 0;
+    if (!session?.exercises) return 0;
     return session.exercises.reduce(
-      (acc, ex) => acc + ex.sets.filter((s) => s.status === 'completed').length,
+      (acc, ex) => acc + (ex.sets || []).filter((s) => s.status === 'completed').length,
       0
     );
-  }, [session]);
+  }, [session?.exercises]);
 
   const totalVolumeKg = useMemo(() => {
-    if (!session) return 0;
+    if (!session?.exercises) return 0;
     return session.exercises.reduce(
       (acc, ex) =>
         acc +
-        ex.sets
+        (ex.sets || [])
           .filter((s) => s.status === 'completed')
           .reduce((sum, s) => sum + (s.load || 0) * (s.reps || 0), 0),
       0
     );
-  }, [session]);
+  }, [session?.exercises]);
+
+  const exercisesList = session.exercises || [];
 
   return (
     <div className="flex flex-col h-full bg-[#051424] min-h-screen relative pb-32">
       {/* Header fixo */}
       <div className="sticky top-0 z-10 bg-[#051424] border-b border-[#1F2937]">
         <ActiveSessionHeader
-          session={session!}
+          session={session}
           elapsedSeconds={elapsedSeconds}
           onPause={mutations.pause}
           onResume={mutations.resume}
@@ -215,14 +221,14 @@ export const ActiveStrengthSessionPage: React.FC = () => {
 
       {/* Lista de exercícios */}
       <div className="flex flex-col gap-4 p-4 max-w-2xl mx-auto w-full">
-        {session!.exercises.length === 0 && (
+        {exercisesList.length === 0 && (
           <div className="flex flex-col items-center justify-center p-8 border border-dashed border-[#1F2937] rounded-[4px] gap-2 text-center text-[#8F9380]">
             <p className="font-mono text-sm uppercase">Nenhum exercício adicionado</p>
             <p className="text-xs">Toque em "Adicionar Exercício" para começar seu treino.</p>
           </div>
         )}
 
-        {session!.exercises
+        {exercisesList
           .slice()
           .sort((a, b) => a.order - b.order)
           .map((exercise) => (
@@ -353,10 +359,10 @@ export const ActiveStrengthSessionPage: React.FC = () => {
           <div className="bg-[#0D1C2D] border border-[#1F2937] p-6 rounded-[4px] max-w-sm w-full flex flex-col gap-4 shadow-2xl">
             <div className="flex flex-col gap-1.5">
               <h3 className="font-display text-lg font-bold text-[#D4E4FA] uppercase tracking-wide">
-                {session!.exercises.length === 0 ? 'Nenhum Exercício Registrado' : 'Descartar Treino?'}
+                {session?.exercises.length === 0 ? 'Nenhum Exercício Registrado' : 'Descartar Treino?'}
               </h3>
               <p className="font-mono text-xs text-[#8F9380] leading-relaxed">
-                {session!.exercises.length === 0
+                {session?.exercises.length === 0
                   ? 'Você ainda não adicionou nenhum exercício nesta sessão. Deseja desistir e descartar este treino?'
                   : 'Tem certeza que deseja desistir desta sessão? O progresso deste treino não será salvo no histórico.'}
               </p>

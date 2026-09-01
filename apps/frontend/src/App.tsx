@@ -5,6 +5,7 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import { SyncQueueProvider } from './pwa/hooks/useSyncQueue';
 import { OfflineBanner } from './pwa/components/OfflineBanner';
 import { ConflictResolverModal } from './pwa/components/ConflictResolverModal';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { AppRoutes } from './routes';
 
 /**
@@ -22,19 +23,21 @@ function SyncQueueBridge({ children }: { children: React.ReactNode }) {
 
 export function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <ToastProvider>
-          <SettingsProvider>
-            <SyncQueueBridge>
-              <AppRoutes />
-              <OfflineBanner />
-              <ConflictResolverModal />
-            </SyncQueueBridge>
-          </SettingsProvider>
-        </ToastProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <ToastProvider>
+            <SettingsProvider>
+              <SyncQueueBridge>
+                <AppRoutes />
+                <OfflineBanner />
+                <ConflictResolverModal />
+              </SyncQueueBridge>
+            </SettingsProvider>
+          </ToastProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 
