@@ -134,6 +134,15 @@ describe('Strength Optimistic State Utilities', () => {
     expect(updated.exercises[0].order).toBe(0);
   });
 
+  it('patchExerciseLocally deve atualizar dados do exercício de forma imutável', () => {
+    const updated = patchExerciseLocally(initialSession, 'ex-1', {
+      notes: 'Aquecimento prévio feito na esteira',
+    });
+
+    expect(updated.exercises[0].notes).toBe('Aquecimento prévio feito na esteira');
+    expect(initialSession.exercises[0].notes).toBeUndefined();
+  });
+
   it('patchSessionStatusLocally deve alternar status e preencher timestamps', () => {
     const paused = patchSessionStatusLocally(initialSession, 'paused');
     expect(paused.status).toBe('paused');

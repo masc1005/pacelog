@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   searchCachedExercises,
   invalidateExerciseCache,
@@ -12,7 +12,7 @@ describe('Exercise Client Cache Service Tests', () => {
       name: 'Supino Reto com Barra',
       nameAlternatives: ['Supino Horizontal', 'Bench Press'],
       primaryMuscleGroup: 'peito',
-      equipment: 'barbell',
+      equipment: 'barra',
       type: 'compound',
       isSystem: true,
       isActive: true,
@@ -24,7 +24,7 @@ describe('Exercise Client Cache Service Tests', () => {
       name: 'Agachamento Livre',
       nameAlternatives: ['Back Squat'],
       primaryMuscleGroup: 'quadriceps',
-      equipment: 'barbell',
+      equipment: 'barra',
       type: 'compound',
       isSystem: true,
       isActive: true,
@@ -36,7 +36,7 @@ describe('Exercise Client Cache Service Tests', () => {
       name: 'Supino Inclinado com Halteres',
       nameAlternatives: ['Incline DB Press'],
       primaryMuscleGroup: 'peito',
-      equipment: 'dumbbell',
+      equipment: 'halteres',
       type: 'compound',
       isSystem: true,
       isActive: true,
