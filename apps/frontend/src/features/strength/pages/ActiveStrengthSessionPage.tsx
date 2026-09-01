@@ -43,6 +43,31 @@ export const ActiveStrengthSessionPage: React.FC = () => {
     session
   );
 
+  const durationMinutes = useMemo(
+    () => Math.max(1, Math.round(elapsedSeconds / 60)),
+    [elapsedSeconds]
+  );
+
+  const completedSetsCount = useMemo(() => {
+    if (!session?.exercises) return 0;
+    return session.exercises.reduce(
+      (acc, ex) => acc + (ex.sets || []).filter((s) => s.status === 'completed').length,
+      0
+    );
+  }, [session?.exercises]);
+
+  const totalVolumeKg = useMemo(() => {
+    if (!session?.exercises) return 0;
+    return session.exercises.reduce(
+      (acc, ex) =>
+        acc +
+        (ex.sets || [])
+          .filter((s) => s.status === 'completed')
+          .reduce((sum, s) => sum + (s.load || 0) * (s.reps || 0), 0),
+      0
+    );
+  }, [session?.exercises]);
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] w-full gap-4 p-8" aria-busy="true">
@@ -160,32 +185,7 @@ export const ActiveStrengthSessionPage: React.FC = () => {
     }
   }
 
-  const durationMinutes = useMemo(
-    () => Math.max(1, Math.round(elapsedSeconds / 60)),
-    [elapsedSeconds]
-  );
-
-  const completedSetsCount = useMemo(() => {
-    if (!session?.exercises) return 0;
-    return session.exercises.reduce(
-      (acc, ex) => acc + (ex.sets || []).filter((s) => s.status === 'completed').length,
-      0
-    );
-  }, [session?.exercises]);
-
-  const totalVolumeKg = useMemo(() => {
-    if (!session?.exercises) return 0;
-    return session.exercises.reduce(
-      (acc, ex) =>
-        acc +
-        (ex.sets || [])
-          .filter((s) => s.status === 'completed')
-          .reduce((sum, s) => sum + (s.load || 0) * (s.reps || 0), 0),
-      0
-    );
-  }, [session?.exercises]);
-
-  const exercisesList = session.exercises || [];
+  const exercisesList = session?.exercises || [];
 
   return (
     <div className="flex flex-col h-full bg-[#051424] min-h-screen relative pb-32">
