@@ -1,7 +1,11 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { Exercise, ExerciseSearchParams } from '@pacelog/shared';
-import { strengthApi } from '../../../services/strength.api';
 import { Search, X, Dumbbell } from 'lucide-react';
+import {
+  getExerciseLibrary,
+  searchCachedExercises,
+} from '../services/exerciseCache.service';
+import { strengthApi } from '../../../services/strength.api';
 
 interface ExerciseSearchProps {
   onSelect: (exercise: Exercise) => void;
@@ -13,9 +17,11 @@ export const ExerciseSearch: React.FC<ExerciseSearchProps> = ({
   onClose,
 }) => {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Exercise[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [selectedMuscle, setSelectedMuscle] = useState('');
+  const [library, setLibrary] = useState<Exercise[]>([]);
+  const [isLoadingLibrary, setIsLoadingLibrary] = useState(true);
+  const [remoteResults, setRemoteResults] = useState<Exercise[] | null>(null);
+  const [isSearchingRemote, setIsSearchingRemote] = useState(false);
 
   const muscleGroups = [
     { key: '', label: 'Todos' },
@@ -32,36 +38,62 @@ export const ExerciseSearch: React.FC<ExerciseSearchProps> = ({
     { key: 'corpo_inteiro', label: 'Corpo inteiro' },
   ];
 
-  const search = useCallback(
-    async (q: string, muscle: string) => {
-      setIsLoading(true);
+  // 1. Carrega biblioteca em cache na montagem
+  useEffect(() => {
+    let mounted = true;
+    getExerciseLibrary()
+      .then((items) => {
+        if (mounted) {
+          setLibrary(items);
+          setIsLoadingLibrary(false);
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setIsLoadingLibrary(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // 2. Busca local instantânea a partir do cache
+  const localResults = useMemo(() => {
+    if (library.length === 0) return [];
+    return searchCachedExercises(query, selectedMuscle, library);
+  }, [query, selectedMuscle, library]);
+
+  // 3. Fallback de busca remota caso não haja resultado local e haja termo digitado
+  useEffect(() => {
+    setRemoteResults(null);
+    if (!query.trim() || localResults.length > 0) {
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingRemote(true);
       try {
         const params: ExerciseSearchParams = {
-          query: q || undefined,
-          muscleGroup: (muscle || undefined) as ExerciseSearchParams['muscleGroup'],
+          query: query.trim(),
+          muscleGroup: (selectedMuscle || undefined) as ExerciseSearchParams['muscleGroup'],
           limit: 40,
         };
         const result = await strengthApi.searchExercises(params);
-        setResults(result.items || []);
+        setRemoteResults(result.items || []);
       } catch {
-        // falha silenciosa na busca
+        // falha silenciosa
       } finally {
-        setIsLoading(false);
+        setIsSearchingRemote(false);
       }
-    },
-    []
-  );
+    }, 250);
 
-  // Busca inicial com exercícios recentes
-  useEffect(() => {
-    search('', '');
-  }, [search]);
-
-  // Debounce na busca por texto
-  useEffect(() => {
-    const timer = setTimeout(() => search(query, selectedMuscle), 300);
     return () => clearTimeout(timer);
-  }, [query, selectedMuscle, search]);
+  }, [query, selectedMuscle, localResults.length]);
+
+  const displayedResults = remoteResults !== null ? remoteResults : localResults;
+  const isBusy = isLoadingLibrary || isSearchingRemote;
 
   return (
     <div
@@ -149,23 +181,37 @@ export const ExerciseSearch: React.FC<ExerciseSearchProps> = ({
         className="flex flex-col flex-1 overflow-y-auto bg-[#051424] divide-y divide-[#1F2937]/50 min-h-[220px]"
         role="listbox"
         aria-label="Exercícios encontrados"
-        aria-busy={isLoading}
+        aria-busy={isBusy}
       >
-        {isLoading && (
-          <div className="flex items-center justify-center p-8 font-mono text-xs text-[#8F9380] animate-pulse uppercase tracking-widest" aria-hidden="true">
-            Buscando exercícios…
+        {isLoadingLibrary && (
+          <div
+            className="flex items-center justify-center p-8 font-mono text-xs text-[#8F9380] animate-pulse uppercase tracking-widest"
+            aria-hidden="true"
+          >
+            Carregando catálogo…
           </div>
         )}
 
-        {!isLoading && results.length === 0 && (
+        {!isLoadingLibrary && isSearchingRemote && (
+          <div
+            className="flex items-center justify-center p-8 font-mono text-xs text-[#8F9380] animate-pulse uppercase tracking-widest"
+            aria-hidden="true"
+          >
+            Buscando na biblioteca completa…
+          </div>
+        )}
+
+        {!isBusy && displayedResults.length === 0 && (
           <div className="flex flex-col items-center justify-center p-8 text-center gap-1">
             <span className="font-mono text-sm text-[#D4E4FA]">Nenhum exercício encontrado</span>
-            <span className="font-sans text-xs text-[#8F9380]">Tente buscar por outro termo ou selecione "Todos".</span>
+            <span className="font-sans text-xs text-[#8F9380]">
+              Tente buscar por outro termo ou selecione "Todos".
+            </span>
           </div>
         )}
 
-        {!isLoading &&
-          results.map((exercise) => (
+        {!isLoadingLibrary &&
+          displayedResults.map((exercise) => (
             <button
               key={exercise.key}
               id={`exercise-option-${exercise.key}`}

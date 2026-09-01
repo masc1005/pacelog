@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { StrengthSet } from '@pacelog/shared';
 
 interface SetRowProps {
@@ -10,7 +10,7 @@ interface SetRowProps {
   onRemove: (setId: string) => void;
 }
 
-export const SetRow: React.FC<SetRowProps> = ({
+export const SetRow: React.FC<SetRowProps> = React.memo(({
   set,
   previousSet,
   onComplete,
@@ -23,6 +23,15 @@ export const SetRow: React.FC<SetRowProps> = ({
   const [load, setLoad] = useState<string>(
     String(set.load ?? previousSet?.load ?? '')
   );
+
+  useEffect(() => {
+    if (set.reps != null) {
+      setReps(String(set.reps));
+    }
+    if (set.load != null) {
+      setLoad(String(set.load));
+    }
+  }, [set.reps, set.load]);
 
   const isCompleted = set.status === 'completed';
   const isSkipped = set.status === 'skipped';
@@ -132,4 +141,4 @@ export const SetRow: React.FC<SetRowProps> = ({
       </div>
     </div>
   );
-};
+});

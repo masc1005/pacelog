@@ -12,7 +12,7 @@ export class ExerciseService {
     userId: string,
     query: ExerciseSearchQuery
   ): Promise<{
-    items: IExerciseDocument[];
+    items: any[];
     pagination: { total: number; page: number; limit: number; pages: number };
   }> {
     const filter: Record<string, any> = {
@@ -44,14 +44,20 @@ export class ExerciseService {
       ? { score: { $meta: 'textScore' }, name: 1 }
       : { name: 1 };
 
-    const [total, items] = await Promise.all([
+    const [total, rawItems] = await Promise.all([
       ExerciseModel.countDocuments(filter),
       ExerciseModel.find(filter)
         .sort(sortOptions)
         .skip(skip)
         .limit(limit)
+        .lean()
         .exec(),
     ]);
+
+    const items = rawItems.map((doc: any) => ({
+      ...doc,
+      id: doc._id?.toString() ?? doc.id,
+    }));
 
     return {
       items,

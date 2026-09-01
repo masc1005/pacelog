@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useActiveStrengthSession } from '../hooks/useActiveStrengthSession';
 import { useSessionTimer, formatDuration } from '../hooks/useSessionTimer';
@@ -39,7 +39,8 @@ export const ActiveStrengthSessionPage: React.FC = () => {
     session?.id ?? null,
     setSession,
     handleMutationError,
-    user?.id
+    user?.id,
+    session
   );
 
   // Redireciona para home se não há sessão ativa
@@ -155,19 +156,30 @@ export const ActiveStrengthSessionPage: React.FC = () => {
     }
   }
 
-  const durationMinutes = Math.max(1, Math.round(elapsedSeconds / 60));
-  const completedSetsCount = session?.exercises.reduce(
-    (acc, ex) => acc + ex.sets.filter((s) => s.status === 'completed').length,
-    0
-  ) ?? 0;
-  const totalVolumeKg = session?.exercises.reduce(
-    (acc, ex) =>
-      acc +
-      ex.sets
-        .filter((s) => s.status === 'completed')
-        .reduce((sum, s) => sum + (s.load || 0) * (s.reps || 0), 0),
-    0
-  ) ?? 0;
+  const durationMinutes = useMemo(
+    () => Math.max(1, Math.round(elapsedSeconds / 60)),
+    [elapsedSeconds]
+  );
+
+  const completedSetsCount = useMemo(() => {
+    if (!session) return 0;
+    return session.exercises.reduce(
+      (acc, ex) => acc + ex.sets.filter((s) => s.status === 'completed').length,
+      0
+    );
+  }, [session]);
+
+  const totalVolumeKg = useMemo(() => {
+    if (!session) return 0;
+    return session.exercises.reduce(
+      (acc, ex) =>
+        acc +
+        ex.sets
+          .filter((s) => s.status === 'completed')
+          .reduce((sum, s) => sum + (s.load || 0) * (s.reps || 0), 0),
+      0
+    );
+  }, [session]);
 
   return (
     <div className="flex flex-col h-full bg-[#051424] min-h-screen relative pb-32">

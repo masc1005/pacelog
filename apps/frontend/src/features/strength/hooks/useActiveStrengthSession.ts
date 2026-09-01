@@ -65,15 +65,27 @@ export function useActiveStrengthSession() {
     };
   }, []);
 
-  const setSession = useCallback((session: ActiveStrengthSession | null) => {
-    if (!isMounted.current) return;
-    setState({ session, isLoading: false, error: null });
-    if (session) {
-      localStorage.setItem(RECOVERY_KEY, session.id);
-    } else {
-      localStorage.removeItem(RECOVERY_KEY);
-    }
-  }, []);
+  const setSession = useCallback(
+    (
+      updater:
+        | ActiveStrengthSession
+        | null
+        | ((prev: ActiveStrengthSession | null) => ActiveStrengthSession | null)
+    ) => {
+      if (!isMounted.current) return;
+      setState((prevState) => {
+        const newSession =
+          typeof updater === 'function' ? updater(prevState.session) : updater;
+        if (newSession) {
+          localStorage.setItem(RECOVERY_KEY, newSession.id);
+        } else {
+          localStorage.removeItem(RECOVERY_KEY);
+        }
+        return { session: newSession, isLoading: false, error: null };
+      });
+    },
+    []
+  );
 
   const clearError = useCallback(() => {
     setState((prev) => ({ ...prev, error: null }));

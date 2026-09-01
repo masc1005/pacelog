@@ -14,9 +14,18 @@ export async function searchExercisesController(
     res.status(200).json({
       success: true,
       data: {
-        items: result.items.map((e) => e.toJSON()),
+        items: result.items.map((e: any) =>
+          typeof e?.toJSON === 'function'
+            ? e.toJSON()
+            : {
+                id: e._id?.toString() ?? e.id,
+                ...e,
+                _id: undefined,
+                __v: undefined,
+              }
+        ),
         pagination: result.pagination,
-      }
+      },
     });
   } catch (error) {
     next(error);
