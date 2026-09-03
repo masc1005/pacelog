@@ -7,7 +7,7 @@ const isLocalhost =
 
 export const API_BASE_URL = isLocalhost
   ? `http://${isBrowser ? window.location.hostname : 'localhost'}:3333`
-  : '';
+  : (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
 export class ApiError extends Error {
   constructor(

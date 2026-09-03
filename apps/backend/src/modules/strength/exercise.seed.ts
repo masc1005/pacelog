@@ -1,4 +1,5 @@
 import { exerciseService } from './exercise.service.js';
+import { logger } from '../../utils/logger.js';
 import type { MuscleGroup, EquipmentType, ExerciseType } from '@pacelog/shared';
 
 interface SystemExerciseSeed {
@@ -205,5 +206,11 @@ export const SYSTEM_EXERCISES: SystemExerciseSeed[] = [
 ];
 
 export async function seedExercises(): Promise<void> {
-  await exerciseService.seedSystemExercises(SYSTEM_EXERCISES);
+  try {
+    await exerciseService.seedSystemExercises(SYSTEM_EXERCISES);
+    logger.info(`✅ Seed de exercícios executado com sucesso (${SYSTEM_EXERCISES.length} exercícios).`);
+  } catch (error) {
+    logger.error('Erro ao executar seed de exercícios:', error);
+    throw error;
+  }
 }
