@@ -1,67 +1,145 @@
-import { api } from '../../lib/api';
-import type { Exercise, StrengthSession, StrengthSessionCreateInput, StrengthSessionUpdateInput } from '../types/strength';
+import { apiClient } from '../lib/api';
+import type {
+  ActiveStrengthSession,
+  CompletedStrengthSession,
+  StartStrengthSessionInput,
+  AddExerciseInput,
+  AddSetInput,
+  CompleteSetInput,
+  EditSetInput,
+  FinishSessionInput,
+  PatchSessionInput,
+  ExerciseListResult,
+  ExerciseSearchParams,
+  CreateCustomExerciseInput,
+  Exercise,
+  AIInsightDTO,
+} from '@pacelog/shared';
 
-export async function getExercises(params?: {
-  search?: string;
-  category?: string;
-  limit?: number;
-  offset?: number;
-}): Promise<Exercise[]> {
-  const queryParams = new URLSearchParams({
-    limit: String(params?.limit ?? 100),
-    offset: String(params?.offset ?? 0),
-  });
+const BASE = '/api/strength';
 
-  if (params?.search) queryParams.set('search', params.search);
-  if (params?.category) queryParams.set('category', params.category);
+// ==========================================
+// SESSÕES
+// ==========================================
 
-  const response = await api.get(`/strength/exercises?${queryParams}`);
-  return response.json();
-}
+export const strengthApi = {
+  startSession: (input: StartStrengthSessionInput) =>
+    apiClient<ActiveStrengthSession>(`${BASE}/sessions`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
 
-export async function getActiveSession(): Promise<StrengthSession | null> {
-  try {
-    const response = await api.get('/strength/sessions/active');
-    return response.json();
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('404')) {
-      return null;
-    }
-    throw error;
-  }
-}
+  getActiveSession: () =>
+    apiClient<ActiveStrengthSession | null>(`${BASE}/sessions/active`),
 
-export async function createSession(data: StrengthSessionCreateInput): Promise<StrengthSession> {
-  const response = await api.post('/strength/sessions', {
-    json: data,
-  });
-  return response.json();
-}
+  getSessionById: (id: string) =>
+    apiClient<ActiveStrengthSession | CompletedStrengthSession>(
+      `${BASE}/sessions/${id}`
+    ),
 
-export async function updateSession(
-  id: string,
-  data: StrengthSessionUpdateInput,
-): Promise<StrengthSession> {
-  const response = await api.patch(`/strength/sessions/${id}`, {
-    json: data,
-  });
-  return response.json();
-}
+  listSessions: (page = 1, limit = 20) =>
+    apiClient<CompletedStrengthSession[]>(`${BASE}/sessions`, {
+      params: { page, limit },
+    }),
 
-export async function completeSession(id: string): Promise<StrengthSession> {
-  const response = await api.post(`/strength/sessions/${id}/complete`);
-  return response.json();
-}
+  patchSession: (id: string, input: PatchSessionInput) =>
+    apiClient<ActiveStrengthSession>(`${BASE}/sessions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
 
-export async function getSessionHistory(params?: {
-  limit?: number;
-  offset?: number;
-}): Promise<StrengthSession[]> {
-  const queryParams = new URLSearchParams({
-    limit: String(params?.limit ?? 50),
-    offset: String(params?.offset ?? 0),
-  });
+  pauseSession: (id: string) =>
+    apiClient<ActiveStrengthSession>(`${BASE}/sessions/${id}/pause`, {
+      method: 'POST',
+    }),
 
-  const response = await api.get(`/strength/sessions/history?${queryParams}`);
-  return response.json();
-}
+  resumeSession: (id: string) =>
+    apiClient<ActiveStrengthSession>(`${BASE}/sessions/${id}/resume`, {
+      method: 'POST',
+    }),
+
+  finishSession: (id: string, input: FinishSessionInput) =>
+    apiClient<CompletedStrengthSession>(`${BASE}/sessions/${id}/finish`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  cancelSession: (id: string) =>
+    apiClient<ActiveStrengthSession>(`${BASE}/sessions/${id}/cancel`, {
+      method: 'POST',
+    }),
+
+  addExercise: (id: string, input: AddExerciseInput) =>
+    apiClient<ActiveStrengthSession>(`${BASE}/sessions/${id}/exercises`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  removeExercise: (id: string, exerciseId: string) =>
+    apiClient<ActiveStrengthSession>(
+      `${BASE}/sessions/${id}/exercises/${exerciseId}`,
+      { method: 'DELETE' }
+    ),
+
+  addSet: (id: string, input: AddSetInput) =>
+    apiClient<ActiveStrengthSession>(`${BASE}/sessions/${id}/sets`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  completeSet: (id: string, input: CompleteSetInput) =>
+    apiClient<ActiveStrengthSession>(`${BASE}/sessions/${id}/sets/complete`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  editSet: (
+    id: string,
+    exerciseId: string,
+    setId: string,
+    input: EditSetInput
+  ) =>
+    apiClient<ActiveStrengthSession>(
+      `${BASE}/sessions/${id}/exercises/${exerciseId}/sets/${setId}`,
+      { method: 'PATCH', body: JSON.stringify(input) }
+    ),
+
+  removeSet: (id: string, exerciseId: string, setId: string) =>
+    apiClient<ActiveStrengthSession>(
+      `${BASE}/sessions/${id}/exercises/${exerciseId}/sets/${setId}`,
+      { method: 'DELETE' }
+    ),
+
+  // ==========================================
+  // BIBLIOTECA DE EXERCÍCIOS
+  // ==========================================
+
+  searchExercises: (params: ExerciseSearchParams) =>
+    apiClient<ExerciseListResult>(`${BASE}/exercises`, {
+      params: params as Record<string, any>,
+    }),
+
+  getExerciseByKey: (key: string) =>
+    apiClient<Exercise>(`${BASE}/exercises/${encodeURIComponent(key)}`),
+
+  createCustomExercise: (input: CreateCustomExerciseInput) =>
+    apiClient<Exercise>(`${BASE}/exercises/custom`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  // ==========================================
+  // INSIGHTS DE IA
+  // ==========================================
+
+  /** Retorna insight já gerado para a sessão, ou null (404) se ainda não existe. */
+  getInsight: (sessionId: string) =>
+    apiClient<AIInsightDTO>(`${BASE}/sessions/${sessionId}/insight`),
+
+  /** Gera (ou regenera com force=true) o insight de uma sessão finalizada. */
+  generateInsight: (sessionId: string, force = false) =>
+    apiClient<AIInsightDTO>(
+      `${BASE}/sessions/${sessionId}/insight/generate${force ? '?force=true' : ''}`,
+      { method: 'POST' }
+    ),
+};
