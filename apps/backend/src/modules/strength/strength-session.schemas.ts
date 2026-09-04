@@ -36,7 +36,7 @@ export const exerciseSearchQuerySchema = z.object({
   recent: z.coerce.boolean().optional(),
   favorites: z.coerce.boolean().optional(),
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(30),
+  limit: z.coerce.number().int().min(1).max(1000).default(30),
 });
 export type ExerciseSearchQuery = z.infer<typeof exerciseSearchQuerySchema>;
 

@@ -4,6 +4,7 @@ import {
   updateSessionSchema,
   listSessionsQuerySchema,
 } from '../../src/modules/sessions/session.schemas.js';
+import { exerciseSearchQuerySchema } from '../../src/modules/strength/strength-session.schemas.js';
 
 describe('Session Schemas Zod Validation Unit Tests', () => {
   describe('createSessionSchema (Discriminated Union)', () => {
@@ -168,6 +169,21 @@ describe('Session Schemas Zod Validation Unit Tests', () => {
         expect(result.data.sportKey).toBe('boxing');
         expect(result.data.limit).toBe(10);
       }
+    });
+  });
+
+  describe('exerciseSearchQuerySchema', () => {
+    it('deve aceitar limit=200 para carregamento do catálogo', () => {
+      const result = exerciseSearchQuerySchema.safeParse({ limit: '200' });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.limit).toBe(200);
+      }
+    });
+
+    it('deve rejeitar limit superior a 1000', () => {
+      const result = exerciseSearchQuerySchema.safeParse({ limit: '1001' });
+      expect(result.success).toBe(false);
     });
   });
 });
