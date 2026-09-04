@@ -109,7 +109,8 @@ export async function getProgressSummaryController(
   try {
     const userId = req.userId!;
     const periodDays = req.query.period ? Number(req.query.period) : 7;
-    const summary = await progressService.getSummary(userId, periodDays);
+    const weekOffset = req.query.weekOffset !== undefined ? Number(req.query.weekOffset) : undefined;
+    const summary = await progressService.getSummary(userId, { periodDays, weekOffset });
 
     res.status(200).json({
       success: true,

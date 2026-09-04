@@ -6,8 +6,8 @@ import type { LoadSummary, ConfidenceLevel, LoadVariationStatus } from '@pacelog
 // ==========================================
 
 function formatAU(value: number): string {
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-  return value.toLocaleString('pt-BR');
+  if (value >= 10000) return `${(value / 1000).toFixed(1)}k`;
+  return Math.round(value).toLocaleString('pt-BR');
 }
 
 function variationColor(status: LoadVariationStatus): string {

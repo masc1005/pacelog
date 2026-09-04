@@ -225,52 +225,94 @@ export class ProgressService {
   /**
    * GET /api/progress/summary
    * Visão consolidada do período com carga, sessões e distribuição por esporte.
+   * Suporta periodDays (dias deslizantes) ou weekOffset (0 = semana atual Seg-Dom, -1 = semana anterior, etc.)
    * Linguagem descritiva — sem termos médicos.
    */
-  async getSummary(userId: string, periodDays = 7): Promise<ProgressSummaryDTO> {
-    const now = new Date();
-    const periodStart = new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000);
-    const baselineStart = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+  async getSummary(
+    userId: string,
+    options: number | { periodDays?: number; weekOffset?: number } = 7
+  ): Promise<ProgressSummaryDTO> {
+    const isWeekOffset = typeof options === 'object' && options?.weekOffset !== undefined;
+    const weekOffset = isWeekOffset ? Number(options.weekOffset) : 0;
+    const periodDays = typeof options === 'number' ? options : (options?.periodDays ?? 7);
 
-    // Sessões do período atual e do baseline
+    const now = new Date();
+    let periodStart: Date;
+    let periodEnd: Date;
+    let periodKey: string;
+    let periodLabel: string;
+    let baselineStart: Date;
+    let baselineEnd: Date;
+    let windowLabel: string;
+
+    if (isWeekOffset) {
+      // Semana ISO (Segunda a Domingo)
+      const dayOfWeek = (now.getDay() + 6) % 7; // 0=Mon, 6=Sun
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - dayOfWeek + weekOffset * 7);
+      monday.setHours(0, 0, 0, 0);
+
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
+
+      periodStart = monday;
+      periodEnd = sunday;
+      periodKey = weekOffset === 0 ? 'current_week' : `week_${weekOffset}`;
+
+      const startStr = monday.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      const endStr = sunday.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      periodLabel = `${startStr} – ${endStr}`;
+
+      // Baseline: exatamente as 4 semanas ISO que antecedem a semana selecionada
+      baselineStart = new Date(monday);
+      baselineStart.setDate(monday.getDate() - 28);
+      baselineStart.setHours(0, 0, 0, 0);
+      baselineEnd = new Date(monday.getTime() - 1); // Domingo anterior 23:59:59.999
+
+      windowLabel = weekOffset === 0 ? 'das 4 semanas anteriores' : 'das 4 semanas anteriores a esta';
+    } else {
+      periodStart = new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000);
+      periodEnd = now;
+      periodKey = `last_${periodDays}_days`;
+      periodLabel = periodDays === 7 ? '7 dias' : `${periodDays} dias`;
+
+      baselineStart = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+      baselineEnd = periodStart;
+      windowLabel = 'das últimas 4 semanas';
+    }
+
+    // Sessões do período selecionado e do baseline
     const [currentSessions, baselineSessions] = await Promise.all([
       SessionModel.find({
         userId,
-        startedAt: { $gte: periodStart },
+        startedAt: { $gte: periodStart, $lte: periodEnd },
         status: 'completed',
       }).sort({ startedAt: 1 }).exec(),
       SessionModel.find({
         userId,
-        startedAt: { $gte: baselineStart, $lt: periodStart },
+        startedAt: { $gte: baselineStart, $lte: baselineEnd },
         status: 'completed',
       }).sort({ startedAt: 1 }).exec(),
     ]);
 
-    // Carga total do período atual
+    // Carga total do período selecionado
     const currentSrpe = currentSessions.reduce((acc, s) => {
       return acc + ((s as any).load?.srpe ?? s.sessionalLoad ?? 0);
     }, 0);
 
-    // Baseline de 4 semanas
-    const allBaseSessions = await SessionModel.find({
-      userId,
-      startedAt: { $gte: baselineStart },
-      status: 'completed',
-    }).sort({ startedAt: 1 }).exec();
-
-    const weeklyLoads = calculateWeeklySrpeLoad(allBaseSessions as any[]);
+    // Baseline de 4 semanas das sessões anteriores
+    const weeklyLoads = calculateWeeklySrpeLoad(baselineSessions as any[]);
     const baselineSrpe = calculateFourWeekBaseline(weeklyLoads) ?? 0;
 
     const variationPercent = baselineSrpe > 0
       ? Math.round(((currentSrpe - baselineSrpe) / Math.abs(baselineSrpe)) * 1000) / 10
       : 0;
 
-    const confidence = calculateConfidence(
-      currentSessions.length,
-      Math.ceil((now.getTime() - (allBaseSessions[0]?.startedAt ?? now).getTime()) / (24 * 60 * 60 * 1000))
-    );
+    const earliestDate = baselineSessions[0]?.startedAt ?? currentSessions[0]?.startedAt ?? now;
+    const historyDays = Math.ceil((now.getTime() - earliestDate.getTime()) / (24 * 60 * 60 * 1000));
+    const confidence = calculateConfidence(currentSessions.length, historyDays);
     const status = classifyLoadVariation(variationPercent, confidence);
-    const windowLabel = 'das últimas 4 semanas';
 
     // Distribuição por esporte
     const sportMap = new Map<SportKey, number>();
@@ -291,7 +333,7 @@ export class ProgressService {
       sportKey: d.sportKey,
       sportLabel: d.sportLabel,
       currentSrpe: d.srpe,
-      baselineSrpe: 0, // calculado por esporte em getSportProgressV2
+      baselineSrpe: 0,
       variationPercent: 0,
       sharePercent: d.sharePercent,
     }));
@@ -312,13 +354,11 @@ export class ProgressService {
     }
 
     const period = buildPeriodDescriptor(
-      `last_${periodDays}_days`,
+      periodKey,
       periodStart.getTime(),
-      now.getTime(),
-      periodDays === 7 ? '7 dias' : `${periodDays} dias`
+      periodEnd.getTime(),
+      periodLabel
     );
-
-    const baselinePeriod = buildPeriodDescriptor('last_28_days', baselineStart.getTime(), now.getTime(), '4 semanas');
 
     return {
       period,

@@ -6,6 +6,7 @@ import { Badge } from '../../components/ui/Badge';
 import { AIProgressInsight } from '../../components/ui/AIProgressInsight';
 import { LoadSummaryCard } from '../../components/progress/LoadSummaryCard';
 import { SportDistributionCard } from '../../components/progress/SportDistributionCard';
+import { WeekNavigator } from '../../components/progress/WeekNavigator';
 import { ShoeUsageSummary } from '../../components/shoes/ShoeUsageSummary';
 import { GoalHighlightCard } from '../../components/goals/GoalHighlightCard';
 import { shoeApi } from '../../services/shoe.api';
@@ -39,7 +40,39 @@ export const HomePage: React.FC = () => {
   const [sessions, setSessions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [progressSummary, setProgressSummary] = useState<ProgressSummaryDTO | null>(null);
+  const [weekOffset, setWeekOffset] = useState<number>(0);
+  const [isWeekLoading, setIsWeekLoading] = useState<boolean>(false);
   const [shoes, setShoes] = useState<RunningShoe[]>([]);
+
+  const loadWeekProgress = async (offset: number) => {
+    setIsWeekLoading(true);
+    try {
+      const progressData = await apiClient<ProgressSummaryDTO>(`/api/progress/summary?weekOffset=${offset}`).catch(() => null);
+      if (progressData) {
+        setProgressSummary(progressData);
+      }
+    } finally {
+      setIsWeekLoading(false);
+    }
+  };
+
+  const handlePrevWeek = () => {
+    const newOffset = weekOffset - 1;
+    setWeekOffset(newOffset);
+    loadWeekProgress(newOffset);
+  };
+
+  const handleNextWeek = () => {
+    if (weekOffset >= 0) return;
+    const newOffset = weekOffset + 1;
+    setWeekOffset(newOffset);
+    loadWeekProgress(newOffset);
+  };
+
+  const handleResetWeek = () => {
+    setWeekOffset(0);
+    loadWeekProgress(0);
+  };
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -47,7 +80,7 @@ export const HomePage: React.FC = () => {
         const [summaryData, sessionsData, progressData, shoesData] = await Promise.all([
           apiClient<SessionSummaryDTO>('/api/sessions/summary?timeframe=week').catch(() => null),
           apiClient<any[]>('/api/sessions?limit=6').catch(() => []),
-          apiClient<ProgressSummaryDTO>('/api/progress/summary?period=7').catch(() => null),
+          apiClient<ProgressSummaryDTO>('/api/progress/summary?weekOffset=0').catch(() => null),
           shoeApi.getShoes(false).catch(() => []),
         ]);
 
@@ -247,6 +280,14 @@ export const HomePage: React.FC = () => {
               Detalhe <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
+          <WeekNavigator
+            weekOffset={weekOffset}
+            periodLabel={progressSummary.period.label}
+            onPrevWeek={handlePrevWeek}
+            onNextWeek={handleNextWeek}
+            onResetWeek={handleResetWeek}
+            isLoading={isWeekLoading}
+          />
           <LoadSummaryCard load={progressSummary.load} />
           {progressSummary.distribution.length > 0 && (
             <SportDistributionCard
