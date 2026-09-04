@@ -281,7 +281,7 @@ Interpretação:`;
       }
 
       const response = await this.ai.models.generateContent({
-        model: 'gemini-3.5-flash',
+        model: env.GEMINI_MODEL,
         contents: prompt,
       });
 
@@ -368,7 +368,7 @@ Interpretação:`;
       }
 
       const response = await this.ai.models.generateContent({
-        model: 'gemini-3.5-flash',
+        model: env.GEMINI_MODEL,
         contents: prompt,
       });
 
@@ -486,7 +486,7 @@ Apenas o JSON. Nenhum texto antes ou depois.`;
       }
 
       const response = await this.ai.models.generateContent({
-        model: 'gemini-3.5-flash',
+        model: env.GEMINI_MODEL,
         contents: prompt,
       });
 
