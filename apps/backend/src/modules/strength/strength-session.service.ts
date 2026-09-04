@@ -412,7 +412,11 @@ export class StrengthSessionService {
     input: PatchSessionInput
   ): Promise<IActiveStrengthSessionDocument> {
     const session = await repo.findByIdOrFail(userId, sessionId);
-    this.assertIsEditable(session);
+
+    // Não permite editar sessões canceladas ou abandonadas
+    if (session.status === 'cancelled' || session.status === 'abandoned') {
+      throw new StrengthSessionNotActiveError(session.status);
+    }
 
     // Detecção de conflito de versão (se o cliente enviar)
     if (
@@ -423,9 +427,22 @@ export class StrengthSessionService {
     }
 
     if (input.notes != null) session.notes = input.notes;
+    if (input.startedAt != null) {
+      session.startedAt = new Date(input.startedAt);
+      if (session.status === 'completed' && session.durationSeconds) {
+        session.finishedAt = new Date(session.startedAt.getTime() + session.durationSeconds * 1000);
+      }
+    }
     session.lastActivityAt = new Date();
 
-    return session.save();
+    const saved = await session.save();
+
+    // Se já foi finalizada, sincroniza com SessionModel para atualizar o histórico
+    if (saved.status === 'completed') {
+      await this.syncToMainSessions(saved);
+    }
+
+    return saved;
   }
 
   // ==========================================

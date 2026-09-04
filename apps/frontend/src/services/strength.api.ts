@@ -43,7 +43,7 @@ export const strengthApi = {
     }),
 
   patchSession: (id: string, input: PatchSessionInput) =>
-    apiClient<ActiveStrengthSession>(`${BASE}/sessions/${id}`, {
+    apiClient<ActiveStrengthSession | CompletedStrengthSession>(`${BASE}/sessions/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(input),
     }),

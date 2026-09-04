@@ -7,7 +7,8 @@ import { formatDuration } from '../hooks/useSessionTimer';
 import { StrengthInsightCard } from '../components/StrengthInsightCard';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
-import { Trash2, ArrowLeft } from 'lucide-react';
+import { Trash2, ArrowLeft, Pencil } from 'lucide-react';
+import { toLocalInputDateTime } from '../../../lib/utils';
 import type { CompletedStrengthSession } from '@pacelog/shared';
 
 export const StrengthSessionDetailsPage: React.FC = () => {
@@ -18,6 +19,9 @@ export const StrengthSessionDetailsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditingDate, setIsEditingDate] = useState(false);
+  const [editStartedAt, setEditStartedAt] = useState('');
+  const [isSavingDate, setIsSavingDate] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -43,6 +47,32 @@ export const StrengthSessionDetailsPage: React.FC = () => {
     }
   };
 
+  const handleSaveDate = async () => {
+    if (!id || !editStartedAt) return;
+    setIsSavingDate(true);
+    try {
+      const newStartedAtIso = new Date(editStartedAt).toISOString();
+      const updated = await strengthApi.patchSession(id, {
+        startedAt: newStartedAtIso,
+      });
+      setSession((prev) =>
+        prev
+          ? {
+              ...prev,
+              startedAt: updated.startedAt,
+              finishedAt: (updated as any).finishedAt ?? prev.finishedAt,
+            }
+          : null
+      );
+      setIsEditingDate(false);
+      success('Data e hora atualizadas com sucesso.');
+    } catch (err: any) {
+      toastError(err?.message || 'Erro ao atualizar data e hora.');
+    } finally {
+      setIsSavingDate(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]" aria-busy="true">
@@ -57,11 +87,26 @@ export const StrengthSessionDetailsPage: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4" role="alert">
         <p className="font-mono text-sm text-[#FF6B35] bg-[#FF6B35]/10 px-4 py-2 rounded-[4px] border border-[#FF6B35]/50">
-          Sessão não encontrada.
+          Sessão não encontrada no módulo de musculação.
         </p>
-        <button className="px-4 py-2 border border-[#1F2937] text-[#C5C8B4] hover:bg-[#161C24] font-mono text-xs uppercase tracking-widest rounded-[2px]" onClick={() => navigate('/sessions')}>
-          Voltar para Treinos
-        </button>
+        <div className="flex gap-3">
+          <button
+            className="px-4 py-2 border border-[#1F2937] text-[#C5C8B4] hover:bg-[#161C24] font-mono text-xs uppercase tracking-widest rounded-[2px]"
+            onClick={() => navigate('/sessions')}
+          >
+            Voltar para Treinos
+          </button>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<Trash2 className="h-3.5 w-3.5" />}
+            className="text-[#FFB4AB] border-[#FFB4AB]/20 hover:bg-[#FFB4AB]/10 hover:border-[#FFB4AB]"
+            isLoading={isDeleting}
+            onClick={handleDelete}
+          >
+            Excluir Registro
+          </Button>
+        </div>
       </div>
     );
   }
@@ -99,7 +144,55 @@ export const StrengthSessionDetailsPage: React.FC = () => {
       </header>
 
       <section className="flex flex-col p-4 bg-[#0D1C2D] border border-[#1F2937] rounded-[4px]">
-        <p className="font-mono text-sm text-[#D4F684] mb-2">{date}</p>
+        {!isEditingDate ? (
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <p className="font-mono text-sm text-[#D4F684]">{date}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setEditStartedAt(toLocalInputDateTime(session.startedAt));
+                setIsEditingDate(true);
+              }}
+              className="flex items-center gap-1.5 font-mono text-[11px] text-[#8F9380] hover:text-[#D4F684] px-2 py-1 rounded border border-[#1F2937] hover:border-[#D4F684]/40 bg-[#161C24] transition-colors"
+              title="Editar data e hora"
+            >
+              <Pencil className="h-3 w-3" />
+              <span>Editar</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 mb-3 p-3 bg-[#161C24] border border-[#D4F684]/30 rounded-[4px]">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-[#8F9380]">
+              Alterar Data e Hora do Treino
+            </span>
+            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+              <input
+                type="datetime-local"
+                value={editStartedAt}
+                onChange={(e) => setEditStartedAt(e.target.value)}
+                className="flex-1 bg-[#0D1C2D] border border-[#1F2937] focus:border-[#D4F684] text-[#D4E4FA] font-mono text-sm rounded-[4px] px-3 py-2 outline-none"
+              />
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setIsEditingDate(false)}
+                  disabled={isSavingDate}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="tactile"
+                  size="sm"
+                  isLoading={isSavingDate}
+                  onClick={handleSaveDate}
+                >
+                  Salvar
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-[#8F9380] uppercase tracking-widest">
           <span>{formatDuration(session.durationSeconds)}</span>
           <span className="text-[#1F2937]">/</span>

@@ -49,10 +49,6 @@ export const NewSessionPage: React.FC = () => {
   // Setup metric defaults when sportKey is pre-selected from sheet
   useEffect(() => {
     if (stateKey) {
-      if (stateKey === 'strength') {
-        navigate('/strength');
-        return;
-      }
       if (stateKey === 'running') setMetrics({ distanceKm: 5, paceMin: 5, paceSec: 30 });
       if (stateKey === 'cycling') setMetrics({ cyclingType: 'road', distanceKm: 25, elevationGainMeters: 150 });
       if (stateKey === 'boxing') setMetrics({ roundsCount: 12, punchesThrownEstimate: 0, roundDurationSeconds: 180, restDurationSeconds: 60 });
@@ -66,7 +62,12 @@ export const NewSessionPage: React.FC = () => {
   const handleNext = () => {
     if (step === 1 && sportKey) {
       if (sportKey === 'strength') {
-        navigate('/strength');
+        navigate('/strength', {
+          state: {
+            startedAt: new Date(startedAt).toISOString(),
+            autoStart: true,
+          },
+        });
         return;
       }
 
@@ -225,13 +226,19 @@ export const NewSessionPage: React.FC = () => {
                   value={startedAt}
                   onChange={e => setStartedAt(e.target.value)}
                 />
-                <Input
-                  label="Duração (minutos)"
-                  type="number"
-                  min={1}
-                  value={durationMinutes}
-                  onChange={e => setDurationMinutes(Number(e.target.value))}
-                />
+                {sportKey !== 'strength' ? (
+                  <Input
+                    label="Duração (minutos)"
+                    type="number"
+                    min={1}
+                    value={durationMinutes}
+                    onChange={e => setDurationMinutes(Number(e.target.value))}
+                  />
+                ) : (
+                  <div className="flex flex-col justify-center px-3 py-2 bg-[#161C24] border border-[#1F2937] rounded-[4px] text-xs font-mono text-[#8F9380]">
+                    <span>Tempo e séries serão calculados durante o treino ou ao finalizar.</span>
+                  </div>
+                )}
               </div>
             </div>
           </Card>
@@ -805,8 +812,13 @@ export const NewSessionPage: React.FC = () => {
         </Button>
         
         {step < 3 ? (
-          <Button variant="tactile" onClick={handleNext} disabled={step === 1 && !sportKey} rightIcon={<ChevronRight className="h-4 w-4" />}>
-            Continuar
+          <Button
+            variant="tactile"
+            onClick={handleNext}
+            disabled={step === 1 && !sportKey}
+            rightIcon={<ChevronRight className="h-4 w-4" />}
+          >
+            {step === 1 && sportKey === 'strength' ? 'Iniciar Treino' : 'Continuar'}
           </Button>
         ) : (
           <Button variant="tactile" onClick={handleSubmit} isLoading={isSubmitting} leftIcon={<CheckCircle className="h-4 w-4" />}>

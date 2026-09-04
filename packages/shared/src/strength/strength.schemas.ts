@@ -148,5 +148,6 @@ export type FinishSessionInput = z.infer<typeof finishSessionInputSchema>;
 export const patchSessionInputSchema = z.object({
   notes: z.string().max(1000).optional(),
   clientVersion: z.number().int().nonnegative().optional(),
+  startedAt: z.string().datetime().optional(),
 });
 export type PatchSessionInput = z.infer<typeof patchSessionInputSchema>;

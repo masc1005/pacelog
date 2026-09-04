@@ -11,6 +11,7 @@ import { RestTimer } from '../components/RestTimer';
 import { strengthApi } from '../../../services/strength.api';
 import { RpeSelector } from '../../../components/ui/RpeSelector';
 import { useAuth } from '../../../contexts/AuthContext';
+import { toLocalInputDateTime } from '../../../lib/utils';
 import type { Exercise, StrengthSet } from '@pacelog/shared';
 
 export const ActiveStrengthSessionPage: React.FC = () => {
@@ -29,6 +30,7 @@ export const ActiveStrengthSessionPage: React.FC = () => {
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [finishRpe, setFinishRpe] = useState<number>(7);
   const [finishNotes, setFinishNotes] = useState<string>('');
+  const [finishStartedAt, setFinishStartedAt] = useState<string>('');
   const [isFinishing, setIsFinishing] = useState(false);
 
   const handleMutationError = useCallback((err: Error) => {
@@ -148,6 +150,10 @@ export const ActiveStrengthSessionPage: React.FC = () => {
       setFinishRpe(7);
     }
 
+    if (session) {
+      setFinishStartedAt(toLocalInputDateTime(session.startedAt));
+    }
+
     setShowFinishModal(true);
   }
 
@@ -155,6 +161,13 @@ export const ActiveStrengthSessionPage: React.FC = () => {
     if (!session) return;
     setIsFinishing(true);
     try {
+      if (finishStartedAt) {
+        const newStartedAtIso = new Date(finishStartedAt).toISOString();
+        if (newStartedAtIso !== session.startedAt) {
+          await strengthApi.patchSession(session.id, { startedAt: newStartedAtIso });
+        }
+      }
+
       const completed = await strengthApi.finishSession(session.id, {
         rpe: finishRpe,
         notes: finishNotes.trim() || undefined,
@@ -311,6 +324,20 @@ export const ActiveStrengthSessionPage: React.FC = () => {
                   {Math.round(totalVolumeKg)} kg
                 </span>
               </div>
+            </div>
+
+            {/* Data e Hora de Início do Treino */}
+            <div className="flex flex-col gap-1.5 p-3 bg-[#161C24] border border-[#1F2937] rounded-lg">
+              <label htmlFor="finish-started-at" className="font-mono text-[10px] text-[#8F9380] uppercase tracking-widest">
+                Data e Hora de Início
+              </label>
+              <input
+                id="finish-started-at"
+                type="datetime-local"
+                value={finishStartedAt}
+                onChange={(e) => setFinishStartedAt(e.target.value)}
+                className="w-full bg-[#0D1C2D] border border-[#1F2937] focus:border-[#A855F7] text-[#D4E4FA] font-mono text-xs rounded px-2.5 py-2 outline-none"
+              />
             </div>
 
             {/* Percepção Subjetiva de Esforço (RPE) & Notas */}
