@@ -76,7 +76,7 @@ export const LoadSummaryCard: React.FC<LoadSummaryCardProps> = ({ load, classNam
             {load.variationPercent > 0 ? '+' : ''}{load.variationPercent.toFixed(1)}%
           </span>
           <span className="font-mono text-xs text-[#8F9380]">
-            versus sua média de 4 semanas ({formatAU(load.baselineSrpe)} {load.unit})
+            versus {load.windowLabel ? (load.windowLabel.includes('semana') ? load.windowLabel : `sua média ${load.windowLabel}`) : 'semana passada'} ({formatAU(load.baselineSrpe)} {load.unit})
           </span>
         </div>
       )}

@@ -264,13 +264,13 @@ export class ProgressService {
       const endStr = sunday.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
       periodLabel = `${startStr} – ${endStr}`;
 
-      // Baseline: exatamente as 4 semanas ISO que antecedem a semana selecionada
+      // Baseline: semana anterior imediata (Segunda a Domingo)
       baselineStart = new Date(monday);
-      baselineStart.setDate(monday.getDate() - 28);
+      baselineStart.setDate(monday.getDate() - 7);
       baselineStart.setHours(0, 0, 0, 0);
       baselineEnd = new Date(monday.getTime() - 1); // Domingo anterior 23:59:59.999
 
-      windowLabel = weekOffset === 0 ? 'das 4 semanas anteriores' : 'das 4 semanas anteriores a esta';
+      windowLabel = weekOffset === 0 ? 'semana passada' : 'semana anterior';
     } else {
       periodStart = new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000);
       periodEnd = now;
@@ -282,8 +282,8 @@ export class ProgressService {
       windowLabel = 'das últimas 4 semanas';
     }
 
-    // Sessões do período selecionado e do baseline
-    const [currentSessions, baselineSessions] = await Promise.all([
+    // Sessões do período selecionado, do baseline e primeira sessão histórica
+    const [currentSessions, baselineSessions, firstSession] = await Promise.all([
       SessionModel.find({
         userId,
         startedAt: { $gte: periodStart, $lte: periodEnd },
@@ -294,6 +294,11 @@ export class ProgressService {
         startedAt: { $gte: baselineStart, $lte: baselineEnd },
         status: 'completed',
       }).sort({ startedAt: 1 }).exec(),
+      SessionModel.findOne({ userId, status: 'completed' })
+        .sort({ startedAt: 1 })
+        .select('startedAt')
+        .lean()
+        .exec(),
     ]);
 
     // Carga total do período selecionado
@@ -301,17 +306,26 @@ export class ProgressService {
       return acc + ((s as any).load?.srpe ?? s.sessionalLoad ?? 0);
     }, 0);
 
-    // Baseline de 4 semanas das sessões anteriores
-    const weeklyLoads = calculateWeeklySrpeLoad(baselineSessions as any[]);
-    const baselineSrpe = calculateFourWeekBaseline(weeklyLoads) ?? 0;
+    let baselineSrpe = 0;
+    if (isWeekOffset) {
+      // Para visão semanal, compara diretamente com a carga total da semana anterior
+      baselineSrpe = baselineSessions.reduce((acc, s) => {
+        return acc + ((s as any).load?.srpe ?? s.sessionalLoad ?? 0);
+      }, 0);
+    } else {
+      // Baseline de 4 semanas para períodos livres/móveis
+      const weeklyLoads = calculateWeeklySrpeLoad(baselineSessions as any[]);
+      baselineSrpe = calculateFourWeekBaseline(weeklyLoads) ?? 0;
+    }
 
     const variationPercent = baselineSrpe > 0
       ? Math.round(((currentSrpe - baselineSrpe) / Math.abs(baselineSrpe)) * 1000) / 10
       : 0;
 
-    const earliestDate = baselineSessions[0]?.startedAt ?? currentSessions[0]?.startedAt ?? now;
-    const historyDays = Math.ceil((now.getTime() - earliestDate.getTime()) / (24 * 60 * 60 * 1000));
-    const confidence = calculateConfidence(currentSessions.length, historyDays);
+    const earliestDate = firstSession?.startedAt ?? baselineSessions[0]?.startedAt ?? currentSessions[0]?.startedAt ?? now;
+    const historyDays = Math.ceil((now.getTime() - new Date(earliestDate).getTime()) / (24 * 60 * 60 * 1000));
+    const totalSessions = Math.max(currentSessions.length, currentSessions.length + baselineSessions.length);
+    const confidence = calculateConfidence(totalSessions, historyDays);
     const status = classifyLoadVariation(variationPercent, confidence);
 
     // Distribuição por esporte
@@ -372,6 +386,7 @@ export class ProgressService {
         statusLabel: buildLoadStatusLabel(status),
         statusMessage: buildLoadStatusMessage(status, variationPercent, windowLabel),
         disclaimer: LOAD_DISCLAIMER,
+        windowLabel,
       },
       sessions: {
         current: currentSessions.length,

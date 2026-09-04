@@ -186,11 +186,7 @@ export class InsightService {
     if (!current) throw new Error('Sessão de força não encontrada');
     if (current.status !== 'completed') throw new Error('A sessão ainda não foi finalizada');
 
-    const previous = await ActiveStrengthSessionModel.findOne({
-      userId,
-      status: 'completed',
-      startedAt: { $lt: current.startedAt },
-    }).sort({ startedAt: -1 });
+    const previous = await this.findPreviousMatchingStrengthSession(userId, current);
 
     const content = await this.generateStrengthInsightFromGemini(current, previous);
 
@@ -205,54 +201,173 @@ export class InsightService {
   }
 
   /**
+   * Identifica os grupos musculares de uma sessão e gera um rótulo legível.
+   */
+  private getMuscleGroupsFromSession(session: any): { groups: string[]; label: string } {
+    const groupSet = new Set<string>();
+    for (const ex of session.exercises ?? []) {
+      if (ex.primaryMuscleGroup) {
+        groupSet.add(ex.primaryMuscleGroup.toLowerCase().trim());
+      }
+    }
+    const groups = Array.from(groupSet);
+    const labelMap: Record<string, string> = {
+      peito: 'Peito',
+      costas: 'Costas',
+      ombros: 'Ombros',
+      biceps: 'Bíceps',
+      triceps: 'Tríceps',
+      quadriceps: 'Quadríceps',
+      posteriores: 'Posteriores de Coxa',
+      gluteos: 'Glúteos',
+      panturrilhas: 'Panturrilhas',
+      abdomen: 'Abdômen',
+      corpo_inteiro: 'Corpo Inteiro',
+      mobilidade: 'Mobilidade',
+      cardio: 'Cardio',
+    };
+
+    const isLegs =
+      groups.length > 0 &&
+      groups.every((g) => ['quadriceps', 'posteriores', 'gluteos', 'panturrilhas'].includes(g));
+    const isPush =
+      groups.length > 0 &&
+      groups.every((g) => ['peito', 'triceps', 'ombros'].includes(g));
+    const isPull =
+      groups.length > 0 &&
+      groups.every((g) => ['costas', 'biceps'].includes(g));
+
+    const formattedNames = groups.map((g) => labelMap[g] ?? g).join(', ');
+    let label = formattedNames;
+    if (isLegs) {
+      label = `Pernas / Membros Inferiores (${formattedNames})`;
+    } else if (isPush && groups.length > 1) {
+      label = `Superiores / Empurrar (${formattedNames})`;
+    } else if (isPull && groups.length > 1) {
+      label = `Superiores / Puxar (${formattedNames})`;
+    }
+
+    return { groups, label: label || 'Musculação' };
+  }
+
+  /**
+   * Encontra a sessão anterior mais recente que tenha foco muscular compatível.
+   * Evita comparar treinos de pernas com treinos de peito/superiores.
+   */
+  private async findPreviousMatchingStrengthSession(
+    userId: string,
+    currentSession: any
+  ): Promise<any | null> {
+    const { ActiveStrengthSessionModel } = await import('../strength/strength-session.model.js');
+
+    const { groups: currentGroups } = this.getMuscleGroupsFromSession(currentSession);
+    if (currentGroups.length === 0) {
+      return null;
+    }
+
+    const currentGroupSet = new Set(currentGroups);
+    const legGroups = new Set(['quadriceps', 'posteriores', 'gluteos', 'panturrilhas']);
+    const isCurrentLegs = currentGroups.every((g) => legGroups.has(g));
+
+    const candidates = await ActiveStrengthSessionModel.find({
+      userId,
+      status: 'completed',
+      startedAt: { $lt: currentSession.startedAt },
+    })
+      .sort({ startedAt: -1 })
+      .limit(20);
+
+    for (const candidate of candidates) {
+      const { groups: candidateGroups } = this.getMuscleGroupsFromSession(candidate);
+      if (candidateGroups.length === 0) continue;
+
+      const isCandidateLegs = candidateGroups.every((g) => legGroups.has(g));
+
+      // Se a sessão atual é pernas e o candidato não tem nenhum exercício de perna, pula
+      if (isCurrentLegs && !candidateGroups.some((g) => legGroups.has(g))) {
+        continue;
+      }
+      // Se a sessão atual não tem nenhum grupo de pernas e o candidato é puramente pernas, pula
+      if (!currentGroups.some((g) => legGroups.has(g)) && isCandidateLegs) {
+        continue;
+      }
+
+      const candidateExercises = candidate.exercises ?? [];
+      let matchingExercisesCount = 0;
+      for (const ex of candidateExercises) {
+        const mg = ex.primaryMuscleGroup?.toLowerCase().trim();
+        if (mg && currentGroupSet.has(mg)) {
+          matchingExercisesCount++;
+        }
+      }
+
+      const hasDirectOverlap = candidateGroups.some((g) => currentGroupSet.has(g));
+      const overlapRatio = candidateExercises.length > 0 ? matchingExercisesCount / candidateExercises.length : 0;
+
+      // Compatível se compartilha pelo menos 1 grupo muscular e proporção relevante,
+      // ou se ambos são treinos da mesma zona corporal (ex: pernas)
+      if (hasDirectOverlap && (overlapRatio >= 0.3 || (isCurrentLegs && isCandidateLegs))) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Gera o texto do insight via Gemini com dados estruturados de força.
    * A IA interpreta — não calcula — volume, séries e 1RM já computados pelo backend.
    */
   private async generateStrengthInsightFromGemini(current: any, previous: any | null): Promise<string> {
-    try {
-      const formatSession = (session: any) => {
-        const durationMin = session.durationSeconds ? Math.round(session.durationSeconds / 60) : null;
-        const exercises = (session.exercises ?? []).map((ex: any) => {
-          const completed = ex.sets.filter((s: any) => s.status === 'completed');
-          const volume = completed.reduce((acc: number, s: any) => {
-            if (s.load != null && s.reps != null && s.loadUnit === 'kg') {
-              return acc + s.load * s.reps;
-            }
-            return acc;
-          }, 0);
-          return {
-            name: ex.exerciseNameSnapshot,
-            completedSets: completed.length,
-            totalSets: ex.sets.length,
-            volumeKg: volume > 0 ? volume : null,
-          };
-        });
+    const formatSession = (session: any) => {
+      const durationMin = session.durationSeconds ? Math.round(session.durationSeconds / 60) : null;
+      const { groups, label } = this.getMuscleGroupsFromSession(session);
+      const exercises = (session.exercises ?? []).map((ex: any) => {
+        const completed = ex.sets.filter((s: any) => s.status === 'completed');
+        const volume = completed.reduce((acc: number, s: any) => {
+          if (s.load != null && s.reps != null && s.loadUnit === 'kg') {
+            return acc + s.load * s.reps;
+          }
+          return acc;
+        }, 0);
         return {
-          date: new Date(session.startedAt).toLocaleDateString('pt-BR'),
-          durationMinutes: durationMin,
-          totalVolumeKg: session.totalVolumeKg ?? null,
-          completedSets: session.completedSets ?? null,
-          totalSets: session.totalSets ?? null,
-          estimatedOneRepMax: session.estimatedOneRepMax ?? null,
-          exercises,
-          notes: session.notes ?? null,
+          name: ex.exerciseNameSnapshot,
+          muscleGroup: ex.primaryMuscleGroup ?? 'geral',
+          completedSets: completed.length,
+          totalSets: ex.sets.length,
+          volumeKg: volume > 0 ? volume : null,
         };
+      });
+      return {
+        date: new Date(session.startedAt).toLocaleDateString('pt-BR'),
+        durationMinutes: durationMin,
+        totalVolumeKg: session.totalVolumeKg ?? null,
+        completedSets: session.completedSets ?? null,
+        totalSets: session.totalSets ?? null,
+        estimatedOneRepMax: session.estimatedOneRepMax ?? null,
+        muscleGroups: groups,
+        muscleGroupsLabel: label,
+        exercises,
+        notes: session.notes ?? null,
       };
+    };
 
-      const currentData = formatSession(current);
-      const previousData = previous ? formatSession(previous) : null;
+    const currentData = formatSession(current);
+    const previousData = previous ? formatSession(previous) : null;
 
+    try {
       const strengthRules = AI_SYSTEM_RULES_V2.replace(
         '- Retorne estritamente um objeto JSON estruturado. Não adicione markdown ou textos antes/depois do JSON.',
         '- Retorne a interpretação em texto simples e direto, em até 3 frases curtas, sem markdown ou JSON.'
       );
 
-      const prompt = `Você é um assistente de treino de musculação do aplicativo Pacelog.
+      const prompt = `Você é um assistente especialista em treino de musculação do aplicativo Pacelog.
 ${strengthRules}
 
-Você recebeu dados de uma sessão de treino de força. Interprete a evolução ou o desempenho com base nos dados.
+Você recebeu dados de uma sessão de musculação para interpretar o desempenho ou evolução do atleta.
+IMPORTANTE: Avalie o treino com base estrita no grupo muscular trabalhado. NUNCA compare métricas (como volume ou 1RM) com treinos de grupos musculares diferentes (ex: não compare pernas com peito).
 
-SESSÃO ATUAL (${currentData.date}):
+SESSÃO ATUAL (${currentData.date}) - Foco: ${currentData.muscleGroupsLabel}:
 - Duração: ${currentData.durationMinutes != null ? `${currentData.durationMinutes} min` : 'não informada'}
 - Volume total: ${currentData.totalVolumeKg != null ? `${currentData.totalVolumeKg.toFixed(1)} kg` : 'não calculado'}
 - Séries: ${currentData.completedSets ?? '?'}/${currentData.totalSets ?? '?'} completas
@@ -261,7 +376,7 @@ SESSÃO ATUAL (${currentData.date}):
 ${currentData.notes ? `- Notas do atleta: "${currentData.notes}"` : ''}
 
 ${previousData
-  ? `SESSÃO ANTERIOR (${previousData.date}):
+  ? `SESSÃO ANTERIOR COMPARÁVEL (${previousData.date}) - Foco: ${previousData.muscleGroupsLabel}:
 - Duração: ${previousData.durationMinutes != null ? `${previousData.durationMinutes} min` : 'não informada'}
 - Volume total: ${previousData.totalVolumeKg != null ? `${previousData.totalVolumeKg.toFixed(1)} kg` : 'não calculado'}
 - Séries: ${previousData.completedSets ?? '?'}/${previousData.totalSets ?? '?'} completas
@@ -269,26 +384,44 @@ ${previousData
 - Exercícios: ${JSON.stringify(previousData.exercises)}
 ${previousData.notes ? `- Notas do atleta: "${previousData.notes}"` : ''}
 
-Compare as sessões. Destaque evolução de volume, séries completas ou 1RM. Leve as notas em consideração se houver.`
-  : `Esta é a primeira sessão de musculação registrada. Descreva o que os dados mostram sem comparar com histórico inexistente.`}
+Instrução de Análise:
+Ambos os treinos possuem foco muscular compatível (${currentData.muscleGroupsLabel}). Compare as sessões destacando evolução de volume, sobrecarga progressiva nos exercícios, séries completas ou 1RM.`
+  : `Esta é a primeira sessão registrada para este foco muscular (${currentData.muscleGroupsLabel}).
+Não há sessão anterior de mesmo grupo muscular no histórico para comparação direta.
+Instrução de Análise:
+Analise a sessão atual de forma individual, destacando o volume realizado, exercícios principais e consistência de séries. NÃO compare volume ou cargas com treinos anteriores de outros grupos musculares.`}
 
 Interpretação:`;
 
       if (!this.ai) {
         return previousData
-          ? `Volume: de ${previousData.totalVolumeKg?.toFixed(0) ?? '?'} kg para ${currentData.totalVolumeKg?.toFixed(0) ?? '?'} kg. Continue registrando para construir seu histórico.`
-          : `Primeira sessão de musculação registrada. Volume total: ${currentData.totalVolumeKg?.toFixed(0) ?? 'não calculado'} kg. Continue registrando!`;
+          ? `Treino de ${currentData.muscleGroupsLabel}: volume de ${previousData.totalVolumeKg?.toFixed(0) ?? '?'} kg para ${currentData.totalVolumeKg?.toFixed(0) ?? '?'} kg em relação ao treino anterior do mesmo grupo. Continue progredindo!`
+          : `Primeira sessão de ${currentData.muscleGroupsLabel} registrada. Volume total: ${currentData.totalVolumeKg?.toFixed(0) ?? 'não calculado'} kg com ${currentData.completedSets ?? 0} séries concluídas. Excelente início!`;
       }
 
-      const response = await this.ai.models.generateContent({
-        model: env.GEMINI_MODEL,
-        contents: prompt,
-      });
+      let response: any = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          response = await this.ai.models.generateContent({
+            model: env.GEMINI_MODEL,
+            contents: prompt,
+          });
+          break;
+        } catch (err: any) {
+          if (attempt < 3 && (err?.status === 503 || err?.status === 429 || String(err?.message).includes('503'))) {
+            await new Promise((r) => setTimeout(r, 1000 * attempt));
+            continue;
+          }
+          throw err;
+        }
+      }
 
-      return response.text || 'Sessão de musculação registrada. Acompanhe sua evolução de volume e séries.';
+      return response?.text || 'Sessão de musculação registrada. Acompanhe sua evolução de volume e séries.';
     } catch (error) {
       console.error('[InsightService] Gemini Strength Generation Failed:', error);
-      return 'Sessão registrada com sucesso. Continue treinando para construir seu histórico de força.';
+      return previousData
+        ? `Treino de ${currentData.muscleGroupsLabel}: volume de ${previousData.totalVolumeKg?.toFixed(0) ?? '?'} kg para ${currentData.totalVolumeKg?.toFixed(0) ?? '?'} kg em relação ao treino anterior do mesmo grupo. Continue progredindo!`
+        : `Primeira sessão de ${currentData.muscleGroupsLabel} registrada. Volume total: ${currentData.totalVolumeKg?.toFixed(0) ?? 'não calculado'} kg com ${currentData.completedSets ?? 0} séries concluídas. Excelente início!`;
     }
   }
 

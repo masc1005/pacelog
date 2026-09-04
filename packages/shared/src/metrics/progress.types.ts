@@ -83,6 +83,7 @@ export type LoadSummary = {
   statusLabel: string;        // ex: 'Acima do seu padrão recente'
   statusMessage: string;      // ex: 'Sua carga percebida está 29% acima...'
   disclaimer: string;         // sempre: comparação descritiva, não avaliação médica
+  windowLabel?: string;       // ex: 'semana passada' ou 'semana anterior'
 };
 
 export type SportLoadSummary = {

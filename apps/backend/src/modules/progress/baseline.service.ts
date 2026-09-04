@@ -203,17 +203,24 @@ export function buildLoadStatusMessage(
   windowLabel: string
 ): string {
   const absVariation = Math.abs(variationPercent).toFixed(1);
+  const comparisonTarget =
+    windowLabel === 'semana passada' || windowLabel === 'semana anterior'
+      ? `à ${windowLabel}`
+      : windowLabel.startsWith('da') || windowLabel.startsWith('à')
+      ? `à média ${windowLabel}`
+      : `ao histórico ${windowLabel}`;
+
   switch (status) {
     case 'elevated_vs_baseline':
-      return `Sua carga percebida está ${absVariation}% acima da sua média ${windowLabel}.`;
+      return `Sua carga percebida está ${absVariation}% acima em relação ${comparisonTarget}.`;
     case 'below_baseline':
-      return `Sua carga percebida está ${absVariation}% abaixo da sua média ${windowLabel}.`;
+      return `Sua carga percebida está ${absVariation}% abaixo em relação ${comparisonTarget}.`;
     case 'stable':
-      return `Sua carga percebida está estável em relação à sua média ${windowLabel}.`;
+      return `Sua carga percebida está estável em relação ${comparisonTarget}.`;
     case 'insufficient_data':
       return `Histórico insuficiente para comparar com um período anterior.`;
     default:
-      return `Carga dentro do padrão histórico ${windowLabel}.`;
+      return `Carga dentro do padrão em relação ${comparisonTarget}.`;
   }
 }
 
