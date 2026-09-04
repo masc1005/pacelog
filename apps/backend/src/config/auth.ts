@@ -25,7 +25,6 @@ export const auth = betterAuth({
       sameSite: env.NODE_ENV === 'production' || env.NODE_ENV === 'staging' ? 'none' : 'lax',
       secure: env.NODE_ENV === 'production' || env.NODE_ENV === 'staging',
       httpOnly: true,
-      domain: '',
     },
   },
   trustedOrigins: [

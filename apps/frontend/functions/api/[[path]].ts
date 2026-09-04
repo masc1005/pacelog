@@ -23,7 +23,10 @@ export async function onRequest({ request }: { request: Request }) {
   // Sem isso, o browser em pages.dev ignora os cookies de autenticação
   // porque o Domain não bate com o domínio atual.
   const responseHeaders = new Headers(backendRes.headers);
-  const rawCookies = backendRes.headers.getSetCookie?.() ?? [];
+  const rawCookies =
+    typeof backendRes.headers.getSetCookie === 'function'
+      ? backendRes.headers.getSetCookie()
+      : (backendRes.headers.get('set-cookie') ? [backendRes.headers.get('set-cookie')!] : []);
 
   if (rawCookies.length > 0) {
     responseHeaders.delete('set-cookie');

@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import * as Sentry from '@sentry/node';
+import { fromNodeHeaders } from 'better-auth/node';
 import { auth } from '../config/auth.js';
 import { HttpError } from '../utils/httpError.js';
 
@@ -10,7 +11,7 @@ export async function requireAuth(
 ): Promise<void> {
   try {
     const session = await auth.api.getSession({
-      headers: req.headers as any,
+      headers: fromNodeHeaders(req.headers),
     });
 
     if (!session?.user) {
