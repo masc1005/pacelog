@@ -5,7 +5,8 @@ export class InsightController {
   getDailyInsight = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.userId!;
-      const insight = await insightService.getDailyInsight(userId);
+      const force = req.query.force === 'true';
+      const insight = await insightService.getDailyInsight(userId, force);
       
       res.status(200).json({ data: insight });
     } catch (error) {
