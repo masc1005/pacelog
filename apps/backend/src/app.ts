@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import { rateLimit } from 'express-rate-limit';
 import * as Sentry from '@sentry/node';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './config/auth.js';
@@ -23,8 +23,10 @@ import { settingsRoutes } from './modules/settings/settings.routes.js';
 export const app = express();
 app.set('trust proxy', 1);
 
+const helmetMiddleware = typeof helmet === 'function' ? helmet : (helmet as any).default;
+
 app.use(
-  helmet({
+  helmetMiddleware({
     // Permite que browsers em domínios diferentes (Cloudflare Pages → Railway API)
     // acessem os recursos. Sem isso, o CORP bloqueia cookies e respostas cross-origin.
     crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -52,7 +54,7 @@ const limiter = rateLimit({
   max: 300,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path === '/health' || req.path === '/favicon.ico',
+  skip: (req: express.Request) => req.path === '/health' || req.path === '/favicon.ico',
 });
 app.use(limiter);
 
