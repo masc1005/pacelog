@@ -7,20 +7,20 @@ import { SessionModel } from '../sessions/session.model.js';
 import { LOAD_DISCLAIMER } from '../progress/baseline.service.js';
 import { z } from 'zod';
 
-const aiProgressInsightSchema = z.object({
+export const aiProgressInsightSchema = z.object({
   headline: z.string().describe('string, máximo 60 caracteres, foco na maior evolução do período'),
   summary: z.string().describe('string, 2 a 4 frases, explica a evolução central usando valores concretos'),
   topProgress: z.array(
     z.object({
       sportKey: z.string().describe('string, chave exata do esporte nos dados fornecidos'),
       metric: z.string().describe('string, nome da métrica que evoluiu'),
-      previousValue: z.string().optional().nullable(),
-      currentValue: z.string().optional().nullable(),
-      variation: z.string().optional().nullable(),
-      loadNote: z.string().optional().nullable(),
+      previousValue: z.union([z.string(), z.number()]).optional().nullable().transform((v) => (v != null ? String(v) : null)),
+      currentValue: z.union([z.string(), z.number()]).optional().nullable().transform((v) => (v != null ? String(v) : null)),
+      variation: z.union([z.string(), z.number()]).optional().nullable().transform((v) => (v != null ? String(v) : null)),
+      loadNote: z.union([z.string(), z.number()]).optional().nullable().transform((v) => (v != null ? String(v) : null)),
       description: z.string().describe('string, 1 a 2 frases explicando a evolução com os valores acima'),
     })
-  ).describe('Lista dos destaques de evolução no período.'),
+  ).default([]),
   hasEvolution: z.boolean().optional().default(true),
 });
 
@@ -55,6 +55,15 @@ REGRAS OBRIGATÓRIAS:
 // INSIGHT SERVICE
 // ==========================================
 
+export function getValidGeminiModel(model?: string): string {
+  if (!model) return 'gemini-flash-latest';
+  const m = model.trim();
+  if (m === 'gemini-3.5-flash' || m === 'gemini-3-flash') {
+    return 'gemini-flash-latest';
+  }
+  return m;
+}
+
 export class InsightService {
   private ai: GoogleGenAI | null = null;
 
@@ -68,7 +77,11 @@ export class InsightService {
    * Gera um insight diário contextualizado com dados determinísticos.
    * A IA interpreta — não calcula — os dados do progresso.
    */
-  async getDailyInsight(userId: string): Promise<AIInsightDTO> {
+  async getDailyInsight(userId: string, force = false): Promise<AIInsightDTO> {
+    if (force) {
+      await InsightModel.deleteMany({ userId, type: 'daily_progress' });
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -78,19 +91,42 @@ export class InsightService {
       type: 'daily_progress',
     }).sort({ createdAt: -1 });
 
-    if (existingInsight) {
-      return this.mapToDTO(existingInsight);
+    if (existingInsight && !force) {
+      const contentStr = existingInsight.content || '';
+      // Se não for um fallback antigo de erro salvo, retorna o cache
+      if (!contentStr.includes('Dados Insuficientes')) {
+        return this.mapToDTO(existingInsight);
+      }
+      // Se for o fallback antigo de erro, descarta para permitir nova geração
+      await InsightModel.deleteOne({ _id: existingInsight._id });
     }
 
     const insightContent = await this.generateDailyInsightFromGemini(userId);
 
-    const newInsight = await InsightModel.create({
+    const isErrorOrInsufficient =
+      insightContent.includes('Dados Insuficientes') ||
+      insightContent.includes('Acompanhe sua evolução') ||
+      insightContent.includes('Inicie sua jornada') ||
+      insightContent.includes('Primeiro treino');
+
+    // Persistir apenas insights válidos gerados com sucesso para não travar o dia em caso de falha
+    if (!isErrorOrInsufficient) {
+      const newInsight = await InsightModel.create({
+        userId,
+        content: insightContent,
+        type: 'daily_progress',
+      });
+      return this.mapToDTO(newInsight);
+    }
+
+    return {
+      id: 'temporary_daily_insight',
       userId,
       content: insightContent,
       type: 'daily_progress',
-    });
-
-    return this.mapToDTO(newInsight);
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   async getExistingSessionInsight(userId: string, sessionId: string): Promise<AIInsightDTO | null> {
@@ -400,10 +436,11 @@ Interpretação:`;
       }
 
       let response: any = null;
+      const model = getValidGeminiModel(env.GEMINI_MODEL);
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           response = await this.ai.models.generateContent({
-            model: env.GEMINI_MODEL,
+            model,
             contents: prompt,
           });
           break;
@@ -500,12 +537,23 @@ Interpretação:`;
           : `Primeira sessão de ${sportName} registrada. Carga percebida: ${currentLoad} AU. Continue registrando para construir histórico.`;
       }
 
-      const response = await this.ai.models.generateContent({
-        model: env.GEMINI_MODEL,
-        contents: prompt,
-      });
+      const model = getValidGeminiModel(env.GEMINI_MODEL);
+      const fallbackModel = model === 'gemini-flash-latest' ? 'gemini-2.5-flash' : 'gemini-flash-latest';
+      let response: any;
+      try {
+        response = await this.ai.models.generateContent({
+          model,
+          contents: prompt,
+        });
+      } catch (primaryErr) {
+        console.warn(`[InsightService] Primary model ${model} failed, trying ${fallbackModel}:`, primaryErr);
+        response = await this.ai.models.generateContent({
+          model: fallbackModel,
+          contents: prompt,
+        });
+      }
 
-      return response.text || 'Sessão finalizada. Continue acompanhando suas métricas de carga e desempenho.';
+      return response?.text || 'Sessão finalizada. Continue acompanhando suas métricas de carga e desempenho.';
     } catch (error) {
       console.error('[InsightService] Gemini Session Generation Failed:', error);
       return 'Sessão registrada com sucesso. Acompanhe sua carga percebida nos próximos treinos.';
@@ -515,6 +563,26 @@ Interpretação:`;
   private async generateDailyInsightFromGemini(userId: string): Promise<string> {
     try {
       const comparison = await progressService.getComparison(userId, 30);
+
+      // Se o usuário ainda não possui treinos no período
+      if (comparison.overall.currentSessions === 0) {
+        return JSON.stringify({
+          headline: 'Inicie sua jornada',
+          summary: 'Você ainda não possui treinos registrados no período. Comece a registrar suas atividades para visualizar sua análise de evolução aqui.',
+          topProgress: [],
+          hasEvolution: false,
+        });
+      }
+
+      // Se o usuário tem apenas 1 treino recente e nenhum esporte comparável
+      if (comparison.overall.currentSessions === 1 && comparison.sports.length === 0) {
+        return JSON.stringify({
+          headline: 'Primeiro treino registrado!',
+          summary: 'Excelente início! Continue registrando seus próximos treinos para que o PaceLog calcule suas métricas comparativas de evolução.',
+          topProgress: [],
+          hasEvolution: false,
+        });
+      }
 
       const aiContext = {
         period: comparison.period.label,
@@ -618,23 +686,48 @@ Apenas o JSON. Nenhum texto antes ou depois.`;
         });
       }
 
-      const response = await this.ai.models.generateContent({
-        model: env.GEMINI_MODEL,
-        contents: prompt,
-      });
+      const primaryModel = getValidGeminiModel(env.GEMINI_MODEL);
+      const fallbackModel = primaryModel === 'gemini-flash-latest' ? 'gemini-2.5-flash' : 'gemini-flash-latest';
+      let response: any;
+      try {
+        response = await this.ai.models.generateContent({
+          model: primaryModel,
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+          },
+        });
+      } catch (primaryErr) {
+        console.warn(`[InsightService] Primary model ${primaryModel} failed, trying fallback ${fallbackModel}:`, primaryErr);
+        response = await this.ai.models.generateContent({
+          model: fallbackModel,
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+          },
+        });
+      }
 
-      const responseText = response.text || '';
-      const cleanJsonStr = responseText.replace(/^\s*```(json)?|\s*```\s*$/gi, '').trim();
-      
-      const parsedData = JSON.parse(cleanJsonStr);
+      const responseText = (response?.text || '').trim();
+      let parsedData: any;
+      try {
+        parsedData = JSON.parse(responseText);
+      } catch {
+        const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || responseText.match(/(\{[\s\S]*\})/);
+        if (jsonMatch && jsonMatch[1]) {
+          parsedData = JSON.parse(jsonMatch[1].trim());
+        } else {
+          throw new Error(`Failed to parse JSON from AI response: ${responseText.slice(0, 100)}`);
+        }
+      }
       aiProgressInsightSchema.parse(parsedData); // validador zod
       
       return JSON.stringify(parsedData);
     } catch (error) {
       console.error('[InsightService] Gemini Generation Failed:', error);
       return JSON.stringify({
-        headline: 'Dados Insuficientes',
-        summary: 'Não foi possível identificar sua evolução no momento. Continue registrando seus treinos.',
+        headline: 'Acompanhe sua evolução',
+        summary: 'Continue registrando seus treinos para que o assistente analise seu progresso e evolução.',
         topProgress: [],
         hasEvolution: false,
       });

@@ -112,8 +112,19 @@ export class ProgressService {
       const sportCurrent = currentSessions.filter(s => s.sportKey === sportKey);
       const sportBaseline = baselineSessions.filter(s => s.sportKey === sportKey);
       
+      let effectiveCurrent = sportCurrent;
+      let effectiveBaseline = sportBaseline;
+
+      // Se não há sessões anteriores aos 30 dias (ex: atleta novo), mas há pelo menos 2 sessões registradas,
+      // utiliza a primeira metade como baseline de referência para permitir comparação imediata de evolução
+      if (effectiveBaseline.length === 0 && effectiveCurrent.length >= 2) {
+        const splitIdx = Math.max(1, Math.floor(effectiveCurrent.length / 2));
+        effectiveBaseline = effectiveCurrent.slice(0, splitIdx);
+        effectiveCurrent = effectiveCurrent.slice(splitIdx);
+      }
+
       const currentSrpe = sportCurrent.reduce((acc, s) => acc + ((s as any).load?.srpe ?? s.sessionalLoad ?? 0), 0);
-      const baselineSrpe = sportBaseline.reduce((acc, s) => acc + ((s as any).load?.srpe ?? s.sessionalLoad ?? 0), 0);
+      const baselineSrpe = (effectiveBaseline.length > 0 ? effectiveBaseline : sportBaseline).reduce((acc, s) => acc + ((s as any).load?.srpe ?? s.sessionalLoad ?? 0), 0);
       
       const variationPercent = baselineSrpe > 0
         ? Math.round(((currentSrpe - baselineSrpe) / baselineSrpe) * 1000) / 10
@@ -123,13 +134,13 @@ export class ProgressService {
 
       let compResult = { primaryMetric: null as any, secondaryMetrics: [] as any[], evidence: [] as string[] };
       
-      if (sportKey === 'running') compResult = compareRunning(sportCurrent as any, sportBaseline as any);
-      else if (sportKey === 'football') compResult = compareFootball(sportCurrent as any, sportBaseline as any);
-      else if (sportKey === 'futevolei') compResult = compareFutevolei(sportCurrent as any, sportBaseline as any);
-      else if (sportKey === 'boxing') compResult = compareBoxing(sportCurrent as any, sportBaseline as any);
-      else if (sportKey === 'strength') compResult = compareStrength(sportCurrent as any, sportBaseline as any);
-      else if (sportKey === 'cycling') compResult = compareCycling(sportCurrent as any, sportBaseline as any);
-      else if (sportKey === 'jiujitsu') compResult = compareJiuJitsu(sportCurrent as any, sportBaseline as any);
+      if (sportKey === 'running') compResult = compareRunning(effectiveCurrent as any, effectiveBaseline as any);
+      else if (sportKey === 'football') compResult = compareFootball(effectiveCurrent as any, effectiveBaseline as any);
+      else if (sportKey === 'futevolei') compResult = compareFutevolei(effectiveCurrent as any, effectiveBaseline as any);
+      else if (sportKey === 'boxing') compResult = compareBoxing(effectiveCurrent as any, effectiveBaseline as any);
+      else if (sportKey === 'strength') compResult = compareStrength(effectiveCurrent as any, effectiveBaseline as any);
+      else if (sportKey === 'cycling') compResult = compareCycling(effectiveCurrent as any, effectiveBaseline as any);
+      else if (sportKey === 'jiujitsu') compResult = compareJiuJitsu(effectiveCurrent as any, effectiveBaseline as any);
 
       if (compResult.primaryMetric) {
         sportsList.push({

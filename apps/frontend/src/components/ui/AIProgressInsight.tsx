@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from './Card';
 import { Badge } from './Badge';
-import { Sparkles, BrainCircuit, Activity, TrendingUp } from 'lucide-react';
+import { Sparkles, BrainCircuit, Activity, TrendingUp, RotateCw } from 'lucide-react';
 import { apiClient } from '../../lib/api';
 import { SPORT_LABELS } from '../../lib/utils';
 import type { AIInsightDTO } from '@pacelog/shared';
@@ -24,21 +24,30 @@ type AIProgressData = {
 export const AIProgressInsight: React.FC = () => {
   const [data, setData] = useState<AIProgressData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadInsight = async (force = false) => {
+    try {
+      if (force) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      const endpoint = force ? '/api/insights/daily?force=true' : '/api/insights/daily';
+      const insight = await apiClient<AIInsightDTO>(endpoint);
+      if (insight && insight.content) {
+        const parsed = JSON.parse(insight.content);
+        setData(parsed);
+      }
+    } catch (error) {
+      console.error('Failed to load AI Progress Insight', error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadInsight() {
-      try {
-        const insight = await apiClient<AIInsightDTO>('/api/insights/daily');
-        if (insight && insight.content) {
-          const parsed = JSON.parse(insight.content);
-          setData(parsed);
-        }
-      } catch (error) {
-        console.error('Failed to load AI Progress Insight', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
     loadInsight();
   }, []);
 
@@ -132,9 +141,19 @@ export const AIProgressInsight: React.FC = () => {
           <div className="flex items-center gap-1.5 text-[#8F9380]">
             <Activity className="h-3.5 w-3.5" />
             <span className="font-mono text-[10px] uppercase tracking-wider">
-              Motor Gemini 3.5 Flash
+              Motor Gemini IA
             </span>
           </div>
+          <button
+            type="button"
+            onClick={() => loadInsight(true)}
+            disabled={isRefreshing}
+            className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[#5CA9E6] hover:text-[#D4E4FA] disabled:opacity-50 transition-colors cursor-pointer"
+            title="Recalcular análise com dados recentes"
+          >
+            <RotateCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Recalculando...' : 'Recalcular'}</span>
+          </button>
         </div>
       </div>
     </Card>

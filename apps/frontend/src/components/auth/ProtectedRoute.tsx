@@ -1,19 +1,18 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, TOKEN_KEY, getCachedUser } from '../../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
-
-const TOKEN_KEY = 'pacelog_auth_token';
 
 export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
-  // Enquanto a sessão está sendo validada, verificar se há token salvo
-  // para evitar redirect prematuro (race condition cross-origin)
-  const hasToken = !!localStorage.getItem(TOKEN_KEY);
+  const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+  const hasToken = typeof localStorage !== 'undefined' && !!localStorage.getItem(TOKEN_KEY);
+  const hasCachedUser = !!getCachedUser();
 
-  if (isLoading && hasToken) {
+  // Enquanto a sessão está sendo validada online e há token/cache, exibir loader tático
+  if (isLoading && (hasToken || hasCachedUser)) {
     return (
       <div className="min-h-screen bg-[#08090C] flex flex-col items-center justify-center gap-4 text-white font-mono">
         <div className="relative flex items-center justify-center">
@@ -39,6 +38,11 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
         </p>
       </div>
     );
+  }
+
+  // Se estiver offline e houver usuário autenticado (ou cache/token salvo), permite acesso
+  if (isOffline && (user || hasCachedUser || hasToken)) {
+    return <>{children}</>;
   }
 
   if (!user) {
