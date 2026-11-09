@@ -48,13 +48,18 @@ app.use(
   })
 );
 
-// Rate limiting (não bloqueia rotas de teste/health)
+// Rate limiting (não bloqueia rotas de teste/health/ping)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req: express.Request) => req.path === '/health' || req.path === '/favicon.ico',
+  skip: (req: express.Request) =>
+    req.path === '/health' ||
+    req.path === '/api/health' ||
+    req.path === '/ping' ||
+    req.path === '/api/ping' ||
+    req.path === '/favicon.ico',
 });
 app.use(limiter);
 
@@ -76,15 +81,21 @@ app.use('/api/shoes', shoeRoutes);
 app.use('/api/strength', strengthRoutes);
 app.use('/api/settings', settingsRoutes);
 
-// Health check para Railway, Docker e monitoramento
-app.get('/health', (_req, res) => {
+// Health check e Keep-Alive para Render, Railway, Docker e monitoramento
+const healthHandler = (_req: express.Request, res: express.Response) => {
   res.status(200).json({
     status: 'ok',
     service: 'pacelog-api',
+    uptimeSeconds: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
     env: env.NODE_ENV,
   });
-});
+};
+
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
+app.get('/ping', (_req, res) => res.status(200).send('pong'));
+app.get('/api/ping', (_req, res) => res.status(200).send('pong'));
 
 // Endpoint de teste de captura de exceção para validação de observabilidade (Sentry)
 app.get('/api/test-error', (req) => {
