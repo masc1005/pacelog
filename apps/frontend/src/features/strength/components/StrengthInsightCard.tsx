@@ -28,6 +28,7 @@ export const StrengthInsightCard: React.FC<StrengthInsightCardProps> = ({ sessio
       try {
         // Tenta buscar insight já gerado
         const insight = await strengthApi.getInsight(sessionId);
+        console.info(`[Gemini AI] Strength Session Insight — model executed: ${insight.modelUsed ?? 'cached'}`);
         if (!cancelled) setState({ phase: 'done', insight });
       } catch (err: any) {
         // 404 = ainda não gerado → gera agora
@@ -35,6 +36,7 @@ export const StrengthInsightCard: React.FC<StrengthInsightCardProps> = ({ sessio
           if (!cancelled) setState({ phase: 'generating' });
           try {
             const insight = await strengthApi.generateInsight(sessionId);
+            console.info(`[Gemini AI] Strength Session Insight generated — model executed: ${insight.modelUsed ?? 'unknown'}`);
             if (!cancelled) setState({ phase: 'done', insight });
           } catch (genErr: any) {
             if (!cancelled) {
@@ -57,6 +59,7 @@ export const StrengthInsightCard: React.FC<StrengthInsightCardProps> = ({ sessio
     setState({ phase: 'generating' });
     try {
       const insight = await strengthApi.generateInsight(sessionId, true);
+      console.info(`[Gemini AI] Strength Session Insight regenerated — model executed: ${insight.modelUsed ?? 'unknown'}`);
       setState({ phase: 'done', insight });
     } catch {
       setState({ phase: 'error', message: 'Falha ao regenerar o insight.' });
@@ -80,7 +83,7 @@ export const StrengthInsightCard: React.FC<StrengthInsightCardProps> = ({ sessio
             </svg>
           </span>
           <span className="font-mono text-[10px] text-[#A855F7] uppercase tracking-widest font-bold">
-            Análise IA
+            Análise IA{state.phase === 'done' && state.insight.modelUsed ? ` • ${state.insight.modelUsed}` : ''}
           </span>
         </div>
 

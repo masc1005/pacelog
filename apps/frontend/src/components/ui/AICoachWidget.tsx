@@ -13,6 +13,9 @@ export const AICoachWidget: React.FC = () => {
     async function loadInsight() {
       try {
         const data = await apiClient<AIInsightDTO>('/api/insights/daily');
+        if (data) {
+          console.info(`[Gemini AI] Coach Widget — model executed: ${data.modelUsed ?? 'cache / deterministic'}`);
+        }
         setInsight(data);
       } catch (error) {
         console.error('Failed to load AI Insight', error);
@@ -68,7 +71,7 @@ export const AICoachWidget: React.FC = () => {
             <div className="flex items-center gap-1.5 text-[#8F9380]">
               <Activity className="h-3.5 w-3.5" />
               <span className="font-mono text-[10px] uppercase tracking-wider">
-                Motor Gemini IA
+                Motor Gemini IA{insight.modelUsed ? ` • ${insight.modelUsed}` : ''}
               </span>
             </div>
           </div>

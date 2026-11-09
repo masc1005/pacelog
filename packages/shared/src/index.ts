@@ -394,8 +394,9 @@ export interface WeeklyReportDTO {
 export interface AIInsightDTO extends BaseEntity {
   userId: string;
   content: string;
-  type: 'daily_coach' | 'daily_progress' | 'recovery_warning' | 'milestone_celebration' | 'session_analysis';
+  type: 'daily_coach' | 'daily_progress' | 'recovery_warning' | 'milestone_celebration' | 'session_analysis' | 'strength_session_analysis';
   sessionId?: string;
+  modelUsed?: string;
 }
 
 // ==========================================
@@ -559,5 +560,3 @@ export const updateGoalSchema = z.object({
   notes: z.string().max(500).optional().nullable(),
   celebrationShown: z.boolean().optional(),
 });
-
-

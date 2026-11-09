@@ -66,6 +66,7 @@ export function getValidGeminiModel(model?: string): string {
 
 export class InsightService {
   private ai: GoogleGenAI | null = null;
+  private lastModelUsed?: string;
 
   constructor() {
     if (env.GEMINI_API_KEY) {
@@ -101,7 +102,9 @@ export class InsightService {
       await InsightModel.deleteOne({ _id: existingInsight._id });
     }
 
+    this.lastModelUsed = undefined;
     const insightContent = await this.generateDailyInsightFromGemini(userId);
+    const modelUsed = this.lastModelUsed;
 
     const isErrorOrInsufficient =
       insightContent.includes('Dados Insuficientes') ||
@@ -115,6 +118,7 @@ export class InsightService {
         userId,
         content: insightContent,
         type: 'daily_progress',
+        modelUsed,
       });
       return this.mapToDTO(newInsight);
     }
@@ -124,6 +128,7 @@ export class InsightService {
       userId,
       content: insightContent,
       type: 'daily_progress',
+      modelUsed,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -165,13 +170,16 @@ export class InsightService {
       startedAt: { $lt: currentSession.startedAt },
     }).sort({ startedAt: -1 });
 
+    this.lastModelUsed = undefined;
     const insightContent = await this.generateSessionInsightFromGemini(currentSession, previousSession);
+    const modelUsed = this.lastModelUsed;
 
     const newInsight = await InsightModel.create({
       userId,
       sessionId,
       content: insightContent,
       type: 'session_analysis',
+      modelUsed,
     });
 
     return this.mapToDTO(newInsight);
@@ -224,13 +232,16 @@ export class InsightService {
 
     const previous = await this.findPreviousMatchingStrengthSession(userId, current);
 
+    this.lastModelUsed = undefined;
     const content = await this.generateStrengthInsightFromGemini(current, previous);
+    const modelUsed = this.lastModelUsed;
 
     const newInsight = await InsightModel.create({
       userId,
       sessionId,
       content,
       type: 'strength_session_analysis',
+      modelUsed,
     });
 
     return this.mapToDTO(newInsight);
@@ -310,8 +321,7 @@ export class InsightService {
       status: 'completed',
       startedAt: { $lt: currentSession.startedAt },
     })
-      .sort({ startedAt: -1 })
-      .limit(20);
+      .sort({ startedAt: -1 })\n      .limit(20);
 
     for (const candidate of candidates) {
       const { groups: candidateGroups } = this.getMuscleGroupsFromSession(candidate);
@@ -443,6 +453,9 @@ Interpretação:`;
             model,
             contents: prompt,
           });
+          const resolvedModel = response?.modelVersion ? `${model} (${response.modelVersion})` : model;
+          this.lastModelUsed = resolvedModel;
+          console.info(`[InsightService] Strength insight generated using model: ${resolvedModel} (attempt: ${attempt})`);
           break;
         } catch (err: any) {
           if (attempt < 3 && (err?.status === 503 || err?.status === 429 || String(err?.message).includes('503'))) {
@@ -545,12 +558,18 @@ Interpretação:`;
           model,
           contents: prompt,
         });
+        const resolvedModel = response?.modelVersion ? `${model} (${response.modelVersion})` : model;
+        this.lastModelUsed = resolvedModel;
+        console.info(`[InsightService] Session insight (${sportName}) generated using primary model: ${resolvedModel}`);
       } catch (primaryErr) {
         console.warn(`[InsightService] Primary model ${model} failed, trying ${fallbackModel}:`, primaryErr);
         response = await this.ai.models.generateContent({
           model: fallbackModel,
           contents: prompt,
         });
+        const resolvedModel = response?.modelVersion ? `${fallbackModel} (${response.modelVersion}) [fallback]` : `${fallbackModel} [fallback]`;
+        this.lastModelUsed = resolvedModel;
+        console.info(`[InsightService] Session insight (${sportName}) generated using fallback model: ${resolvedModel}`);
       }
 
       return response?.text || 'Sessão finalizada. Continue acompanhando suas métricas de carga e desempenho.';
@@ -697,6 +716,9 @@ Apenas o JSON. Nenhum texto antes ou depois.`;
             responseMimeType: 'application/json',
           },
         });
+        const resolvedModel = response?.modelVersion ? `${primaryModel} (${response.modelVersion})` : primaryModel;
+        this.lastModelUsed = resolvedModel;
+        console.info(`[InsightService] Daily insight generated using primary model: ${resolvedModel}`);
       } catch (primaryErr) {
         console.warn(`[InsightService] Primary model ${primaryModel} failed, trying fallback ${fallbackModel}:`, primaryErr);
         response = await this.ai.models.generateContent({
@@ -706,6 +728,9 @@ Apenas o JSON. Nenhum texto antes ou depois.`;
             responseMimeType: 'application/json',
           },
         });
+        const resolvedModel = response?.modelVersion ? `${fallbackModel} (${response.modelVersion}) [fallback]` : `${fallbackModel} [fallback]`;
+        this.lastModelUsed = resolvedModel;
+        console.info(`[InsightService] Daily insight generated using fallback model: ${resolvedModel}`);
       }
 
       const responseText = (response?.text || '').trim();
@@ -740,6 +765,7 @@ Apenas o JSON. Nenhum texto antes ou depois.`;
       userId: insight.userId,
       content: insight.content,
       type: insight.type as any,
+      modelUsed: insight.modelUsed,
       createdAt: insight.createdAt,
       updatedAt: insight.updatedAt,
     };

@@ -23,6 +23,7 @@ type AIProgressData = {
 
 export const AIProgressInsight: React.FC = () => {
   const [data, setData] = useState<AIProgressData | null>(null);
+  const [modelUsed, setModelUsed] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -35,6 +36,10 @@ export const AIProgressInsight: React.FC = () => {
       }
       const endpoint = force ? '/api/insights/daily?force=true' : '/api/insights/daily';
       const insight = await apiClient<AIInsightDTO>(endpoint);
+      if (insight) {
+        setModelUsed(insight.modelUsed);
+        console.info(`[Gemini AI] Daily Progress Insight — model executed: ${insight.modelUsed ?? 'cache / deterministic'}`);
+      }
       if (insight && insight.content) {
         const parsed = JSON.parse(insight.content);
         setData(parsed);
@@ -141,7 +146,7 @@ export const AIProgressInsight: React.FC = () => {
           <div className="flex items-center gap-1.5 text-[#8F9380]">
             <Activity className="h-3.5 w-3.5" />
             <span className="font-mono text-[10px] uppercase tracking-wider">
-              Motor Gemini IA
+              Motor Gemini IA{modelUsed ? ` • ${modelUsed}` : ''}
             </span>
           </div>
           <button
