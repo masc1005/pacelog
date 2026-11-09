@@ -321,7 +321,8 @@ export class InsightService {
       status: 'completed',
       startedAt: { $lt: currentSession.startedAt },
     })
-      .sort({ startedAt: -1 })\n      .limit(20);
+      .sort({ startedAt: -1 })
+      .limit(20);
 
     for (const candidate of candidates) {
       const { groups: candidateGroups } = this.getMuscleGroupsFromSession(candidate);
