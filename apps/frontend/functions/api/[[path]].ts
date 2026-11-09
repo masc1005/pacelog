@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_URL = 'https://pacelog-api-production.up.railway.app';
+const DEFAULT_BACKEND_URL = 'https://pacelog-api.onrender.com';
 
 interface Env {
   BACKEND_URL?: string;
@@ -30,7 +30,7 @@ export async function onRequest({
   const backendRes = await fetch(backendUrl, init);
 
   // Reconstrói os headers da resposta, reescrevendo Set-Cookie para remover
-  // o atributo Domain do Railway (pacelog-api-production.up.railway.app).
+  // o atributo Domain do backend.
   // Sem isso, o browser em pages.dev ignora os cookies de autenticação
   // porque o Domain não bate com o domínio atual.
   const responseHeaders = new Headers(backendRes.headers);
