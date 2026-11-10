@@ -609,3 +609,45 @@ export const updateWeeklyScheduleSchema = z.object({
   days: z.array(updateWeeklyScheduleDaySchema).min(1).max(7),
 });
 export type UpdateWeeklyScheduleInput = z.infer<typeof updateWeeklyScheduleSchema>;
+
+// ==========================================
+// MÓDULO DE CHECK-IN DIÁRIO DE PRONTIDÃO (DAILY READINESS)
+// ==========================================
+
+export const READINESS_STATUSES = ['prime', 'ready', 'moderate', 'recover'] as const;
+export type ReadinessStatus = (typeof READINESS_STATUSES)[number];
+
+export interface DailyReadinessDTO extends BaseEntity {
+  userId: string;
+  dateKey: string; // YYYY-MM-DD
+  sleepQuality: number; // 1 a 5 (1 = Ruim, 5 = Excelente)
+  sleepHours?: number;
+  muscleRecovery: number; // 1 a 5 (1 = Muita dor/DOMS, 5 = 100% recuperado)
+  energyLevel: number; // 1 a 5 (1 = Exausto, 5 = Energia máxima)
+  focusLevel: number; // 1 a 5 (1 = Alto estresse, 5 = Focado/Calmo)
+  bodyWeightKg?: number;
+  readinessScore: number; // 0 a 100
+  readinessStatus: ReadinessStatus;
+  recommendation: string;
+  notes?: string;
+}
+
+export interface DailyReadinessOverviewDTO {
+  today: DailyReadinessDTO | null;
+  history: DailyReadinessDTO[];
+}
+
+export const upsertDailyReadinessSchema = z.object({
+  dateKey: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD')
+    .optional(),
+  sleepQuality: z.number().int().min(1).max(5),
+  sleepHours: z.number().min(0).max(24).optional(),
+  muscleRecovery: z.number().int().min(1).max(5),
+  energyLevel: z.number().int().min(1).max(5),
+  focusLevel: z.number().int().min(1).max(5).default(3),
+  bodyWeightKg: z.number().positive().max(350).optional(),
+  notes: z.string().max(300).optional(),
+});
+export type UpsertDailyReadinessInput = z.infer<typeof upsertDailyReadinessSchema>;

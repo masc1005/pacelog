@@ -9,6 +9,7 @@ import {
 import { ExerciseModel } from './exercise.model.js';
 import { SYSTEM_EXERCISES } from './exercise.seed.js';
 import { ActiveStrengthSessionModel } from './strength-session.model.js';
+import { DailyReadinessModel } from '../readiness/readiness.model.js';
 import type {
   GenerateStrengthWorkoutInput,
   GeneratedStrengthWorkoutDTO,
@@ -77,8 +78,8 @@ export class StrengthAIService {
     userId: string,
     input: GenerateStrengthWorkoutInput
   ): Promise<GeneratedStrengthWorkoutDTO> {
-    // 1. Buscar catálogo e histórico recente em paralelo
-    const [dbExercises, recentSessions] = await Promise.all([
+    // 1. Buscar catálogo, histórico recente e prontidão diária em paralelo
+    const [dbExercises, recentSessions, latestReadiness] = await Promise.all([
       ExerciseModel.find({
         isActive: true,
         $or: [{ isSystem: true }, { ownerId: userId }],
@@ -90,6 +91,10 @@ export class StrengthAIService {
         .sort({ startedAt: -1 })
         .limit(12)
         .lean(),
+      DailyReadinessModel.findOne({ userId })
+        .sort({ dateKey: -1 })
+        .lean()
+        .catch(() => null),
     ]);
 
     const catalog =
@@ -161,6 +166,10 @@ export class StrengthAIService {
     const durationMinutes = input.durationMinutes ?? 45;
     const goal = input.goal ?? 'hypertrophy';
 
+    const readinessContext = latestReadiness
+      ? `Score ${latestReadiness.readinessScore}/100 (${latestReadiness.readinessStatus}) em ${latestReadiness.dateKey} — Sono: ${latestReadiness.sleepQuality}/5, Recuperação Muscular: ${latestReadiness.muscleRecovery}/5, Energia: ${latestReadiness.energyLevel}/5.`
+      : 'Check-in de prontidão não registrado hoje.';
+
     // 4. Tentar gerar com padrão gemini-3.8-flash e fallback gemini-3.5-flash-lite
     if (this.ai) {
       const primaryModel = getValidGeminiModel(env.GEMINI_MODEL || PRIMARY_GEMINI_MODEL);
@@ -182,7 +191,7 @@ REGRAS OBRIGATÓRIAS:
 - Nunca faça diagnósticos médicos, não mencione "risco de lesão" ou termos clínicos.
 - Escolha EXCLUSIVAMENTE exercícios presentes no CATÁLOGO DISPONÍVEL abaixo, usando exatamente a chave \`exerciseKey\`.
 - Priorize exercícios compostos (multiarticulares) no início do treino e isoladores depois.
-- Ajuste o volume total (quantidade de exercícios e séries) para caber no tempo disponível (${durationMinutes} minutos).
+- Ajuste o volume total (quantidade de exercícios e séries) para caber no tempo disponível (${durationMinutes} minutos) e respeitando a prontidão diária do atleta:
   - ~30 min: 3 a 4 exercícios
   - ~45 min: 4 a 6 exercícios
   - ~60 min: 5 a 7 exercícios
@@ -195,6 +204,7 @@ PARÂMETROS DO ATLETA:
 - Equipamentos preferidos: ${requestedEquipment.length > 0 ? requestedEquipment.join(', ') : 'Qualquer equipamento da academia'}
 - Duração alvo: ${durationMinutes} minutos
 - Objetivo principal: ${goal}
+- Prontidão Diária (Check-in): ${readinessContext}
 - Últimos treinos realizados pelo atleta:
 ${recentWorkoutsSummary.length > 0 ? recentWorkoutsSummary.join('\n') : 'Sem histórico recente registrado.'}
 
@@ -205,7 +215,7 @@ Retorne APENAS um JSON válido com a estrutura:
 {
   "name": "Nome curto e forte para a ficha (ex: Push A - Peito, Ombros e Tríceps)",
   "description": "Resumo de 1 linha do foco do treino",
-  "rationale": "Explicação direta do IA Personal (2 a 3 frases) sobre por que essa combinação e ordem de exercícios foi escolhida para o tempo/objetivo do atleta.",
+  "rationale": "Explicação direta do IA Personal (2 a 3 frases) sobre por que essa combinação e ordem de exercícios foi escolhida para o tempo/objetivo e prontidão do atleta.",
   "exercises": [
     {
       "exerciseKey": "chave_exata_do_catalogo",

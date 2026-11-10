@@ -10,6 +10,7 @@ import { WeekNavigator } from '../../components/progress/WeekNavigator';
 import { ShoeUsageSummary } from '../../components/shoes/ShoeUsageSummary';
 import { GoalHighlightCard } from '../../components/goals/GoalHighlightCard';
 import { WeeklyScheduleCard } from '../../components/schedule/WeeklyScheduleCard';
+import { DailyReadinessCard } from '../../components/readiness/DailyReadinessCard';
 import { shoeApi } from '../../services/shoe.api';
 import {
   Flame,
@@ -164,12 +165,17 @@ export const HomePage: React.FC = () => {
       <WeeklyScheduleCard recentSessions={sessions} compact />
 
       {/* ==========================================
-          2. META EM DESTAQUE
+          2. CHECK-IN DIÁRIO DE PRONTIDÃO & RECUPERAÇÃO
+      ========================================== */}
+      <DailyReadinessCard />
+
+      {/* ==========================================
+          3. META EM DESTAQUE
       ========================================== */}
       <GoalHighlightCard />
 
       {/* ==========================================
-          3. INSIGHT DE ANÁLISE E TÊNIS
+          4. INSIGHT DE ANÁLISE E TÊNIS
       ========================================== */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <AIProgressInsight />
@@ -180,7 +186,7 @@ export const HomePage: React.FC = () => {
       </div>
 
       {/* ==========================================
-          4. ÚLTIMA SESSÃO
+          5. ÚLTIMA SESSÃO
       ========================================== */}
       <section className="flex flex-col gap-3">
         <div className="flex justify-between items-baseline border-b border-[#1F2937] pb-2">
@@ -245,7 +251,7 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* ==========================================
-          5. CONSISTÊNCIA DA SEMANA
+          6. CONSISTÊNCIA DA SEMANA
       ========================================== */}
       {summary && (
         <section className="flex flex-col gap-3">
@@ -277,7 +283,7 @@ export const HomePage: React.FC = () => {
       )}
 
       {/* ==========================================
-          6. CARGA PERCEBIDA (SECUNDÁRIO)
+          7. CARGA PERCEBIDA (SECUNDÁRIO)
       ========================================== */}
       {progressSummary && (
         <section className="flex flex-col gap-3">
@@ -312,7 +318,7 @@ export const HomePage: React.FC = () => {
       )}
 
       {/* ==========================================
-          7. TREINOS RECENTES + FILTROS
+          8. TREINOS RECENTES + FILTROS
       ========================================== */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between border-b border-[#1F2937] pb-2">
