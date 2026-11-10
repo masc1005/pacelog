@@ -146,7 +146,7 @@ export const AIWorkoutBuilderCard: React.FC<AIWorkoutBuilderCardProps> = ({
               <span className="font-display text-sm font-bold text-[#D4E4FA] uppercase tracking-wider">
                 Montar com IA Personal
               </span>
-              <Badge variant="lime" size="sm">
+              <Badge variant="green" size="sm">
                 Opcional
               </Badge>
             </div>
