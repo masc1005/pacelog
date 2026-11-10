@@ -7,11 +7,11 @@ import { AIProgressInsight } from '../../components/ui/AIProgressInsight';
 import { LoadSummaryCard } from '../../components/progress/LoadSummaryCard';
 import { SportDistributionCard } from '../../components/progress/SportDistributionCard';
 import { WeekNavigator } from '../../components/progress/WeekNavigator';
-import { ShoeUsageSummary } from '../../components/shoes/ShoeUsageSummary';
+import { GearUsageSummary } from '../../components/gear/GearUsageSummary';
 import { GoalHighlightCard } from '../../components/goals/GoalHighlightCard';
 import { WeeklyScheduleCard } from '../../components/schedule/WeeklyScheduleCard';
 import { DailyReadinessCard } from '../../components/readiness/DailyReadinessCard';
-import { shoeApi } from '../../services/shoe.api';
+import { gearApi } from '../../services/gear.api';
 import {
   Flame,
   Zap,
@@ -30,7 +30,7 @@ import {
   type SessionSummaryDTO,
   type ProgressSummaryDTO,
   type ProgressBySportDTO,
-  type RunningShoe,
+  type Gear,
 } from '@pacelog/shared';
 import { formatPace, formatDuration } from '../../lib/utils';
 import { apiClient } from '../../lib/api';
@@ -45,7 +45,7 @@ export const HomePage: React.FC = () => {
   const [progressSummary, setProgressSummary] = useState<ProgressSummaryDTO | null>(null);
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [isWeekLoading, setIsWeekLoading] = useState<boolean>(false);
-  const [shoes, setShoes] = useState<RunningShoe[]>([]);
+  const [gearList, setGearList] = useState<Gear[]>([]);
 
   const loadWeekProgress = async (offset: number) => {
     setIsWeekLoading(true);
@@ -80,16 +80,16 @@ export const HomePage: React.FC = () => {
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const [summaryData, sessionsData, progressData, shoesData] = await Promise.all([
+        const [summaryData, sessionsData, progressData, gearData] = await Promise.all([
           apiClient<SessionSummaryDTO>('/api/sessions/summary?timeframe=week').catch(() => null),
           apiClient<any[]>('/api/sessions?limit=20').catch(() => []),
           apiClient<ProgressSummaryDTO>('/api/progress/summary?weekOffset=0').catch(() => null),
-          shoeApi.getShoes(false).catch(() => []),
+          gearApi.getGear(false).catch(() => []),
         ]);
 
         if (summaryData) setSummary(summaryData);
         if (sessionsData && Array.isArray(sessionsData)) setSessions(sessionsData);
-        if (shoesData) setShoes(shoesData);
+        if (gearData) setGearList(gearData);
         if (progressData) {
           setProgressSummary(progressData);
 
@@ -179,9 +179,8 @@ export const HomePage: React.FC = () => {
       ========================================== */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <AIProgressInsight />
-        <ShoeUsageSummary 
-          defaultShoe={shoes.find(s => s.isDefault) || shoes[0]} 
-          activeShoesCount={shoes.length} 
+        <GearUsageSummary 
+          gearList={gearList} 
         />
       </div>
 
@@ -337,7 +336,7 @@ export const HomePage: React.FC = () => {
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           <button
             onClick={() => setSelectedSport('all')}
-            className={`px-3.5 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer border ${selectedSport === 'all'
+            className={`px-3.5 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all text-nowrap cursor-pointer border ${selectedSport === 'all'
               ? 'bg-[#D4F684] text-[#051424] border-[#D4F684] font-bold shadow-[0_0_12px_rgba(212,246,132,0.25)]'
               : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
               }`}
@@ -354,7 +353,7 @@ export const HomePage: React.FC = () => {
               <button
                 key={key}
                 onClick={() => setSelectedSport(key)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer border ${isSelected
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all text-nowrap cursor-pointer border ${isSelected
                   ? 'bg-[#161C24] text-[#D4E4FA] border-[#D4F684] shadow-[0_0_12px_rgba(212,246,132,0.15)]'
                   : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
                   }`}

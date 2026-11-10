@@ -124,7 +124,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
       {/* Medição Central */}
       <div className="flex items-center justify-between gap-4 pt-1">
         {/* SVG Mini Progress Dial */}
-        <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center">
+        <div className="relative w-14 h-14 shrink-0 flex items-center justify-center">
           <svg className="w-full h-full transform -rotate-90" viewBox="0 0 60 60">
             <circle cx="30" cy="30" r="24" stroke="#161C24" strokeWidth="4" fill="none" />
             <circle

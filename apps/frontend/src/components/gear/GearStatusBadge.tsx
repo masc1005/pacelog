@@ -1,17 +1,17 @@
 import React from 'react';
-import type { ShoeStatus } from '@pacelog/shared';
+import type { GearStatus } from '@pacelog/shared';
 import { Badge } from '../ui/Badge';
 
-interface ShoeStatusBadgeProps {
-  status: ShoeStatus;
+interface GearStatusBadgeProps {
+  status: GearStatus;
   isDefault?: boolean;
 }
 
-export const ShoeStatusBadge: React.FC<ShoeStatusBadgeProps> = ({ status, isDefault }) => {
+export const GearStatusBadge: React.FC<GearStatusBadgeProps> = ({ status, isDefault }) => {
   if (isDefault) {
     return <Badge variant="sage">Padrão</Badge>;
   }
-  
+
   switch (status) {
     case 'active':
       return <Badge variant="neutral">Ativo</Badge>;
@@ -23,3 +23,6 @@ export const ShoeStatusBadge: React.FC<ShoeStatusBadgeProps> = ({ status, isDefa
       return null;
   }
 };
+
+/** Alias legado */
+export const ShoeStatusBadge = GearStatusBadge;

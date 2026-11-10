@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { MainLayout } from './components/layout/MainLayout';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { PublicOnlyRoute } from './components/auth/PublicOnlyRoute';
@@ -85,22 +85,22 @@ const InsightsPage = React.lazy(() =>
     default: m.InsightsPage,
   }))
 );
-const ShoesPage = React.lazy(() =>
-  import('./pages/shoes/ShoesPage').then((m) => ({ default: m.ShoesPage }))
+const GearPage = React.lazy(() =>
+  import('./pages/gear/GearPage').then((m) => ({ default: m.GearPage }))
 );
-const CreateShoePage = React.lazy(() =>
-  import('./pages/shoes/CreateShoePage').then((m) => ({
-    default: m.CreateShoePage,
+const CreateGearPage = React.lazy(() =>
+  import('./pages/gear/CreateGearPage').then((m) => ({
+    default: m.CreateGearPage,
   }))
 );
-const ShoeDetailsPage = React.lazy(() =>
-  import('./pages/shoes/ShoeDetailsPage').then((m) => ({
-    default: m.ShoeDetailsPage,
+const GearDetailsPage = React.lazy(() =>
+  import('./pages/gear/GearDetailsPage').then((m) => ({
+    default: m.GearDetailsPage,
   }))
 );
-const EditShoePage = React.lazy(() =>
-  import('./pages/shoes/EditShoePage').then((m) => ({
-    default: m.EditShoePage,
+const EditGearPage = React.lazy(() =>
+  import('./pages/gear/EditGearPage').then((m) => ({
+    default: m.EditGearPage,
   }))
 );
 const StrengthRoutes = React.lazy(() =>
@@ -212,11 +212,14 @@ export const AppRoutes: React.FC = () => {
           <Route path="profile" element={<ProfilePage />} />
           <Route path="settings" element={<SettingsPage />} />
 
-          {/* Tênis (Running Shoes Tracker) */}
-          <Route path="shoes" element={<ShoesPage />} />
-          <Route path="shoes/new" element={<CreateShoePage />} />
-          <Route path="shoes/:id" element={<ShoeDetailsPage />} />
-          <Route path="shoes/:id/edit" element={<EditShoePage />} />
+          {/* Rastreador de Equipamentos (Multi-Sport Gear Tracker) */}
+          <Route path="gear" element={<GearPage />} />
+          <Route path="gear/new" element={<CreateGearPage />} />
+          <Route path="gear/:id" element={<GearDetailsPage />} />
+          <Route path="gear/:id/edit" element={<EditGearPage />} />
+
+          {/* Redirect legado /shoes/* → /gear/* */}
+          <Route path="shoes/*" element={<ShoesRedirect />} />
 
           {/* Musculação */}
           <Route path="strength/*" element={<StrengthRoutes />} />
@@ -235,4 +238,13 @@ export const AppRoutes: React.FC = () => {
 function GoalDetailsRedirect() {
   const id = window.location.pathname.split('/goals/')[1];
   return <Navigate to={`/progress/goals/${id}`} replace />;
+}
+
+/**
+ * Redirect legado de /shoes/* para /gear/* mantendo o sufixo da rota
+ */
+function ShoesRedirect() {
+  const location = useLocation();
+  const target = location.pathname.replace(/^\/shoes/, '/gear') + location.search;
+  return <Navigate to={target} replace />;
 }

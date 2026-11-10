@@ -201,7 +201,7 @@ export const SessionCreatorSheet: React.FC<SessionCreatorSheetProps> = ({
                 className="flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#161C24] active:bg-[#1F2937] transition-colors text-left group"
               >
                 <div
-                  className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                  className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
                   style={{ backgroundColor: `${sport.color}18` }}
                 >
                   <Icon className="h-5 w-5" style={{ color: sport.color }} />

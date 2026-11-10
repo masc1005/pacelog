@@ -80,11 +80,11 @@ export const AIProgressInsight: React.FC = () => {
       <div className="relative p-5 sm:p-6 flex flex-col gap-5">
         <div className="flex flex-col sm:flex-row gap-5 items-start">
           {/* Icon & Badge Area */}
-          <div className="flex-shrink-0 flex flex-col gap-2">
+          <div className="shrink-0 flex flex-col gap-2">
             <div className="w-10 h-10 rounded-full bg-[#161C24] border border-[#5CA9E6]/30 flex items-center justify-center text-[#5CA9E6] shadow-[0_0_15px_rgba(92,169,230,0.15)]">
               <Sparkles className="h-5 w-5" />
             </div>
-            <Badge variant="cyan" size="sm" className="whitespace-nowrap font-mono text-[9px] uppercase tracking-widest mt-1 justify-center border-none bg-[#5CA9E6]/10 text-[#5CA9E6]">
+            <Badge variant="cyan" size="sm" className="text-nowrap font-mono text-[9px] uppercase tracking-widest mt-1 justify-center border-none bg-[#5CA9E6]/10 text-[#5CA9E6]">
               IA EVOLUÇÃO
             </Badge>
           </div>
@@ -105,7 +105,7 @@ export const AIProgressInsight: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2 border-t border-[#1F2937] pt-4">
             {data.topProgress.map((item, idx) => (
               <div key={idx} className="flex gap-3 items-start bg-[#0D1C2D]/50 border border-[#1F2937] p-3 rounded-[4px]">
-                <div className="w-8 h-8 rounded-full bg-[#161C24] flex items-center justify-center flex-shrink-0 border border-[#1F2937]">
+                <div className="w-8 h-8 rounded-full bg-[#161C24] flex items-center justify-center shrink-0 border border-[#1F2937]">
                   <TrendingUp className="w-4 h-4 text-[#D4F684]" />
                 </div>
                 <div className="flex flex-col gap-1.5 flex-1 min-w-0">
@@ -114,7 +114,7 @@ export const AIProgressInsight: React.FC = () => {
                       {SPORT_LABELS[item.sportKey] || item.sportKey} • {item.metric}
                     </span>
                     {item.variation && (
-                      <span className="font-mono text-[10px] font-bold text-[#D4F684] bg-[#D4F684]/15 border border-[#D4F684]/30 px-2 py-0.5 rounded flex-shrink-0">
+                      <span className="font-mono text-[10px] font-bold text-[#D4F684] bg-[#D4F684]/15 border border-[#D4F684]/30 px-2 py-0.5 rounded shrink-0">
                         {item.variation}
                       </span>
                     )}

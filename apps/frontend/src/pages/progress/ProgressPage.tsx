@@ -140,7 +140,7 @@ export const ProgressPage: React.FC = () => {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono font-bold uppercase tracking-wider whitespace-nowrap transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono font-bold uppercase tracking-wider text-nowrap transition-all ${
                 activeTab === tab.key
                   ? 'bg-[#D4F684] text-[#051424]'
                   : 'bg-[#0D1C2D] text-[#8F9380] hover:text-[#D4E4FA] border border-[#1F2937]'
@@ -302,7 +302,7 @@ export const ProgressPage: React.FC = () => {
                   const widthPct = Math.round((week.totalSrpe / maxSrpe) * 100);
                   return (
                     <div key={week.weekLabel} className="flex items-center gap-3">
-                      <span className="font-mono text-[10px] text-[#8F9380] w-10 flex-shrink-0">
+                      <span className="font-mono text-[10px] text-[#8F9380] w-10 shrink-0">
                         {week.weekLabel}
                       </span>
                       <div className="flex-1 h-2 bg-[#1F2937] rounded-full overflow-hidden">

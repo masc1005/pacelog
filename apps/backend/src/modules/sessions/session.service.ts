@@ -14,11 +14,10 @@ import { scopedFilter } from '../../utils/scopedQuery.js';
 import { HttpError } from '../../utils/httpError.js';
 import { notificationService } from '../notifications/notification.service.js';
 import { progressService } from '../progress/progress.service.js';
-import { ShoeService } from '../shoes/shoe.service.js';
+import { gearService } from '../gear/gear.service.js';
 import { calculateActiveStreak } from '../progress/streak.service.js';
-import type { SessionSummaryDTO, SportKey, SportSummaryStats, RunningMetrics } from '@pacelog/shared';
-
-const shoeService = new ShoeService();
+import { getGearImpact } from '@pacelog/shared';
+import type { SessionSummaryDTO, SportKey, SportSummaryStats } from '@pacelog/shared';
 
 export class SessionService {
   /**
@@ -68,17 +67,30 @@ export class SessionService {
     // 4. Se clientUuid estiver presente, fazer Upsert Idempotente para prevenir duplicidade offline
     if (input.clientUuid) {
       const filter = scopedFilter(userId, { clientUuid: input.clientUuid });
-      const session = await SessionModel.findOneAndUpdate(
+      // new:false devolve o estado ANTERIOR de forma atômica (null se foi inserção),
+      // o que torna a contabilização de equipamento idempotente em retries offline.
+      const preImage = await SessionModel.findOneAndUpdate(
         filter,
         { $set: sessionPayload },
         {
-          new: true,
+          new: false,
           upsert: true,
           setDefaultsOnInsert: true,
           runValidators: true,
         }
+      ).lean();
+
+      const session = await SessionModel.findOne(filter);
+      if (!session) {
+        throw new HttpError(500, 'SESSION_UPSERT_FAILED');
+      }
+
+      await this.applyGearUsage(
+        userId,
+        preImage ? getGearImpact(preImage.sportKey as SportKey, preImage.metrics as any) : null,
+        getGearImpact(session.sportKey as SportKey, session.metrics as any)
       );
-      
+
       // Disparar hooks assíncronos
       setImmediate(() => {
         this.dispatchAlerts(userId);
@@ -90,20 +102,35 @@ export class SessionService {
     // 5. Caso contrário, criar nova sessão
     const newSession = await SessionModel.create(sessionPayload);
     
-    // 6. Atualizar tênis (se houver)
-    if (newSession.sportKey === 'running' && newSession.metrics?.shoeId && newSession.metrics?.distanceMeters) {
-      const distanceKm = newSession.metrics.distanceMeters / 1000;
-      await shoeService.updateDistanceTransaction(userId, newSession.metrics.shoeId, distanceKm).catch(err => {
-        console.error('[SessionService] Failed to update shoe distance:', err);
-      });
-    }
-    
+    // 6. Atualizar equipamento vinculado (se houver)
+    await this.applyGearUsage(
+      userId,
+      null,
+      getGearImpact(newSession.sportKey as SportKey, newSession.metrics as any)
+    );
+
     // Disparar hooks assíncronos
     setImmediate(() => {
       this.dispatchAlerts(userId);
     });
 
     return newSession;
+  }
+
+  /**
+   * Aplica o delta de uso de equipamento. Falhas são apenas logadas para nunca
+   * derrubar o registro do treino.
+   */
+  private async applyGearUsage(
+    userId: string,
+    prev: ReturnType<typeof getGearImpact>,
+    next: ReturnType<typeof getGearImpact>
+  ): Promise<void> {
+    try {
+      await gearService.applyUsageDelta(userId, prev, next);
+    } catch (err) {
+      console.error('[SessionService] Failed to apply gear usage:', err);
+    }
   }
 
   private async dispatchAlerts(userId: string) {
@@ -219,45 +246,14 @@ export class SessionService {
     existingSession.sessionalLoad = loadPayload.sessionalLoad ?? 0;
     (existingSession as any).load = loadPayload.load;
 
-    // Calcular diferença de tênis (Running)
-    let shoeUpdatePromise: Promise<void> | null = null;
-    if (existingSession.sportKey === 'running') {
-      const oldShoeId = (oldMetrics as unknown as RunningMetrics)?.shoeId;
-      const oldDistanceMeters = (oldMetrics as unknown as RunningMetrics)?.distanceMeters || 0;
-      
-      const newShoeId = (existingSession.metrics as unknown as RunningMetrics)?.shoeId;
-      const newDistanceMeters = (existingSession.metrics as unknown as RunningMetrics)?.distanceMeters || 0;
-      
-      const oldDistanceKm = oldDistanceMeters / 1000;
-      const newDistanceKm = newDistanceMeters / 1000;
-
-      if (oldShoeId === newShoeId && oldShoeId) {
-        // Same shoe, distance changed
-        const deltaKm = newDistanceKm - oldDistanceKm;
-        if (deltaKm !== 0) {
-          shoeUpdatePromise = shoeService.updateDistanceTransaction(userId, oldShoeId, deltaKm);
-        }
-      } else {
-        // Different shoes or shoe removed/added
-        const promises = [];
-        if (oldShoeId) {
-          promises.push(shoeService.updateDistanceTransaction(userId, oldShoeId, -oldDistanceKm));
-        }
-        if (newShoeId) {
-          promises.push(shoeService.updateDistanceTransaction(userId, newShoeId, newDistanceKm));
-        }
-        if (promises.length > 0) {
-          shoeUpdatePromise = Promise.all(promises).then(() => {});
-        }
-      }
-    }
-
     await existingSession.save();
-    
-    if (shoeUpdatePromise) {
-      await shoeUpdatePromise.catch(err => console.error('[SessionService] Failed to update shoe delta:', err));
-    }
-    
+
+    await this.applyGearUsage(
+      userId,
+      getGearImpact(existingSession.sportKey as SportKey, oldMetrics as any),
+      getGearImpact(existingSession.sportKey as SportKey, existingSession.metrics as any)
+    );
+
     // Disparar hooks assíncronos
     setImmediate(() => {
       this.dispatchAlerts(userId);
@@ -277,12 +273,11 @@ export class SessionService {
       throw new HttpError(404, 'SESSION_NOT_FOUND', { sessionId });
     }
 
-    if (session.sportKey === 'running' && session.metrics?.shoeId && session.metrics?.distanceMeters) {
-      const distanceKm = session.metrics.distanceMeters / 1000;
-      await shoeService.updateDistanceTransaction(userId, session.metrics.shoeId, -distanceKm).catch(err => {
-        console.error('[SessionService] Failed to revert shoe distance:', err);
-      });
-    }
+    await this.applyGearUsage(
+      userId,
+      getGearImpact(session.sportKey as SportKey, session.metrics as any),
+      null
+    );
 
     if (session.sportKey === 'strength') {
       try {

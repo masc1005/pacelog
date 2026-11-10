@@ -88,7 +88,7 @@ export const SportDistributionCard: React.FC<SportDistributionCardProps> = ({
           const color = SPORT_COLORS[s.sportKey] ?? '#8F9380';
           return (
             <div key={s.sportKey} className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
               <span className="font-display text-sm font-bold text-[#D4E4FA] flex-1">
                 {SPORT_LABELS[s.sportKey] || s.sportLabel}
               </span>

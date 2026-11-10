@@ -33,7 +33,7 @@ export * from './jiujitsu/jiujitsu.types.js';
 import { JiuJitsuMetrics } from './jiujitsu/jiujitsu.types.js';
 
 // Tênis / Shoes Tracker
-export * from './shoes/index.js';
+export * from './gear/index.js';
 
 export const SPORT_KEYS = [
   'running',
@@ -80,7 +80,10 @@ export interface RunningMetrics {
   maxHeartRate?: number;
   cadenceAvg?: number;
   splits?: SplitMarker[];
+  /** @deprecated Use gearId. Mantido para sessões antigas. */
   shoeId?: string;
+  /** Equipamento vinculado (tênis). null = nenhum. */
+  gearId?: string | null;
   surface?: RunningSurface;
   runningType?: RunningType;
   elevationMeters?: number; // Alias ou complemento de elevationGainMeters para fins de histórico
@@ -130,6 +133,8 @@ export interface BoxingMetrics {
   punchesThrownEstimate?: number;
   sparring?: boolean;
   focusArea?: 'bag_work' | 'sparring' | 'pad_work' | 'technique' | 'conditioning';
+  /** Luvas vinculadas. null = nenhuma. */
+  gearId?: string | null;
   notes?: string;
 }
 

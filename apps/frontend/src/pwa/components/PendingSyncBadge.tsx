@@ -92,7 +92,7 @@ export const PendingSyncBadge: React.FC<PendingSyncBadgeProps> = ({ onClose }) =
                 </div>
                 <button
                   onClick={() => dismissFailed(item.id)}
-                  className="text-[#8F9380] hover:text-red-400 transition-colors ml-2 flex-shrink-0"
+                  className="text-[#8F9380] hover:text-red-400 transition-colors ml-2 shrink-0"
                   aria-label="Descartar"
                 >
                   <X className="w-3.5 h-3.5" />

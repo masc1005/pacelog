@@ -1,6 +1,6 @@
 import { SessionModel } from '../sessions/session.model.js';
 import { GoalModel } from '../goals/goal.model.js';
-import { ShoeModel } from '../shoes/shoe.model.js';
+import { GearModel } from '../gear/gear.model.js';
 import { ProfileModel } from '../profile/profile.model.js';
 import { UserSettingsModel } from '../settings/settings.model.js';
 import { UserSportModel } from '../settings/userSport.model.js';
@@ -42,7 +42,7 @@ export class ExportService {
       UserSportModel.find({ userId }).lean(),
       SessionModel.find(scopedFilter(userId)).sort({ startedAt: -1 }).lean(),
       GoalModel.find(scopedFilter(userId)).lean(),
-      ShoeModel.find(scopedFilter(userId)).lean(),
+      GearModel.find(scopedFilter(userId)).lean(),
     ]);
 
     return {
@@ -89,7 +89,7 @@ export class ExportService {
       await Promise.all([
         SessionModel.deleteMany({ userId }),
         GoalModel.deleteMany({ userId }),
-        ShoeModel.deleteMany({ userId }),
+        GearModel.deleteMany({ userId }),
       ]);
     }
 
@@ -157,10 +157,10 @@ export class ExportService {
     for (const shoeData of shoes) {
       if (!shoeData.name) continue;
       if (mode === 'merge') {
-        const exists = await ShoeModel.findOne({ userId, name: shoeData.name });
+        const exists = await GearModel.findOne({ userId, name: shoeData.name });
         if (exists) continue;
       }
-      await ShoeModel.create({
+      await GearModel.create({
         ...shoeData,
         userId,
         purchasedAt: shoeData.purchasedAt ? new Date(shoeData.purchasedAt) : undefined,

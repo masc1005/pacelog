@@ -162,7 +162,7 @@ export const ExerciseSearch: React.FC<ExerciseSearchProps> = ({
             <button
               key={mg.key}
               id={`filter-muscle-${mg.key || 'all'}`}
-              className={`flex-shrink-0 px-3.5 py-1.5 rounded-full font-mono text-[11px] uppercase tracking-wider font-semibold transition-all ${
+              className={`shrink-0 px-3.5 py-1.5 rounded-full font-mono text-[11px] uppercase tracking-wider font-semibold transition-all ${
                 isSelected
                   ? 'bg-[#A855F7] text-white shadow-[0_0_12px_rgba(168,85,247,0.4)] scale-[1.02]'
                   : 'bg-[#161C24] text-[#8F9380] border border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'

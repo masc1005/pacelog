@@ -49,11 +49,11 @@ export const AICoachWidget: React.FC = () => {
 
       <div className="relative p-5 sm:p-6 flex flex-col sm:flex-row gap-5 items-start">
         {/* Icon & Badge Area */}
-        <div className="flex-shrink-0 flex flex-col gap-2">
+        <div className="shrink-0 flex flex-col gap-2">
           <div className="w-10 h-10 rounded-full bg-[#161C24] border border-[#D4F684]/30 flex items-center justify-center text-[#D4F684] shadow-[0_0_15px_rgba(212,246,132,0.15)]">
             <Sparkles className="h-5 w-5" />
           </div>
-          <Badge variant="sage" size="sm" className="whitespace-nowrap font-mono text-[9px] uppercase tracking-widest mt-1 justify-center border-none bg-[#D4F684]/10 text-[#D4F684]">
+          <Badge variant="sage" size="sm" className="text-nowrap font-mono text-[9px] uppercase tracking-widest mt-1 justify-center border-none bg-[#D4F684]/10 text-[#D4F684]">
             IA TÁTICA
           </Badge>
         </div>

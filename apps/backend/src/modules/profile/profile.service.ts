@@ -1,7 +1,7 @@
 import { ProfileModel, type IProfile } from './profile.model.js';
 import { SessionModel } from '../sessions/session.model.js';
 import { GoalModel } from '../goals/goal.model.js';
-import { ShoeModel } from '../shoes/shoe.model.js';
+import { GearModel } from '../gear/gear.model.js';
 import { InsightModel } from '../insights/insight.model.js';
 import { Notification as NotificationModel } from '../notifications/notification.model.js';
 import { UserSettingsModel } from '../settings/settings.model.js';
@@ -112,7 +112,7 @@ export async function deleteAccountAndData(userId: string): Promise<void> {
     ProfileModel.deleteMany({ userId }),
     SessionModel.deleteMany({ userId }),
     GoalModel.deleteMany({ userId }),
-    ShoeModel.deleteMany({ userId }),
+    GearModel.deleteMany({ userId }),
     InsightModel.deleteMany({ userId }),
     NotificationModel.deleteMany({ userId }),
     UserSettingsModel.deleteMany({ userId }),

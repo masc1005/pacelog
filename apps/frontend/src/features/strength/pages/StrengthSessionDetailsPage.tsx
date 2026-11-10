@@ -335,7 +335,7 @@ export const StrengthSessionDetailsPage: React.FC = () => {
       {session.notes && (
         <section className="flex flex-col gap-2 p-4 bg-[#161C24] border border-[#1F2937] rounded-[4px]">
           <h3 className="font-mono text-[10px] uppercase tracking-widest text-[#8F9380]">Observações</h3>
-          <p className="text-sm text-[#C5C8B4] whitespace-pre-wrap">{session.notes}</p>
+          <p className="text-sm text-[#C5C8B4] text-pre-wrap">{session.notes}</p>
         </section>
       )}
 

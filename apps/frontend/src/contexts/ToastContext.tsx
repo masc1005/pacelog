@@ -67,7 +67,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               className="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-[2px] border shadow-xl"
               style={{ background: colors.bg, borderColor: colors.border }}
             >
-              <Icon className="h-4 w-4 flex-shrink-0" style={{ color: colors.icon }} />
+              <Icon className="h-4 w-4 shrink-0" style={{ color: colors.icon }} />
               <span className="font-mono text-xs flex-1" style={{ color: colors.text }}>{t.message}</span>
               <button onClick={() => removeToast(t.id)} className="ml-2 opacity-60 hover:opacity-100 transition-opacity">
                 <X className="h-3.5 w-3.5" style={{ color: colors.text }} />

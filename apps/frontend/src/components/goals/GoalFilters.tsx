@@ -63,7 +63,7 @@ export const GoalFilters: React.FC<GoalFiltersProps> = ({
               key={tab.id}
               type="button"
               onClick={() => onStatusChange(tab.id)}
-              className={`flex items-center gap-2 py-2 px-3.5 font-mono text-xs uppercase font-bold tracking-wider rounded-t-[4px] border-b-2 transition-all whitespace-nowrap ${
+              className={`flex items-center gap-2 py-2 px-3.5 font-mono text-xs uppercase font-bold tracking-wider rounded-t-[4px] border-b-2 transition-all text-nowrap ${
                 isSelected
                   ? 'border-[#D4F684] text-[#D4F684] bg-[#D4F684]/5'
                   : 'border-transparent text-[#8F9380] hover:text-[#D4E4FA] hover:bg-white/5'
@@ -89,7 +89,7 @@ export const GoalFilters: React.FC<GoalFiltersProps> = ({
         <button
           type="button"
           onClick={() => onSportChange('all')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] font-mono text-xs uppercase font-bold transition-all border whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] font-mono text-xs uppercase font-bold transition-all border text-nowrap ${
             sportFilter === 'all'
               ? 'bg-[#D4F684] text-[#051424] border-[#D4F684] shadow-[0_0_12px_rgba(212,246,132,0.25)]'
               : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:border-[#454839] hover:text-[#D4E4FA]'
@@ -109,7 +109,7 @@ export const GoalFilters: React.FC<GoalFiltersProps> = ({
               key={key}
               type="button"
               onClick={() => onSportChange(key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] font-mono text-xs uppercase font-bold transition-all border whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] font-mono text-xs uppercase font-bold transition-all border text-nowrap ${
                 isSelected
                   ? 'bg-[#161C24] text-[#D4E4FA] border-[#D4F684] shadow-[0_0_12px_rgba(212,246,132,0.15)]'
                   : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:border-[#454839] hover:text-[#D4E4FA]'

@@ -66,7 +66,7 @@ export const NotificationSettingsSection: React.FC = () => {
           <button
             type="button"
             onClick={requestBrowserPermission}
-            className="py-2 px-3 bg-[#D4F684] text-[#051424] font-mono text-xs uppercase font-bold tracking-wider rounded-lg shadow-[0_0_15px_rgba(212,246,132,0.3)] hover:opacity-90 transition-all flex-shrink-0"
+            className="py-2 px-3 bg-[#D4F684] text-[#051424] font-mono text-xs uppercase font-bold tracking-wider rounded-lg shadow-[0_0_15px_rgba(212,246,132,0.3)] hover:opacity-90 transition-all shrink-0"
           >
             Ativar Permissão
           </button>

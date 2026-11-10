@@ -55,7 +55,7 @@ export const PwaUpdateSection: React.FC = () => {
           <button
             type="button"
             onClick={applyUpdate}
-            className="flex items-center gap-1.5 py-2 px-3 bg-[#D4F684] text-[#051424] font-mono text-xs uppercase font-bold tracking-wider rounded-[4px] hover:bg-[#C4E574] transition-colors whitespace-nowrap flex-shrink-0"
+            className="flex items-center gap-1.5 py-2 px-3 bg-[#D4F684] text-[#051424] font-mono text-xs uppercase font-bold tracking-wider rounded-[4px] hover:bg-[#C4E574] transition-colors text-nowrap shrink-0"
           >
             <Download className="w-3.5 h-3.5" />
             Atualizar agora

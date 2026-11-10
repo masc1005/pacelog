@@ -215,7 +215,7 @@ export const EvolutionBySportPage: React.FC = () => {
           {/* Nota para musculação */}
           {sportKey === 'strength' && hasComparison && varPercent > 0 && (
             <div className="flex items-start gap-2 bg-[#1F2937]/50 p-3 rounded-lg">
-              <Info className="h-3.5 w-3.5 text-[#8F9380] mt-0.5 flex-shrink-0" />
+              <Info className="h-3.5 w-3.5 text-[#8F9380] mt-0.5 shrink-0" />
               <p className="font-mono text-[10px] text-[#8F9380]">
                 Aumento de volume não implica automaticamente melhora de força. Observe RPE e progressão por exercício.
               </p>
@@ -225,7 +225,7 @@ export const EvolutionBySportPage: React.FC = () => {
           {/* Nota para jiu-jitsu */}
           {sportKey === 'jiujitsu' && hasComparison && (
             <div className="flex items-start gap-2 bg-[#1F2937]/50 p-3 rounded-lg">
-              <Info className="h-3.5 w-3.5 text-[#8F9380] mt-0.5 flex-shrink-0" />
+              <Info className="h-3.5 w-3.5 text-[#8F9380] mt-0.5 shrink-0" />
               <p className="font-mono text-[10px] text-[#8F9380]">
                 Volume de rolas e consistência no tatame são os sinais principais de progresso. Submissões sofridas fazem parte do aprendizado.
               </p>
