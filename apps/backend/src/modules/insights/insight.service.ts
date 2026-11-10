@@ -55,17 +55,13 @@ REGRAS OBRIGATÓRIAS:
 // INSIGHT SERVICE
 // ==========================================
 
+export const PRIMARY_GEMINI_MODEL = 'gemini-3.8-flash';
+export const FALLBACK_GEMINI_MODEL = 'gemini-3.5-flash-lite';
+
 export function getValidGeminiModel(model?: string): string {
-  if (!model) return 'gemini-3-flash-preview';
+  if (!model) return PRIMARY_GEMINI_MODEL;
   const m = model.trim();
-  if (
-    m === 'gemini-3.5-flash' ||
-    m === 'gemini-3-flash' ||
-    m === 'gemini-3.8-flash' ||
-    m === 'gemini-flash-latest'
-  ) {
-    return 'gemini-3-flash-preview';
-  }
+  if (!m) return PRIMARY_GEMINI_MODEL;
   return m;
 }
 
@@ -449,25 +445,27 @@ Interpretação:`;
           : `Primeira sessão de ${currentData.muscleGroupsLabel} registrada. Volume total: ${currentData.totalVolumeKg?.toFixed(0) ?? 'não calculado'} kg com ${currentData.completedSets ?? 0} séries concluídas. Excelente início!`;
       }
 
+      const primaryModel = getValidGeminiModel(env.GEMINI_MODEL);
+      const fallbackModel = FALLBACK_GEMINI_MODEL;
       let response: any = null;
-      const model = getValidGeminiModel(env.GEMINI_MODEL);
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          response = await this.ai.models.generateContent({
-            model,
-            contents: prompt,
-          });
-          const resolvedModel = response?.modelVersion ? `${model} (${response.modelVersion})` : model;
-          this.lastModelUsed = resolvedModel;
-          console.info(`[InsightService] Strength insight generated using model: ${resolvedModel} (attempt: ${attempt})`);
-          break;
-        } catch (err: any) {
-          if (attempt < 3 && (err?.status === 503 || err?.status === 429 || String(err?.message).includes('503'))) {
-            await new Promise((r) => setTimeout(r, 1000 * attempt));
-            continue;
-          }
-          throw err;
-        }
+
+      try {
+        response = await this.ai.models.generateContent({
+          model: primaryModel,
+          contents: prompt,
+        });
+        const resolvedModel = response?.modelVersion ? `${primaryModel} (${response.modelVersion})` : primaryModel;
+        this.lastModelUsed = resolvedModel;
+        console.info(`[InsightService] Strength insight generated using primary model: ${resolvedModel}`);
+      } catch (primaryErr) {
+        console.warn(`[InsightService] Primary model ${primaryModel} failed, trying fallback ${fallbackModel}:`, primaryErr);
+        response = await this.ai.models.generateContent({
+          model: fallbackModel,
+          contents: prompt,
+        });
+        const resolvedModel = response?.modelVersion ? `${fallbackModel} (${response.modelVersion}) [fallback]` : `${fallbackModel} [fallback]`;
+        this.lastModelUsed = resolvedModel;
+        console.info(`[InsightService] Strength insight generated using fallback model: ${resolvedModel}`);
       }
 
       return response?.text || 'Sessão de musculação registrada. Acompanhe sua evolução de volume e séries.';
@@ -555,7 +553,7 @@ Interpretação:`;
       }
 
       const model = getValidGeminiModel(env.GEMINI_MODEL);
-      const fallbackModel = model === 'gemini-3-flash-preview' ? 'gemini-2.5-flash' : 'gemini-3-flash-preview';
+      const fallbackModel = FALLBACK_GEMINI_MODEL;
       let response: any;
       try {
         response = await this.ai.models.generateContent({
@@ -710,7 +708,7 @@ Apenas o JSON. Nenhum texto antes ou depois.`;
       }
 
       const primaryModel = getValidGeminiModel(env.GEMINI_MODEL);
-      const fallbackModel = primaryModel === 'gemini-3-flash-preview' ? 'gemini-2.5-flash' : 'gemini-3-flash-preview';
+      const fallbackModel = FALLBACK_GEMINI_MODEL;
       let response: any;
       try {
         response = await this.ai.models.generateContent({

@@ -1,7 +1,11 @@
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { env } from '../../config/env.js';
-import { getValidGeminiModel } from '../insights/insight.service.js';
+import {
+  getValidGeminiModel,
+  PRIMARY_GEMINI_MODEL,
+  FALLBACK_GEMINI_MODEL,
+} from '../insights/insight.service.js';
 import { ExerciseModel } from './exercise.model.js';
 import { SYSTEM_EXERCISES } from './exercise.seed.js';
 import { ActiveStrengthSessionModel } from './strength-session.model.js';
@@ -157,11 +161,11 @@ export class StrengthAIService {
     const durationMinutes = input.durationMinutes ?? 45;
     const goal = input.goal ?? 'hypertrophy';
 
-    // 4. Tentar gerar com Gemini 3 Flash direto (timeout 20s para evitar travar 5 min)
+    // 4. Tentar gerar com padrão gemini-3.8-flash e fallback gemini-3.5-flash-lite
     if (this.ai) {
-      const primaryModel = getValidGeminiModel(env.GEMINI_MODEL);
+      const primaryModel = getValidGeminiModel(env.GEMINI_MODEL || PRIMARY_GEMINI_MODEL);
       const modelsToTry = Array.from(
-        new Set([primaryModel, 'gemini-3-flash-preview', 'gemini-2.5-flash'])
+        new Set([primaryModel, PRIMARY_GEMINI_MODEL, FALLBACK_GEMINI_MODEL])
       );
 
       const catalogListText = candidateExercises
