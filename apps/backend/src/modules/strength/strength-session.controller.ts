@@ -1,8 +1,12 @@
 import type { Request, Response, NextFunction } from 'express';
 import { strengthSessionService } from './strength-session.service.js';
+import { strengthAIService } from './strength-ai.service.js';
 import { insightService } from '../insights/insight.service.js';
 import type {
   StartStrengthSessionInput,
+  CreateStrengthRoutineInput,
+  GenerateStrengthWorkoutInput,
+  ApplyWorkoutTemplateInput,
   AddExerciseInput,
   AddSetInput,
   CompleteSetInput,
@@ -14,6 +18,102 @@ import type { ListStrengthSessionsQuery } from './strength-session.schemas.js';
 
 // Helper para extrair parâmetro de rota como string
 const p = (val: string | string[]) => String(Array.isArray(val) ? val[0] : val);
+
+// ==========================================
+// ROTINAS / FICHAS DE TREINO & IA PERSONAL
+// ==========================================
+
+export async function generateWorkoutWithAIController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.userId!;
+    const input = req.body as GenerateStrengthWorkoutInput;
+    const generated = await strengthAIService.generateWorkout(userId, input);
+    res.status(200).json({
+      success: true,
+      data: generated,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function applyWorkoutTemplateController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.userId!;
+    const id = p(req.params.id);
+    const input = req.body as ApplyWorkoutTemplateInput;
+    const session = await strengthSessionService.applyWorkoutTemplateToActiveSession(
+      userId,
+      id,
+      input.exercises,
+      input.notes
+    );
+    res.status(200).json({
+      success: true,
+      data: session.toJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listRoutinesController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.userId!;
+    const routines = await strengthSessionService.listRoutines(userId);
+    res.status(200).json({
+      success: true,
+      data: routines.map((r) => r.toJSON()),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createRoutineController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.userId!;
+    const input = req.body as CreateStrengthRoutineInput;
+    const routine = await strengthSessionService.createRoutine(userId, input);
+    res.status(201).json({
+      success: true,
+      data: routine.toJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteRoutineController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.userId!;
+    const id = p(req.params.id);
+    await strengthSessionService.deleteRoutine(userId, id);
+    res.status(200).json({ success: true, data: { deleted: true } });
+  } catch (error) {
+    next(error);
+  }
+}
 
 // ==========================================
 // SESSÃO
@@ -104,10 +204,6 @@ export async function patchSessionController(
     next(error);
   }
 }
-
-// ==========================================
-// CICLO DE VIDA
-// ==========================================
 
 export async function pauseSessionController(
   req: Request,

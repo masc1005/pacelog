@@ -123,6 +123,54 @@ export type RestTimer = {
 };
 
 // ==========================================
+// ROTINAS / FICHAS DE TREINO (TEMPLATES)
+// ==========================================
+
+export type StrengthRoutineSetTemplate = {
+  setNumber: number;
+  type: StrengthSetType;
+  reps?: number;
+  load?: number;
+  loadUnit: LoadUnit;
+  restSeconds?: number;
+};
+
+export type StrengthRoutineExerciseTemplate = {
+  exerciseKey: string;
+  exerciseNameSnapshot: string;
+  primaryMuscleGroup?: string;
+  equipment?: string;
+  order: number;
+  notes?: string;
+  sets: StrengthRoutineSetTemplate[];
+};
+
+export type StrengthRoutineDTO = {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  exercises: StrengthRoutineExerciseTemplate[];
+  lastUsedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// ==========================================
+// IA PERSONAL TRAINER (GERADOR DE TREINO)
+// ==========================================
+
+export type StrengthWorkoutGoal = 'hypertrophy' | 'strength' | 'endurance' | 'full_body';
+
+export type GeneratedStrengthWorkoutDTO = {
+  name: string;
+  description: string;
+  rationale: string;
+  exercises: StrengthRoutineExerciseTemplate[];
+  modelUsed?: string;
+};
+
+// ==========================================
 // TIPOS DE RESPOSTA DA API
 // ==========================================
 

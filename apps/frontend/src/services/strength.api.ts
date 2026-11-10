@@ -3,6 +3,11 @@ import type {
   ActiveStrengthSession,
   CompletedStrengthSession,
   StartStrengthSessionInput,
+  CreateStrengthRoutineInput,
+  GenerateStrengthWorkoutInput,
+  GeneratedStrengthWorkoutDTO,
+  ApplyWorkoutTemplateInput,
+  StrengthRoutineDTO,
   AddExerciseInput,
   AddSetInput,
   CompleteSetInput,
@@ -19,10 +24,38 @@ import type {
 const BASE = '/api/strength';
 
 // ==========================================
-// SESSÕES
+// SESSÕES & ROTINAS (TEMPLATES) & IA PERSONAL
 // ==========================================
 
 export const strengthApi = {
+  // IA Personal Trainer — Gerador de Treino
+  generateWorkoutWithAI: (input: GenerateStrengthWorkoutInput) =>
+    apiClient<GeneratedStrengthWorkoutDTO>(`${BASE}/ai-builder`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  applyWorkoutTemplate: (sessionId: string, input: ApplyWorkoutTemplateInput) =>
+    apiClient<ActiveStrengthSession>(`${BASE}/sessions/${sessionId}/apply-template`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  // Rotinas / Fichas de Treino
+  listRoutines: () =>
+    apiClient<StrengthRoutineDTO[]>(`${BASE}/routines`),
+
+  createRoutine: (input: CreateStrengthRoutineInput) =>
+    apiClient<StrengthRoutineDTO>(`${BASE}/routines`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  deleteRoutine: (id: string) =>
+    apiClient<{ deleted: boolean }>(`${BASE}/routines/${id}`, {
+      method: 'DELETE',
+    }),
+
   startSession: (input: StartStrengthSessionInput) =>
     apiClient<ActiveStrengthSession>(`${BASE}/sessions`, {
       method: 'POST',

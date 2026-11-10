@@ -7,8 +7,8 @@ import { formatDuration } from '../hooks/useSessionTimer';
 import { StrengthInsightCard } from '../components/StrengthInsightCard';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
-import { Trash2, ArrowLeft, Pencil } from 'lucide-react';
-import { toLocalInputDateTime } from '../../../lib/utils';
+import { Trash2, ArrowLeft, Pencil, Bookmark, Play, Check } from 'lucide-react';
+import { randomUUID, toLocalInputDateTime } from '../../../lib/utils';
 import type { CompletedStrengthSession } from '@pacelog/shared';
 
 export const StrengthSessionDetailsPage: React.FC = () => {
@@ -22,6 +22,14 @@ export const StrengthSessionDetailsPage: React.FC = () => {
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [editStartedAt, setEditStartedAt] = useState('');
   const [isSavingDate, setIsSavingDate] = useState(false);
+
+  // Estado para salvar como ficha
+  const [showSaveRoutineModal, setShowSaveRoutineModal] = useState(false);
+  const [routineName, setRoutineName] = useState('');
+  const [routineDescription, setRoutineDescription] = useState('');
+  const [isSavingRoutine, setIsSavingRoutine] = useState(false);
+  const [routineSaved, setRoutineSaved] = useState(false);
+  const [isRepeatingWorkout, setIsRepeatingWorkout] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -70,6 +78,49 @@ export const StrengthSessionDetailsPage: React.FC = () => {
       toastError(err?.message || 'Erro ao atualizar data e hora.');
     } finally {
       setIsSavingDate(false);
+    }
+  };
+
+  const handleSaveAsRoutine = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !routineName.trim()) return;
+    setIsSavingRoutine(true);
+    try {
+      await strengthApi.createRoutine({
+        name: routineName.trim(),
+        description: routineDescription.trim() || undefined,
+        sessionId: id,
+      });
+      setRoutineSaved(true);
+      setShowSaveRoutineModal(false);
+      success(`Ficha "${routineName.trim()}" salva com sucesso!`);
+    } catch (err: any) {
+      toastError(err?.message || 'Erro ao salvar ficha de treino.');
+    } finally {
+      setIsSavingRoutine(false);
+    }
+  };
+
+  const handleRepeatWorkout = async () => {
+    if (!id || !session || isRepeatingWorkout) return;
+    setIsRepeatingWorkout(true);
+    try {
+      // Cria ficha temporária ou usa sessão para iniciar
+      const tempRoutine = await strengthApi.createRoutine({
+        name: `Treino de ${new Date(session.startedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`,
+        sessionId: id,
+      });
+      await strengthApi.startSession({
+        operationId: randomUUID(),
+        startedAt: new Date().toISOString(),
+        routineId: tempRoutine.id,
+      });
+      // Remove a ficha temporária para não poluir a lista do usuário
+      await strengthApi.deleteRoutine(tempRoutine.id).catch(() => {});
+      navigate('/strength/active');
+    } catch (err: any) {
+      toastError(err?.message || 'Não foi possível iniciar o treino (verifique se já há um treino em andamento).');
+      setIsRepeatingWorkout(false);
     }
   };
 
@@ -122,7 +173,7 @@ export const StrengthSessionDetailsPage: React.FC = () => {
 
   return (
     <div className="flex flex-col max-w-2xl mx-auto w-full p-4 sm:p-0 gap-6 pb-24">
-      <header className="flex items-center justify-between border-b border-[#1F2937] pb-4">
+      <header className="flex items-center justify-between border-b border-[#1F2937] pb-4 flex-wrap gap-2">
         <button
           className="flex items-center gap-2 font-mono text-xs text-[#8F9380] hover:text-[#D4E4FA] transition-colors"
           onClick={() => navigate('/sessions')}
@@ -132,15 +183,42 @@ export const StrengthSessionDetailsPage: React.FC = () => {
           Histórico
         </button>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          leftIcon={<Trash2 className="h-3.5 w-3.5" />}
-          className="text-[#FFB4AB] border-[#FFB4AB]/20 hover:bg-[#FFB4AB]/10 hover:border-[#FFB4AB]"
-          onClick={() => setShowDeleteConfirm(true)}
-        >
-          Excluir
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={routineSaved ? <Check className="h-3.5 w-3.5 text-[#D4F684]" /> : <Bookmark className="h-3.5 w-3.5 text-[#A855F7]" />}
+            onClick={() => {
+              setRoutineName('');
+              setRoutineDescription('');
+              setShowSaveRoutineModal(true);
+            }}
+            className="border-[#A855F7]/30 hover:border-[#A855F7]"
+          >
+            {routineSaved ? 'Ficha Salva' : 'Salvar como Ficha'}
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            isLoading={isRepeatingWorkout}
+            leftIcon={<Play className="h-3.5 w-3.5 text-[#D4F684]" />}
+            onClick={handleRepeatWorkout}
+            className="border-[#D4F684]/30 hover:border-[#D4F684] text-[#D4F684]"
+          >
+            Repetir Treino
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<Trash2 className="h-3.5 w-3.5" />}
+            className="text-[#FFB4AB] border-[#FFB4AB]/20 hover:bg-[#FFB4AB]/10 hover:border-[#FFB4AB]"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            Excluir
+          </Button>
+        </div>
       </header>
 
       <section className="flex flex-col p-4 bg-[#0D1C2D] border border-[#1F2937] rounded-[4px]">
@@ -259,6 +337,72 @@ export const StrengthSessionDetailsPage: React.FC = () => {
           <h3 className="font-mono text-[10px] uppercase tracking-widest text-[#8F9380]">Observações</h3>
           <p className="text-sm text-[#C5C8B4] whitespace-pre-wrap">{session.notes}</p>
         </section>
+      )}
+
+      {/* Modal Salvar como Ficha */}
+      {showSaveRoutineModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <Card className="p-6 max-w-md w-full bg-[#161C24] border-[#A855F7]/40 flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <Bookmark className="h-5 w-5 text-[#A855F7]" />
+              <h3 className="font-display text-lg font-bold text-[#D4E4FA] uppercase">
+                Salvar como Ficha de Treino
+              </h3>
+            </div>
+            <p className="font-mono text-xs text-[#8F9380]">
+              Os {session.exercises.length} exercícios e suas séries servirão de modelo para iniciar treinos futuros com 1 clique.
+            </p>
+            <form onSubmit={handleSaveAsRoutine} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="font-mono text-[10px] uppercase tracking-widest text-[#C5C8B4]">
+                  Nome da Ficha *
+                </label>
+                <input
+                  type="text"
+                  required
+                  minLength={2}
+                  maxLength={80}
+                  placeholder="Ex: Ficha A - Peito e Tríceps"
+                  value={routineName}
+                  onChange={(e) => setRoutineName(e.target.value)}
+                  className="w-full bg-[#0D1C2D] border border-[#1F2937] focus:border-[#A855F7] text-[#D4E4FA] font-sans text-sm rounded-[4px] px-3 py-2.5 outline-none"
+                  autoFocus
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="font-mono text-[10px] uppercase tracking-widest text-[#C5C8B4]">
+                  Descrição (Opcional)
+                </label>
+                <input
+                  type="text"
+                  maxLength={300}
+                  placeholder="Ex: Foco em hipertrofia e progressão de carga"
+                  value={routineDescription}
+                  onChange={(e) => setRoutineDescription(e.target.value)}
+                  className="w-full bg-[#0D1C2D] border border-[#1F2937] focus:border-[#A855F7] text-[#D4E4FA] font-sans text-sm rounded-[4px] px-3 py-2.5 outline-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setShowSaveRoutineModal(false)}
+                  className="flex-1 justify-center"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  variant="tactile"
+                  isLoading={isSavingRoutine}
+                  className="flex-1 justify-center"
+                >
+                  Salvar Ficha
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
       )}
 
       {/* Modal de Confirmação de Exclusão */}

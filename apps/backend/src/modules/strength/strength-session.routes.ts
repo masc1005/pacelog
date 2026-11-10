@@ -2,6 +2,11 @@ import { Router } from 'express';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import { validate, validateQuery } from '../../middleware/validate.js';
 import {
+  generateWorkoutWithAIController,
+  applyWorkoutTemplateController,
+  listRoutinesController,
+  createRoutineController,
+  deleteRoutineController,
   startSessionController,
   getActiveSessionController,
   getSessionByIdController,
@@ -28,6 +33,9 @@ import {
 } from './exercises.controller.js';
 import {
   startStrengthSessionSchema,
+  createStrengthRoutineSchema,
+  generateStrengthWorkoutInputSchema,
+  applyWorkoutTemplateInputSchema,
   addExerciseInputSchema,
   addSetInputSchema,
   completeSetInputSchema,
@@ -44,6 +52,24 @@ export const strengthRoutes = Router();
 
 // Todas as rotas requerem autenticação
 strengthRoutes.use(requireAuth);
+
+// ==========================================
+// ROTINAS / FICHAS DE TREINO & IA PERSONAL
+// ==========================================
+
+strengthRoutes.post(
+  '/ai-builder',
+  validate(generateStrengthWorkoutInputSchema),
+  generateWorkoutWithAIController
+);
+
+strengthRoutes.get('/routines', listRoutinesController);
+strengthRoutes.post(
+  '/routines',
+  validate(createStrengthRoutineSchema),
+  createRoutineController
+);
+strengthRoutes.delete('/routines/:id', deleteRoutineController);
 
 // ==========================================
 // SESSÕES
@@ -70,6 +96,12 @@ strengthRoutes.patch(
   '/sessions/:id',
   validate(patchSessionInputSchema),
   patchSessionController
+);
+
+strengthRoutes.post(
+  '/sessions/:id/apply-template',
+  validate(applyWorkoutTemplateInputSchema),
+  applyWorkoutTemplateController
 );
 
 // Ciclo de vida da sessão

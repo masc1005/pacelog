@@ -1,7 +1,9 @@
 import { randomUUID } from 'crypto';
 import { ActiveStrengthSessionModel } from './strength-session.model.js';
+import { StrengthRoutineModel, type IStrengthRoutineDocument } from './strength-routine.model.js';
 import { strengthSessionRepository } from './strength-session.repository.js';
 import { computeFinalMetrics } from './strength-session.metrics.js';
+import { HttpError } from '../../utils/httpError.js';
 import {
   StrengthSessionNotActiveError,
   StrengthExerciseNotFoundError,
@@ -11,12 +13,14 @@ import {
 } from './strength-session.errors.js';
 import type {
   StartStrengthSessionInput,
+  CreateStrengthRoutineInput,
   AddExerciseInput,
   AddSetInput,
   CompleteSetInput,
   EditSetInput,
   FinishSessionInput,
   PatchSessionInput,
+  StrengthRoutineExerciseTemplate,
 } from '@pacelog/shared';
 import { reorderExercises } from '@pacelog/shared';
 import type { IActiveStrengthSessionDocument } from './strength-session.model.js';
@@ -26,7 +30,7 @@ const repo = strengthSessionRepository;
 
 export class StrengthSessionService {
   // ==========================================
-  // INICIAR SESSÃO
+  // INICIAR SESSÃO (com suporte a Ficha/Routine, IA Personal + Ghost Values)
   // ==========================================
 
   async startSession(
@@ -35,6 +39,33 @@ export class StrengthSessionService {
   ): Promise<IActiveStrengthSessionDocument> {
     await repo.assertNoActiveSession(userId);
 
+    const preloadedExercises: any[] = [];
+    let routineNotes = input.notes;
+    let sourceExercises: StrengthRoutineExerciseTemplate[] = [];
+
+    if (input.routineId) {
+      const routine = await StrengthRoutineModel.findOne({
+        _id: input.routineId,
+        userId,
+      });
+
+      if (routine) {
+        sourceExercises = routine.exercises || [];
+        if (!routineNotes && routine.name) {
+          routineNotes = `Ficha: ${routine.name}`;
+        }
+        routine.lastUsedAt = new Date();
+        await routine.save();
+      }
+    } else if (input.exercises && input.exercises.length > 0) {
+      sourceExercises = input.exercises;
+    }
+
+    if (sourceExercises.length > 0) {
+      const mapped = await this.buildPreloadedExercisesWithGhostValues(userId, sourceExercises);
+      preloadedExercises.push(...mapped);
+    }
+
     const session = await ActiveStrengthSessionModel.create({
       userId,
       sportKey: 'strength',
@@ -42,13 +73,165 @@ export class StrengthSessionService {
       startedAt: input.startedAt ? new Date(input.startedAt) : new Date(),
       lastActivityAt: new Date(),
       totalPausedSeconds: 0,
-      exercises: [],
-      notes: input.notes,
+      exercises: preloadedExercises,
+      notes: routineNotes,
       clientVersion: 0,
       processedOperationIds: input.operationId ? [input.operationId] : [],
     });
 
     return session;
+  }
+
+  async applyWorkoutTemplateToActiveSession(
+    userId: string,
+    sessionId: string,
+    exercises: StrengthRoutineExerciseTemplate[],
+    notes?: string
+  ): Promise<IActiveStrengthSessionDocument> {
+    const session = await repo.findByIdOrFail(userId, sessionId);
+    this.assertIsEditable(session);
+
+    const preloaded = await this.buildPreloadedExercisesWithGhostValues(
+      userId,
+      exercises,
+      session.exercises.length
+    );
+
+    session.exercises.push(...preloaded);
+    session.exercises.forEach((e, i) => (e.order = i));
+    if (notes && !session.notes) {
+      session.notes = notes;
+    }
+    session.clientVersion += 1;
+    session.lastActivityAt = new Date();
+
+    return session.save();
+  }
+
+  private async buildPreloadedExercisesWithGhostValues(
+    userId: string,
+    sourceExercises: StrengthRoutineExerciseTemplate[],
+    startOrder = 0
+  ): Promise<any[]> {
+    const recentSessions = await ActiveStrengthSessionModel.find({
+      userId,
+      status: 'completed',
+    })
+      .sort({ startedAt: -1 })
+      .limit(20);
+
+    const latestCompletedSetsByExercise = new Map<string, any[]>();
+    for (const past of recentSessions) {
+      for (const ex of past.exercises || []) {
+        if (!latestCompletedSetsByExercise.has(ex.exerciseKey)) {
+          const completedSets = (ex.sets || []).filter((s) => s.status === 'completed');
+          if (completedSets.length > 0) {
+            latestCompletedSetsByExercise.set(ex.exerciseKey, completedSets);
+          }
+        }
+      }
+    }
+
+    const preloadedExercises: any[] = [];
+    for (let idx = 0; idx < sourceExercises.length; idx++) {
+      const exTemplate = sourceExercises[idx];
+      const recentSets = latestCompletedSetsByExercise.get(exTemplate.exerciseKey);
+      const templateSets = exTemplate.sets?.length
+        ? exTemplate.sets
+        : [{ setNumber: 1, type: 'working' as const, loadUnit: 'kg' as const }];
+
+      const mappedSets = templateSets.map((s, sIdx) => {
+        const ghostSet = recentSets?.[sIdx] ?? recentSets?.[recentSets.length - 1];
+        return {
+          id: randomUUID(),
+          setNumber: sIdx + 1,
+          status: 'planned' as const,
+          type: s.type ?? 'working',
+          reps: s.reps ?? ghostSet?.reps,
+          load: s.load ?? ghostSet?.load,
+          loadUnit: ghostSet?.loadUnit ?? s.loadUnit ?? 'kg',
+          restSeconds: s.restSeconds,
+        };
+      });
+
+      preloadedExercises.push({
+        id: randomUUID(),
+        exerciseKey: exTemplate.exerciseKey,
+        exerciseNameSnapshot: exTemplate.exerciseNameSnapshot,
+        primaryMuscleGroup: exTemplate.primaryMuscleGroup,
+        equipment: exTemplate.equipment,
+        order: startOrder + idx,
+        notes: exTemplate.notes,
+        sets: mappedSets,
+      });
+    }
+
+    return preloadedExercises;
+  }
+
+  // ==========================================
+  // ROTINAS / FICHAS DE TREINO (TEMPLATES)
+  // ==========================================
+
+  async listRoutines(userId: string): Promise<IStrengthRoutineDocument[]> {
+    return StrengthRoutineModel.find({ userId }).sort({ lastUsedAt: -1, updatedAt: -1 });
+  }
+
+  async createRoutine(
+    userId: string,
+    input: CreateStrengthRoutineInput
+  ): Promise<IStrengthRoutineDocument> {
+    let exercises: StrengthRoutineExerciseTemplate[] = input.exercises ?? [];
+
+    if (input.sessionId && exercises.length === 0) {
+      const sourceSession = await repo.findByIdOrFail(userId, input.sessionId);
+      exercises = (sourceSession.exercises || []).map((ex, idx) => {
+        const validSets = (ex.sets || []).filter((s) => s.status === 'completed');
+        const setsSource = validSets.length > 0 ? validSets : ex.sets || [];
+
+        return {
+          exerciseKey: ex.exerciseKey,
+          exerciseNameSnapshot: ex.exerciseNameSnapshot,
+          primaryMuscleGroup: ex.primaryMuscleGroup,
+          equipment: ex.equipment,
+          order: idx,
+          notes: ex.notes,
+          sets: setsSource.map((s, sIdx) => ({
+            setNumber: sIdx + 1,
+            type: s.type ?? 'working',
+            reps: s.reps,
+            load: s.load,
+            loadUnit: s.loadUnit ?? 'kg',
+            restSeconds: s.restSeconds,
+          })),
+        };
+      });
+    }
+
+    if (exercises.length === 0) {
+      throw new HttpError(400, 'ROUTINE_NO_EXERCISES', {
+        message: 'A ficha de treino precisa ter ao menos 1 exercício.',
+      });
+    }
+
+    return StrengthRoutineModel.create({
+      userId,
+      name: input.name.trim(),
+      description: input.description?.trim(),
+      exercises,
+    });
+  }
+
+  async deleteRoutine(userId: string, routineId: string): Promise<void> {
+    const deleted = await StrengthRoutineModel.findOneAndDelete({
+      _id: routineId,
+      userId,
+    });
+    if (!deleted) {
+      throw new HttpError(404, 'ROUTINE_NOT_FOUND', {
+        message: 'Ficha de treino não encontrada.',
+      });
+    }
   }
 
   // ==========================================
