@@ -56,10 +56,15 @@ REGRAS OBRIGATÓRIAS:
 // ==========================================
 
 export function getValidGeminiModel(model?: string): string {
-  if (!model) return 'gemini-flash-latest';
+  if (!model) return 'gemini-3-flash-preview';
   const m = model.trim();
-  if (m === 'gemini-3.5-flash' || m === 'gemini-3-flash') {
-    return 'gemini-flash-latest';
+  if (
+    m === 'gemini-3.5-flash' ||
+    m === 'gemini-3-flash' ||
+    m === 'gemini-3.8-flash' ||
+    m === 'gemini-flash-latest'
+  ) {
+    return 'gemini-3-flash-preview';
   }
   return m;
 }
@@ -248,16 +253,9 @@ export class InsightService {
   }
 
   /**
-   * Identifica os grupos musculares de uma sessão e gera um rótulo legível.
+   * Extrai grupos musculares únicos e um rótulo legível para a sessão de musculação.
    */
   private getMuscleGroupsFromSession(session: any): { groups: string[]; label: string } {
-    const groupSet = new Set<string>();
-    for (const ex of session.exercises ?? []) {
-      if (ex.primaryMuscleGroup) {
-        groupSet.add(ex.primaryMuscleGroup.toLowerCase().trim());
-      }
-    }
-    const groups = Array.from(groupSet);
     const labelMap: Record<string, string> = {
       peito: 'Peito',
       costas: 'Costas',
@@ -268,15 +266,20 @@ export class InsightService {
       posteriores: 'Posteriores de Coxa',
       gluteos: 'Glúteos',
       panturrilhas: 'Panturrilhas',
-      abdomen: 'Abdômen',
+      abdomen: 'Abdômen/Core',
+      antebraco: 'Antebraço',
       corpo_inteiro: 'Corpo Inteiro',
-      mobilidade: 'Mobilidade',
       cardio: 'Cardio',
     };
 
-    const isLegs =
-      groups.length > 0 &&
-      groups.every((g) => ['quadriceps', 'posteriores', 'gluteos', 'panturrilhas'].includes(g));
+    const rawGroups = (session.exercises ?? [])
+      .map((ex: any) => ex.primaryMuscleGroup?.toLowerCase().trim())
+      .filter(Boolean) as string[];
+
+    const groups = Array.from(new Set(rawGroups));
+
+    const legGroups = new Set(['quadriceps', 'posteriores', 'gluteos', 'panturrilhas']);
+    const isLegs = groups.length > 0 && groups.every((g) => legGroups.has(g));
     const isPush =
       groups.length > 0 &&
       groups.every((g) => ['peito', 'triceps', 'ombros'].includes(g));
@@ -552,7 +555,7 @@ Interpretação:`;
       }
 
       const model = getValidGeminiModel(env.GEMINI_MODEL);
-      const fallbackModel = model === 'gemini-flash-latest' ? 'gemini-2.5-flash' : 'gemini-flash-latest';
+      const fallbackModel = model === 'gemini-3-flash-preview' ? 'gemini-2.5-flash' : 'gemini-3-flash-preview';
       let response: any;
       try {
         response = await this.ai.models.generateContent({
@@ -707,7 +710,7 @@ Apenas o JSON. Nenhum texto antes ou depois.`;
       }
 
       const primaryModel = getValidGeminiModel(env.GEMINI_MODEL);
-      const fallbackModel = primaryModel === 'gemini-flash-latest' ? 'gemini-2.5-flash' : 'gemini-flash-latest';
+      const fallbackModel = primaryModel === 'gemini-3-flash-preview' ? 'gemini-2.5-flash' : 'gemini-3-flash-preview';
       let response: any;
       try {
         response = await this.ai.models.generateContent({

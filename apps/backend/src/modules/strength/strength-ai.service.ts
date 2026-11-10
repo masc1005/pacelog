@@ -60,9 +60,6 @@ export class StrengthAIService {
           config: {
             temperature: 0.4,
             responseMimeType: 'application/json',
-            thinkingConfig: {
-              thinkingBudget: 0,
-            },
           },
         }),
         timeoutPromise,
@@ -76,7 +73,7 @@ export class StrengthAIService {
     userId: string,
     input: GenerateStrengthWorkoutInput
   ): Promise<GeneratedStrengthWorkoutDTO> {
-    // 1. Buscar catálogo e histórico recente em paralelo para menor latência de banco
+    // 1. Buscar catálogo e histórico recente em paralelo
     const [dbExercises, recentSessions] = await Promise.all([
       ExerciseModel.find({
         isActive: true,
@@ -160,52 +157,67 @@ export class StrengthAIService {
     const durationMinutes = input.durationMinutes ?? 45;
     const goal = input.goal ?? 'hypertrophy';
 
-    // 4. Tentar gerar com Gemini com timeout curto por modelo + thinkingBudget: 0
+    // 4. Tentar gerar com Gemini 3 Flash direto (timeout 20s para evitar travar 5 min)
     if (this.ai) {
-      // Prioriza gemini-2.5-flash direto (mais estável e rápido sem thinking) e usa gemini-flash-latest como segundo
-      const configured = getValidGeminiModel(env.GEMINI_MODEL);
+      const primaryModel = getValidGeminiModel(env.GEMINI_MODEL);
       const modelsToTry = Array.from(
-        new Set(['gemini-2.5-flash', configured, 'gemini-2.0-flash'])
+        new Set([primaryModel, 'gemini-3-flash-preview', 'gemini-2.5-flash'])
       );
 
-      // Formato super compacto para acelerar tokenização de entrada
       const catalogListText = candidateExercises
-        .map((c) => `${c.key}(${c.primaryMuscleGroup}/${c.equipment}/${c.type === 'compound' ? 'C' : 'I'})`)
-        .join(', ');
+        .map(
+          (c) =>
+            `${c.key} | ${c.name} | músculo:${c.primaryMuscleGroup} | equip:${c.equipment} | tipo:${c.type}`
+        )
+        .join('\n');
 
-      const promptText = `Você é o IA Personal Trainer do Pacelog. Monte um treino de musculação estruturado.
-REGRAS:
-- Sem diagnósticos médicos ou "risco de lesão".
-- Escolha APENAS chaves \`exerciseKey\` do CATÁLOGO abaixo.
-- Compostos (C) primeiro, isoladores (I) depois.
-- Tempo: ${durationMinutes} min (~30m: 3-4 ex; ~45m: 4-5 ex; ~60m: 5-7 ex; ~75m: 6-8 ex).
-- Se grupamento não especificado, sugira complementar aos últimos treinos.
+      const promptText = `Você é o IA Personal Trainer do Pacelog (telemetria esportiva).
+Sua missão é montar uma ficha/sessão de musculação altamente estruturada, eficiente e personalizada para o atleta.
 
-ATLETA:
-- Pedido: ${input.prompt?.trim() ? `"${input.prompt.trim()}"` : 'Nenhum'}
-- Músculos: ${requestedMuscles.length > 0 ? requestedMuscles.join(', ') : 'Sugerir pelo histórico'}
-- Equipamentos: ${requestedEquipment.length > 0 ? requestedEquipment.join(', ') : 'Qualquer'}
-- Objetivo: ${goal}
-- Histórico recente: ${recentWorkoutsSummary.length > 0 ? recentWorkoutsSummary.join(' | ') : 'Sem histórico'}
+REGRAS OBRIGATÓRIAS:
+- Nunca faça diagnósticos médicos, não mencione "risco de lesão" ou termos clínicos.
+- Escolha EXCLUSIVAMENTE exercícios presentes no CATÁLOGO DISPONÍVEL abaixo, usando exatamente a chave \`exerciseKey\`.
+- Priorize exercícios compostos (multiarticulares) no início do treino e isoladores depois.
+- Ajuste o volume total (quantidade de exercícios e séries) para caber no tempo disponível (${durationMinutes} minutos).
+  - ~30 min: 3 a 4 exercícios
+  - ~45 min: 4 a 6 exercícios
+  - ~60 min: 5 a 7 exercícios
+  - ~75+ min: 6 a 8 exercícios
+- Se o atleta não especificou grupamentos musculares nem pedido livre, analise os últimos treinos dele e sugira uma sessão complementar lógica (ex.: se treinou Peito/Tríceps por último, sugira Costas/Bíceps ou Pernas).
 
-CATÁLOGO (chave(músculo/equip/C=composto ou I=isolador)):
+PARÂMETROS DO ATLETA:
+- Pedido livre / foco específico: ${input.prompt?.trim() ? `"${input.prompt.trim()}"` : 'Nenhum pedido específico'}
+- Grupamentos selecionados: ${requestedMuscles.length > 0 ? requestedMuscles.join(', ') : 'Sugerir com base no histórico / pedido'}
+- Equipamentos preferidos: ${requestedEquipment.length > 0 ? requestedEquipment.join(', ') : 'Qualquer equipamento da academia'}
+- Duração alvo: ${durationMinutes} minutos
+- Objetivo principal: ${goal}
+- Últimos treinos realizados pelo atleta:
+${recentWorkoutsSummary.length > 0 ? recentWorkoutsSummary.join('\n') : 'Sem histórico recente registrado.'}
+
+CATÁLOGO DISPONÍVEL (use apenas estas chaves em \`exerciseKey\`):
 ${catalogListText}
 
-Retorne APENAS JSON válido:
+Retorne APENAS um JSON válido com a estrutura:
 {
-  "name": "Nome curto da ficha",
-  "description": "Resumo de 1 linha",
-  "rationale": "Explicação direta de 2 frases sobre a escolha e ordem dos exercícios.",
+  "name": "Nome curto e forte para a ficha (ex: Push A - Peito, Ombros e Tríceps)",
+  "description": "Resumo de 1 linha do foco do treino",
+  "rationale": "Explicação direta do IA Personal (2 a 3 frases) sobre por que essa combinação e ordem de exercícios foi escolhida para o tempo/objetivo do atleta.",
   "exercises": [
-    { "exerciseKey": "chave_exata", "setsCount": 4, "targetReps": 10, "restSeconds": 90, "notes": "Dica curta opcional" }
+    {
+      "exerciseKey": "chave_exata_do_catalogo",
+      "setsCount": 4,
+      "targetReps": 10,
+      "restSeconds": 90,
+      "notes": "Dica técnica curta de execução ou cadência (opcional)"
+    }
   ]
 }`;
 
       for (const modelName of modelsToTry) {
         const startedMs = Date.now();
         try {
-          console.log(`[StrengthAIService] Calling model ${modelName} (timeout 14s)...`);
-          const response = await this.callGeminiWithTimeout(modelName, promptText, 14000);
+          console.log(`[StrengthAIService] Calling model ${modelName} (timeout 20s)...`);
+          const response = await this.callGeminiWithTimeout(modelName, promptText, 20000);
 
           const rawText = response.text?.trim();
           if (!rawText) continue;
@@ -221,15 +233,18 @@ Retorne APENAS JSON válido:
 
           if (mappedExercises.length > 0) {
             const elapsedMs = Date.now() - startedMs;
+            const resolvedModel = response?.modelVersion
+              ? `${modelName} (${response.modelVersion})`
+              : modelName;
             console.log(
-              `[StrengthAIService] Generated workout with ${modelName} in ${elapsedMs}ms`
+              `[StrengthAIService] Generated workout with ${resolvedModel} in ${elapsedMs}ms`
             );
             return {
               name: validated.name,
               description: validated.description,
               rationale: validated.rationale,
               exercises: mappedExercises,
-              modelUsed: modelName,
+              modelUsed: resolvedModel,
             };
           }
         } catch (err: any) {
@@ -242,7 +257,7 @@ Retorne APENAS JSON válido:
       }
     }
 
-    // 5. Fallback determinístico imediato caso a API demore ou falhe
+    // 5. Fallback determinístico caso a API falhe
     return this.buildDeterministicFallback(
       input,
       candidateExercises,
