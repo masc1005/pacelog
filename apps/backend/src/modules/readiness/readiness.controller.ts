@@ -1,7 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
-import { upsertDailyReadinessSchema } from '@pacelog/shared';
 import { dailyReadinessService } from './readiness.service.js';
-import { HttpError } from '../../utils/httpError.js';
+import type { UpsertDailyReadinessInput } from '@pacelog/shared';
 
 export async function getReadinessOverviewController(
   req: Request,
@@ -9,18 +8,20 @@ export async function getReadinessOverviewController(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new HttpError(401, 'UNAUTHORIZED');
-    }
-
+    const userId = req.userId!;
     const dateKey =
       typeof req.query.dateKey === 'string' ? req.query.dateKey : undefined;
     const overview = await dailyReadinessService.getOverview(userId, dateKey);
 
-    res.status(200).json({ data: overview });
-  } catch (err) {
-    next(err);
+    res.status(200).json({
+      success: true,
+      data: {
+        today: overview.today ? overview.today.toJSON() : null,
+        history: overview.history.map((h) => h.toJSON()),
+      },
+    });
+  } catch (error) {
+    next(error);
   }
 }
 
@@ -30,26 +31,15 @@ export async function upsertReadinessController(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new HttpError(401, 'UNAUTHORIZED');
-    }
+    const userId = req.userId!;
+    const input = req.body as UpsertDailyReadinessInput;
+    const saved = await dailyReadinessService.upsertReadiness(userId, input);
 
-    const parsed = upsertDailyReadinessSchema.safeParse(req.body);
-    if (!parsed.success) {
-      throw new HttpError(
-        400,
-        'VALIDATION_ERROR',
-        parsed.error.flatten().fieldErrors
-      );
-    }
-
-    const saved = await dailyReadinessService.upsertReadiness(
-      userId,
-      parsed.data
-    );
-    res.status(200).json({ data: saved });
-  } catch (err) {
-    next(err);
+    res.status(200).json({
+      success: true,
+      data: saved.toJSON(),
+    });
+  } catch (error) {
+    next(error);
   }
 }
