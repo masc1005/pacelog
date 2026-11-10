@@ -560,3 +560,52 @@ export const updateGoalSchema = z.object({
   notes: z.string().max(500).optional().nullable(),
   celebrationShown: z.boolean().optional(),
 });
+
+// ==========================================
+// MÓDULO DE CRONOGRAMA SEMANAL (WEEKLY SCHEDULE)
+// ==========================================
+
+export interface WeeklyScheduleWorkoutItem {
+  id: string;
+  sportKey: SportKey;
+  title?: string;
+  routineId?: string;
+  routineName?: string;
+  targetDurationMinutes?: number;
+  plannedTime?: string; // HH:mm
+  notes?: string;
+}
+
+export interface WeeklyScheduleDayPlan {
+  weekday: number; // 0 = Segunda-feira, 1 = Terça-feira, ..., 5 = Sábado, 6 = Domingo
+  isRestDay: boolean;
+  workouts: WeeklyScheduleWorkoutItem[];
+}
+
+export interface WeeklyScheduleDTO extends BaseEntity {
+  userId: string;
+  days: WeeklyScheduleDayPlan[];
+}
+
+export const weeklyScheduleWorkoutItemSchema = z.object({
+  id: z.string().optional(),
+  sportKey: z.enum(SPORT_KEYS),
+  title: z.string().max(100).optional(),
+  routineId: z.string().optional(),
+  routineName: z.string().max(100).optional(),
+  targetDurationMinutes: z.number().int().min(5).max(600).optional(),
+  plannedTime: z.string().max(10).optional(),
+  notes: z.string().max(300).optional(),
+});
+
+export const updateWeeklyScheduleDaySchema = z.object({
+  weekday: z.number().int().min(0).max(6),
+  isRestDay: z.boolean().default(false),
+  workouts: z.array(weeklyScheduleWorkoutItemSchema).default([]),
+});
+export type UpdateWeeklyScheduleDayInput = z.infer<typeof updateWeeklyScheduleDaySchema>;
+
+export const updateWeeklyScheduleSchema = z.object({
+  days: z.array(updateWeeklyScheduleDaySchema).min(1).max(7),
+});
+export type UpdateWeeklyScheduleInput = z.infer<typeof updateWeeklyScheduleSchema>;

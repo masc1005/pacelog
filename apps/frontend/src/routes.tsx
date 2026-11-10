@@ -29,6 +29,11 @@ const OnboardingPage = React.lazy(() =>
 const HomePage = React.lazy(() =>
   import('./pages/home/HomePage').then((m) => ({ default: m.HomePage }))
 );
+const SchedulePage = React.lazy(() =>
+  import('./pages/schedule/SchedulePage').then((m) => ({
+    default: m.SchedulePage,
+  }))
+);
 const NewSessionPage = React.lazy(() =>
   import('./pages/sessions/NewSessionPage').then((m) => ({
     default: m.NewSessionPage,
@@ -184,6 +189,7 @@ export const AppRoutes: React.FC = () => {
           }
         >
           <Route index element={<HomePage />} />
+          <Route path="schedule" element={<SchedulePage />} />
 
           {/* Sessões */}
           <Route path="sessions" element={<SessionsPage />} />

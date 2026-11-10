@@ -19,6 +19,7 @@ import insightRoutes from './modules/insights/insight.routes.js';
 import { shoeRoutes } from './modules/shoes/shoe.routes.js';
 import { strengthRoutes } from './modules/strength/strength-session.routes.js';
 import { settingsRoutes } from './modules/settings/settings.routes.js';
+import { scheduleRoutes } from './modules/schedule/schedule.routes.js';
 
 export const app = express();
 app.set('trust proxy', 1);
@@ -80,6 +81,7 @@ app.use('/api/insights', insightRoutes);
 app.use('/api/shoes', shoeRoutes);
 app.use('/api/strength', strengthRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/schedule', scheduleRoutes);
 
 // Health check e Keep-Alive para Render, Railway, Docker e monitoramento
 const healthHandler = (_req: express.Request, res: express.Response) => {

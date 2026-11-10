@@ -9,6 +9,7 @@ import { SportDistributionCard } from '../../components/progress/SportDistributi
 import { WeekNavigator } from '../../components/progress/WeekNavigator';
 import { ShoeUsageSummary } from '../../components/shoes/ShoeUsageSummary';
 import { GoalHighlightCard } from '../../components/goals/GoalHighlightCard';
+import { WeeklyScheduleCard } from '../../components/schedule/WeeklyScheduleCard';
 import { shoeApi } from '../../services/shoe.api';
 import {
   Flame,
@@ -20,6 +21,7 @@ import {
   Waves,
   Bike,
   Shield,
+  Calendar,
 } from 'lucide-react';
 import {
   SPORT_KEYS,
@@ -79,7 +81,7 @@ export const HomePage: React.FC = () => {
       try {
         const [summaryData, sessionsData, progressData, shoesData] = await Promise.all([
           apiClient<SessionSummaryDTO>('/api/sessions/summary?timeframe=week').catch(() => null),
-          apiClient<any[]>('/api/sessions?limit=6').catch(() => []),
+          apiClient<any[]>('/api/sessions?limit=20').catch(() => []),
           apiClient<ProgressSummaryDTO>('/api/progress/summary?weekOffset=0').catch(() => null),
           shoeApi.getShoes(false).catch(() => []),
         ]);
@@ -122,10 +124,11 @@ export const HomePage: React.FC = () => {
     jiujitsu: { name: 'Jiu-Jitsu', color: '#E11D48', badge: 'crimson', icon: Shield },
   };
 
+  const recentSessionsList = sessions.slice(0, 6);
   const filteredSessions =
     selectedSport === 'all'
-      ? sessions
-      : sessions.filter((s) => s.sportKey === selectedSport);
+      ? recentSessionsList
+      : recentSessionsList.filter((s) => s.sportKey === selectedSport);
 
   const totalWeeklyDurationMins = Math.round((summary?.totalDurationSeconds || 0) / 60);
 
@@ -147,16 +150,26 @@ export const HomePage: React.FC = () => {
           <span className="w-1.5 h-1.5 bg-[#D4F684] rounded-full" />
           ATLETA // {user?.name || 'SESSÃO PRINCIPAL'}
         </span>
-        <span className="font-mono text-[10px] text-[#8F9380] uppercase">TELEMETRIA ATIVA</span>
+        <Link
+          to="/schedule"
+          className="font-mono text-[10px] text-[#D4F684] hover:underline uppercase flex items-center gap-1"
+        >
+          <Calendar className="w-3 h-3" /> Cronograma Completo
+        </Link>
       </div>
 
       {/* ==========================================
-          1. META EM DESTAQUE
+          1. CRONOGRAMA DA SEMANA (DIAS + TREINOS)
+      ========================================== */}
+      <WeeklyScheduleCard recentSessions={sessions} compact />
+
+      {/* ==========================================
+          2. META EM DESTAQUE
       ========================================== */}
       <GoalHighlightCard />
 
       {/* ==========================================
-          2. INSIGHT DE ANÁLISE E TÊNIS
+          3. INSIGHT DE ANÁLISE E TÊNIS
       ========================================== */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <AIProgressInsight />
@@ -167,7 +180,7 @@ export const HomePage: React.FC = () => {
       </div>
 
       {/* ==========================================
-          2. ÚLTIMA SESSÃO
+          4. ÚLTIMA SESSÃO
       ========================================== */}
       <section className="flex flex-col gap-3">
         <div className="flex justify-between items-baseline border-b border-[#1F2937] pb-2">
@@ -232,7 +245,7 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* ==========================================
-          4. CONSISTÊNCIA DA SEMANA
+          5. CONSISTÊNCIA DA SEMANA
       ========================================== */}
       {summary && (
         <section className="flex flex-col gap-3">
@@ -264,7 +277,7 @@ export const HomePage: React.FC = () => {
       )}
 
       {/* ==========================================
-          5. CARGA PERCEBIDA (SECUNDÁRIO)
+          6. CARGA PERCEBIDA (SECUNDÁRIO)
       ========================================== */}
       {progressSummary && (
         <section className="flex flex-col gap-3">
@@ -299,7 +312,7 @@ export const HomePage: React.FC = () => {
       )}
 
       {/* ==========================================
-          6. TREINOS RECENTES + FILTROS
+          7. TREINOS RECENTES + FILTROS
       ========================================== */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between border-b border-[#1F2937] pb-2">
@@ -323,7 +336,7 @@ export const HomePage: React.FC = () => {
               : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
               }`}
           >
-            Todas ({sessions.length})
+            Todas ({recentSessionsList.length})
           </button>
 
           {SPORT_KEYS.map((key) => {
