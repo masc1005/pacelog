@@ -295,7 +295,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
       </div>
 
       {/* Barra dos 7 dias da semana */}
-      <div className="grid grid-cols-7 gap-1.5">
+      {!compact && <div className="grid grid-cols-7 gap-1.5">
         {WEEKDAYS.map((dayInfo) => {
           const plan = schedule?.days?.find((d) => d.weekday === dayInfo.weekday);
           const workouts = plan?.workouts || [];
@@ -380,14 +380,14 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
             </button>
           );
         })}
-      </div>
+      </div>}
 
       {/* Detalhes do Dia Selecionado */}
-      <div className="p-3.5 rounded-[4px] bg-[#161C24] border border-[#1F2937] flex flex-col gap-3">
+      <div className={`${compact ? 'p-3' : 'p-3.5'} rounded-[4px] bg-[#161C24] border border-[#1F2937] flex flex-col gap-3`}>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <span className="font-display text-sm font-bold text-[#D4E4FA] uppercase tracking-wide">
-              {selectedWeekdayMeta.full}
+              {compact ? 'Treino de hoje' : selectedWeekdayMeta.full}
             </span>
             {selectedWeekday === todayWeekday && (
               <Badge variant="cyan" size="sm">

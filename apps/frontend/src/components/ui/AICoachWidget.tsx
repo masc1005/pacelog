@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card } from './Card';
 import { Badge } from './Badge';
 import { Sparkles, BrainCircuit, Activity } from 'lucide-react';
 import { apiClient } from '../../lib/api';
 import type { AIInsightDTO } from '@pacelog/shared';
 
-export const AICoachWidget: React.FC = () => {
+interface AICoachWidgetProps {
+  compact?: boolean;
+}
+
+export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ compact = false }) => {
   const [insight, setInsight] = useState<AIInsightDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     async function loadInsight() {
@@ -28,7 +34,10 @@ export const AICoachWidget: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Card variant="watch" className="p-5 flex items-center justify-center min-h-[120px] bg-[#051424]">
+      <Card
+        variant="watch"
+        className={`${compact ? 'p-3 min-h-[52px]' : 'p-5 min-h-[120px]'} flex items-center justify-center bg-[#051424]`}
+      >
         <div className="flex flex-col items-center gap-3">
           <BrainCircuit className="h-6 w-6 text-[#5CA9E6] animate-pulse" />
           <span className="font-mono text-[10px] text-[#5CA9E6] uppercase tracking-widest animate-pulse">
@@ -40,6 +49,33 @@ export const AICoachWidget: React.FC = () => {
   }
 
   if (!insight) return null;
+
+  if (compact) {
+    return (
+      <Card
+        variant="watch"
+        className="relative overflow-hidden group p-3 cursor-pointer"
+        onClick={() => setIsExpanded((expanded) => !expanded)}
+      >
+        <div className="relative flex items-center gap-3">
+          <Sparkles className="h-4 w-4 shrink-0 text-[#D4F684]" />
+          <span className="font-mono text-[10px] uppercase tracking-widest text-[#D4F684]">
+            Coach IA
+          </span>
+          <p className={`font-sans text-xs text-[#C5C8B4] truncate ${isExpanded ? 'whitespace-normal' : ''}`}>
+            {insight.content}
+          </p>
+          <Link
+            to="/insights"
+            onClick={(event) => event.stopPropagation()}
+            className="ml-auto shrink-0 font-mono text-[10px] uppercase text-[#D4F684] hover:underline"
+          >
+            Insights
+          </Link>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card variant="watch" className="relative overflow-hidden group">

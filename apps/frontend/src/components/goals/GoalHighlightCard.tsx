@@ -30,7 +30,11 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = 
   cycling: { name: 'Ciclismo', color: '#10B981', icon: Bike },
 };
 
-export const GoalHighlightCard: React.FC = () => {
+interface GoalHighlightCardProps {
+  compact?: boolean;
+}
+
+export const GoalHighlightCard: React.FC<GoalHighlightCardProps> = ({ compact = false }) => {
   const navigate = useNavigate();
   const [highlightGoal, setHighlightGoal] = useState<GoalDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,7 +72,7 @@ export const GoalHighlightCard: React.FC = () => {
     return (
       <Card
         variant="watch"
-        className="p-4 bg-[#0D1C2D]/70 border-[#1F2937] hover:border-[#D4F684]/30 cursor-pointer transition-all duration-200 flex items-center justify-between"
+        className={`${compact ? 'p-3' : 'p-4'} bg-[#0D1C2D]/70 border-[#1F2937] hover:border-[#D4F684]/30 cursor-pointer transition-all duration-200 flex items-center justify-between`}
         onClick={() => navigate('/goals/new')}
       >
         <div className="flex items-center gap-3">
@@ -79,9 +83,11 @@ export const GoalHighlightCard: React.FC = () => {
             <span className="font-display text-xs font-bold text-[#D4E4FA] uppercase">
               Definir Meta Tática
             </span>
-            <span className="font-mono text-[10px] text-[#8F9380]">
-              Estabeleça um alvo de volume, tempo ou consistência
-            </span>
+            {!compact && (
+              <span className="font-mono text-[10px] text-[#8F9380]">
+                Estabeleça um alvo de volume, tempo ou consistência
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1 font-mono text-[10px] text-[#D4F684] uppercase font-bold">
@@ -100,7 +106,7 @@ export const GoalHighlightCard: React.FC = () => {
   return (
     <Card
       variant="watch"
-      className="p-4 bg-[#0D1C2D] border-[#1F2937] hover:border-[#5CA9E6]/50 cursor-pointer transition-all duration-200 flex flex-col gap-3 group relative overflow-hidden"
+      className={`${compact ? 'p-3 gap-2' : 'p-4 gap-3'} bg-[#0D1C2D] border-[#1F2937] hover:border-[#5CA9E6]/50 cursor-pointer transition-all duration-200 flex flex-col group relative overflow-hidden`}
       onClick={() => navigate(`/goals/${highlightGoal.id}`)}
     >
       <div className="flex items-center justify-between">

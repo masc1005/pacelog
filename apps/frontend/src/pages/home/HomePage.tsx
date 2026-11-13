@@ -1,44 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { AIProgressInsight } from '../../components/ui/AIProgressInsight';
+import { AICoachWidget } from '../../components/ui/AICoachWidget';
 import { LoadSummaryCard } from '../../components/progress/LoadSummaryCard';
-import { SportDistributionCard } from '../../components/progress/SportDistributionCard';
-import { WeekNavigator } from '../../components/progress/WeekNavigator';
-import { GearUsageSummary } from '../../components/gear/GearUsageSummary';
 import { GoalHighlightCard } from '../../components/goals/GoalHighlightCard';
 import { WeeklyScheduleCard } from '../../components/schedule/WeeklyScheduleCard';
 import { DailyReadinessCard } from '../../components/readiness/DailyReadinessCard';
 import { gearApi } from '../../services/gear.api';
+import { ArrowRight, Calendar } from 'lucide-react';
 import {
-  Flame,
-  Zap,
-  ArrowRight,
-  Dumbbell,
-  Sun,
-  Activity,
-  Waves,
-  Bike,
-  Shield,
-  Calendar,
-} from 'lucide-react';
-import {
-  SPORT_KEYS,
-  type SportKey,
   type SessionSummaryDTO,
   type ProgressSummaryDTO,
   type ProgressBySportDTO,
   type Gear,
 } from '@pacelog/shared';
-import { formatPace, formatDuration } from '../../lib/utils';
+import { formatDuration } from '../../lib/utils';
 import { apiClient } from '../../lib/api';
 
 export const HomePage: React.FC = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const [selectedSport, setSelectedSport] = useState<SportKey | 'all'>('all');
   const [summary, setSummary] = useState<SessionSummaryDTO | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -111,27 +92,11 @@ export const HomePage: React.FC = () => {
     loadDashboardData();
   }, []);
 
-  const sportMeta: Record<
-    SportKey,
-    { name: string; color: string; badge: 'cyan' | 'green' | 'amber' | 'crimson' | 'purple' | 'blue'; icon: any }
-  > = {
-    running: { name: 'Corrida', color: '#5CA9E6', badge: 'cyan', icon: Activity },
-    football: { name: 'Futebol', color: '#D4F684', badge: 'green', icon: Flame },
-    futevolei: { name: 'Futevôlei', color: '#FFB800', badge: 'amber', icon: Sun },
-    boxing: { name: 'Boxe', color: '#FF6B35', badge: 'crimson', icon: Zap },
-    strength: { name: 'Musculação', color: '#A855F7', badge: 'purple', icon: Dumbbell },
-    swimming: { name: 'Natação', color: '#38BDF8', badge: 'blue', icon: Waves },
-    cycling: { name: 'Ciclismo', color: '#10B981', badge: 'green', icon: Bike },
-    jiujitsu: { name: 'Jiu-Jitsu', color: '#E11D48', badge: 'crimson', icon: Shield },
-  };
-
-  const recentSessionsList = sessions.slice(0, 6);
-  const filteredSessions =
-    selectedSport === 'all'
-      ? recentSessionsList
-      : recentSessionsList.filter((s) => s.sportKey === selectedSport);
-
-  const totalWeeklyDurationMins = Math.round((summary?.totalDurationSeconds || 0) / 60);
+  void gearList;
+  void handlePrevWeek;
+  void handleNextWeek;
+  void handleResetWeek;
+  void isWeekLoading;
 
   if (isLoading) {
     return (
@@ -144,7 +109,7 @@ export const HomePage: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col gap-8 font-sans text-[#D4E4FA] relative">
+    <div className="flex flex-col gap-4 sm:gap-5 font-sans text-[#D4E4FA] relative pb-8">
       {/* Athlete Status Sub-header */}
       <div className="flex items-center justify-between border-b border-[#1F2937] pb-2 -mb-2">
         <span className="font-mono text-[11px] text-[#C5C8B4] uppercase tracking-widest flex items-center gap-2">
@@ -155,89 +120,62 @@ export const HomePage: React.FC = () => {
           to="/schedule"
           className="font-mono text-[10px] text-[#D4F684] hover:underline uppercase flex items-center gap-1"
         >
-          <Calendar className="w-3 h-3" /> Cronograma Completo
+          <Calendar className="w-3 h-3" /> Agenda
         </Link>
       </div>
 
-      {/* ==========================================
-          1. CRONOGRAMA DA SEMANA (DIAS + TREINOS)
-      ========================================== */}
+      {/* Prontidão e treino de hoje: decisões primárias da Home */}
+      <DailyReadinessCard compact />
       <WeeklyScheduleCard recentSessions={sessions} compact />
 
-      {/* ==========================================
-          2. CHECK-IN DIÁRIO DE PRONTIDÃO & RECUPERAÇÃO
-      ========================================== */}
-      <DailyReadinessCard />
+      {progressSummary && (
+        <section className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
+          <LoadSummaryCard load={progressSummary.load} compact />
+          <GoalHighlightCard compact />
+          <div className="col-span-2 lg:col-span-1 bg-[#0D1C2D] border border-[#1F2937] rounded-2xl p-3 flex flex-col justify-between gap-2">
+            <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-widest">
+              Semana
+            </span>
+            <div className="flex items-end justify-between gap-2">
+              <span className="font-display text-2xl font-bold text-[#D4E4FA]">
+                {summary?.totalSessions ?? '--'}
+              </span>
+              <span className="font-mono text-[10px] text-[#8F9380]">
+                sessões
+              </span>
+            </div>
+            <Link to="/progress" className="font-mono text-[10px] uppercase text-[#5CA9E6] hover:underline">
+              Ver progresso <ArrowRight className="inline h-3 w-3" />
+            </Link>
+          </div>
+        </section>
+      )}
+      <AICoachWidget compact />
 
-      {/* ==========================================
-          3. META EM DESTAQUE
-      ========================================== */}
-      <GoalHighlightCard />
-
-      {/* ==========================================
-          4. INSIGHT DE ANÁLISE E TÊNIS
-      ========================================== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <AIProgressInsight />
-        <GearUsageSummary 
-          gearList={gearList} 
-        />
-      </div>
-
-      {/* ==========================================
-          5. ÚLTIMA SESSÃO
-      ========================================== */}
       <section className="flex flex-col gap-3">
-        <div className="flex justify-between items-baseline border-b border-[#1F2937] pb-2">
+        <div className="flex justify-between items-baseline">
           <h2 className="font-mono text-xs font-bold text-[#D4E4FA] uppercase tracking-widest flex items-center gap-2">
             <span className="w-1.5 h-1.5 bg-[#D4F684] rounded-full" />
-            ÚLTIMO REGISTRO
+            ÚLTIMA SESSÃO
           </h2>
-          <span className="font-mono text-[11px] text-[#8F9380]">
-            {sessions[0]
-              ? new Date(sessions[0].startedAt).toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-              : 'NENHUM REGISTRO'}
-          </span>
+          <Link to="/sessions" className="font-mono text-[10px] uppercase text-[#D4F684] hover:underline">
+            Ver todos <ArrowRight className="inline h-3 w-3" />
+          </Link>
         </div>
 
         {sessions[0] ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="flex flex-col gap-1 border-l-2 border-[#1F2937] pl-3 py-2 bg-[#0D1C2D]/50 rounded-r-[2px]">
-              <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">
-                MODALIDADE
-              </span>
-              <span className="font-display text-xl font-bold text-[#D4E4FA] uppercase">
-                {sessions[0].sportKey}
-              </span>
+          <div className="grid grid-cols-3 gap-2.5">
+            <div className="bg-[#0D1C2D] border border-[#1F2937] rounded-[2px] p-3">
+              <span className="font-mono text-[9px] text-[#8F9380] uppercase">Modalidade</span>
+              <span className="font-display text-sm font-bold text-[#D4E4FA] uppercase block mt-1 truncate">{sessions[0].sportKey}</span>
             </div>
-            <div className="flex flex-col gap-1 border-l-2 border-[#1F2937] pl-3 py-2 bg-[#0D1C2D]/50 rounded-r-[2px]">
-              <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">
-                DURAÇÃO
-              </span>
-              <span className="font-display text-xl font-bold text-[#D4E4FA]">
-                {formatDuration(sessions[0].durationSeconds)}
-              </span>
+            <div className="bg-[#0D1C2D] border border-[#1F2937] rounded-[2px] p-3">
+              <span className="font-mono text-[9px] text-[#8F9380] uppercase">Duração</span>
+              <span className="font-display text-sm font-bold text-[#D4E4FA] block mt-1">{formatDuration(sessions[0].durationSeconds)}</span>
             </div>
-            <div className="flex flex-col gap-1 border-l-2 border-[#1F2937] pl-3 py-2 bg-[#0D1C2D]/50 rounded-r-[2px]">
-              <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">
-                PERCEPÇÃO (RPE)
-              </span>
-              <span className="font-display text-xl font-bold text-[#FF6B35]">
-                {sessions[0].rpe}/10
-              </span>
-            </div>
-            <div className="flex flex-col gap-1 border-l-2 border-[#1F2937] pl-3 py-2 bg-[#0D1C2D]/50 rounded-r-[2px]">
-              <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">
-                CARGA sRPE
-              </span>
-              <span className="font-display text-xl font-bold text-[#D4F684]">
-                {sessions[0].sessionalLoad}
-              </span>
+            <div className="bg-[#0D1C2D] border border-[#1F2937] rounded-[2px] p-3">
+              <span className="font-mono text-[9px] text-[#8F9380] uppercase">RPE</span>
+              <span className="font-display text-sm font-bold text-[#FF6B35] block mt-1">{sessions[0].rpe || '--'}/10</span>
             </div>
           </div>
         ) : (
@@ -247,339 +185,6 @@ export const HomePage: React.FC = () => {
             </span>
           </Card>
         )}
-      </section>
-
-      {/* ==========================================
-          6. CONSISTÊNCIA DA SEMANA
-      ========================================== */}
-      {summary && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-mono text-xs font-bold text-[#D4E4FA] uppercase tracking-widest border-b border-[#1F2937] pb-2 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-[#D4F684] rounded-full" />
-            CONSISTÊNCIA DA SEMANA
-          </h2>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-[#0D1C2D] p-4 border border-[#1F2937] rounded-[2px] flex flex-col gap-1">
-              <span className="font-mono text-[10px] text-[#8F9380] uppercase">Sessões</span>
-              <span className="font-display text-2xl font-bold text-[#D4E4FA]">
-                {summary.totalSessions ?? '--'}
-              </span>
-            </div>
-            <div className="bg-[#0D1C2D] p-4 border border-[#1F2937] rounded-[2px] flex flex-col gap-1">
-              <span className="font-mono text-[10px] text-[#8F9380] uppercase">Tempo total</span>
-              <span className="font-display text-2xl font-bold text-[#D4E4FA]">
-                {Math.floor(totalWeeklyDurationMins / 60)}h{totalWeeklyDurationMins % 60}m
-              </span>
-            </div>
-            <div className="bg-[#0D1C2D] p-4 border border-[#1F2937] rounded-[2px] flex flex-col gap-1">
-              <span className="font-mono text-[10px] text-[#8F9380] uppercase">RPE médio</span>
-              <span className="font-display text-2xl font-bold text-[#FF6B35]">
-                {summary.averageRpe ? summary.averageRpe.toFixed(1) : '--'}
-              </span>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ==========================================
-          7. CARGA PERCEBIDA (SECUNDÁRIO)
-      ========================================== */}
-      {progressSummary && (
-        <section className="flex flex-col gap-3">
-          <div className="flex items-center justify-between border-b border-[#1F2937] pb-2">
-            <h2 className="font-mono text-xs font-bold text-[#C5C8B4] uppercase tracking-widest flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-[#5CA9E6] rounded-full" />
-              CARGA PERCEBIDA
-            </h2>
-            <Link
-              to="/progress"
-              className="text-xs font-mono text-[#5CA9E6] hover:underline flex items-center gap-1 uppercase font-bold tracking-wider"
-            >
-              Detalhe <ArrowRight className="h-3 w-3" />
-            </Link>
-          </div>
-          <WeekNavigator
-            weekOffset={weekOffset}
-            periodLabel={progressSummary.period.label}
-            onPrevWeek={handlePrevWeek}
-            onNextWeek={handleNextWeek}
-            onResetWeek={handleResetWeek}
-            isLoading={isWeekLoading}
-          />
-          <LoadSummaryCard load={progressSummary.load} />
-          {progressSummary.distribution.length > 0 && (
-            <SportDistributionCard
-              distribution={progressSummary.distribution}
-              totalSrpe={progressSummary.load.currentSrpe}
-            />
-          )}
-        </section>
-      )}
-
-      {/* ==========================================
-          8. TREINOS RECENTES + FILTROS
-      ========================================== */}
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between border-b border-[#1F2937] pb-2">
-          <h2 className="font-mono text-xs font-bold uppercase tracking-widest text-[#C5C8B4]">
-            TREINOS RECENTES
-          </h2>
-          <Link
-            to="/sessions"
-            className="text-xs font-mono text-[#D4F684] hover:underline flex items-center gap-1 uppercase font-bold tracking-wider"
-          >
-            Ver histórico <ArrowRight className="h-3 w-3" />
-          </Link>
-        </div>
-
-        {/* Filtros por esporte */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          <button
-            onClick={() => setSelectedSport('all')}
-            className={`px-3.5 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all text-nowrap cursor-pointer border ${selectedSport === 'all'
-              ? 'bg-[#D4F684] text-[#051424] border-[#D4F684] font-bold shadow-[0_0_12px_rgba(212,246,132,0.25)]'
-              : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
-              }`}
-          >
-            Todas ({recentSessionsList.length})
-          </button>
-
-          {SPORT_KEYS.map((key) => {
-            const meta = sportMeta[key];
-            const isSelected = selectedSport === key;
-            const Icon = meta.icon;
-
-            return (
-              <button
-                key={key}
-                onClick={() => setSelectedSport(key)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all text-nowrap cursor-pointer border ${isSelected
-                  ? 'bg-[#161C24] text-[#D4E4FA] border-[#D4F684] shadow-[0_0_12px_rgba(212,246,132,0.15)]'
-                  : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
-                  }`}
-              >
-                <Icon className="h-3.5 w-3.5" style={{ color: meta.color }} />
-                <span>{meta.name}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredSessions.length === 0 ? (
-            <div className="col-span-full py-8 flex justify-center border border-dashed border-[#1F2937] rounded-[2px]">
-              <span className="font-mono text-xs text-[#8F9380] uppercase">
-                Nenhum treino registrado
-              </span>
-            </div>
-          ) : (
-            filteredSessions.map((session) => {
-              const meta = sportMeta[session.sportKey as SportKey] || sportMeta.running;
-              const Icon = meta.icon;
-
-              return (
-                <Card
-                  key={session.id}
-                  variant="watch"
-                  interactive
-                  className="flex flex-col justify-between p-5 bg-[#161C24] border-[#1F2937] hover:border-[#454839] transition-all group cursor-pointer"
-                  onClick={() => navigate(session.sportKey === 'strength' ? `/strength/sessions/${session.id}` : `/sessions/${session.id}`)}
-                >
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      <Badge variant="sage" size="sm">
-                        <Icon className="h-3 w-3 inline mr-1" />
-                        {meta.name}
-                      </Badge>
-                      <span className="font-mono text-[10px] text-[#8F9380]">
-                        {new Date(session.startedAt).toLocaleDateString('pt-BR', {
-                          day: '2-digit',
-                          month: 'short',
-                        })} • {new Date(session.startedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 bg-[#0D1C2D] rounded-[2px] p-3 border border-[#1F2937]">
-                      {session.sportKey === 'running' && (
-                        <>
-                          <div>
-                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                              Distância
-                            </span>
-                            <span className="font-display text-lg font-bold text-[#D4E4FA]">
-                              {session.metrics?.distanceMeters
-                                ? (session.metrics.distanceMeters / 1000).toFixed(1)
-                                : '--'}{' '}
-                              km
-                            </span>
-                          </div>
-                          <div>
-                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                              Pace Médio
-                            </span>
-                            <span className="font-display text-lg font-bold text-[#5CA9E6]">
-                              {session.metrics?.paceSecondsPerKm
-                                ? formatPace(session.metrics.paceSecondsPerKm)
-                                : '--'}
-                            </span>
-                          </div>
-                        </>
-                      )}
-
-                      {session.sportKey === 'boxing' && (
-                        <>
-                          <div>
-                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                              Rounds
-                            </span>
-                            <span className="font-display text-lg font-bold text-[#D4E4FA]">
-                              {session.metrics?.roundsCount || '--'} rounds
-                            </span>
-                          </div>
-                          <div>
-                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                              Golpes Est.
-                            </span>
-                            <span className="font-display text-lg font-bold text-[#FF6B35]">
-                              {session.metrics?.punchesThrownEstimate || '--'}
-                            </span>
-                          </div>
-                        </>
-                      )}
-
-                      {session.sportKey === 'strength' && (
-                        <>
-                          <div>
-                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                              Volume
-                            </span>
-                            <span className="font-display text-lg font-bold text-[#D4E4FA]">
-                              {session.metrics?.totalVolumeKg
-                                ? `${Math.round(session.metrics.totalVolumeKg)} kg`
-                                : '--'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                              Séries
-                            </span>
-                            <span className="font-display text-lg font-bold text-[#A855F7]">
-                              {session.metrics?.totalSets || '--'} sets
-                            </span>
-                          </div>
-                        </>
-                      )}
-
-                      {session.sportKey === 'swimming' && (
-                        <>
-                          <div>
-                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                              Distância
-                            </span>
-                            <span className="font-display text-lg font-bold text-[#D4E4FA]">
-                              {session.metrics?.totalDistanceMeters
-                                ? `${session.metrics.totalDistanceMeters} m`
-                                : '--'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                              Pace
-                            </span>
-                            <span className="font-display text-lg font-bold text-[#38BDF8]">
-                              {session.metrics?.paceSecondsPer100m
-                                ? `${Math.floor(session.metrics.paceSecondsPer100m / 60)}:${(session.metrics.paceSecondsPer100m % 60).toString().padStart(2, '0')}/100m`
-                                : '--'}
-                            </span>
-                          </div>
-                        </>
-                      )}
-
-                      {session.sportKey === 'cycling' && (
-                        <>
-                          <div>
-                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                              Distância
-                            </span>
-                            <span className="font-display text-lg font-bold text-[#D4E4FA]">
-                              {session.metrics?.distanceKm
-                                ? `${session.metrics.distanceKm} km`
-                                : '--'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                              Velocidade Média
-                            </span>
-                            <span className="font-display text-lg font-bold text-[#10B981]">
-                              {session.metrics?.averageSpeedKmh
-                                ? `${session.metrics.averageSpeedKmh} km/h`
-                                : '--'}
-                            </span>
-                          </div>
-                        </>
-                      )}
-
-                      {session.sportKey === 'jiujitsu' && (
-                        <>
-                          <div>
-                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                              Rolas / Treino
-                            </span>
-                            <span className="font-display text-lg font-bold text-[#D4E4FA]">
-                              {session.metrics?.roundsCount ? `${session.metrics.roundsCount} rolas` : (session.metrics?.trainingType === 'technique' ? 'Técnica' : 'Treino')}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                              Estilo
-                            </span>
-                            <span className="font-display text-lg font-bold text-[#E11D48]">
-                              {session.metrics?.gi === false ? 'No-Gi' : 'Gi'}
-                            </span>
-                          </div>
-                        </>
-                      )}
-
-                      {(session.sportKey === 'football' || session.sportKey === 'futevolei') && (
-                        <>
-                          <div>
-                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                              Duração
-                            </span>
-                            <span className="font-display text-lg font-bold text-[#D4E4FA]">
-                              {formatDuration(session.durationSeconds)}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="font-mono text-[9px] text-[#8F9380] uppercase block">
-                              Carga sRPE
-                            </span>
-                            <span className="font-display text-lg font-bold text-[#D4F684]">
-                              {session.sessionalLoad}
-                            </span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-3 mt-3 border-t border-[#1F2937] text-xs font-mono text-[#8F9380]">
-                    <div className="flex items-center gap-1.5">
-                      <span>{formatDuration(session.durationSeconds)}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px]">RPE</span>
-                      <span className="font-bold text-[#D4E4FA] bg-[#0D1C2D] px-1.5 py-0.5 rounded-[2px] text-[10px] border border-[#1F2937]">
-                        {session.rpe || '--'}/10
-                      </span>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })
-          )}
-        </div>
       </section>
     </div>
   );

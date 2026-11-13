@@ -34,18 +34,23 @@ function confidenceBadge(confidence: ConfidenceLevel): { label: string; color: s
 interface LoadSummaryCardProps {
   load: LoadSummary;
   className?: string;
+  compact?: boolean;
 }
 
 /**
  * Card de carga percebida — sempre exibe valor com baseline e confiança.
  * Nunca exibe "métrica alta" sem contexto.
  */
-export const LoadSummaryCard: React.FC<LoadSummaryCardProps> = ({ load, className = '' }) => {
+export const LoadSummaryCard: React.FC<LoadSummaryCardProps> = ({
+  load,
+  className = '',
+  compact = false,
+}) => {
   const varColor = variationColor(load.status);
   const badge = confidenceBadge(load.confidence);
 
   return (
-    <div className={`bg-[#0D1C2D] border border-[#1F2937] rounded-2xl p-6 flex flex-col gap-4 ${className}`}>
+    <div className={`bg-[#0D1C2D] border border-[#1F2937] rounded-2xl ${compact ? 'p-3 gap-2' : 'p-6 gap-4'} flex flex-col ${className}`}>
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -62,11 +67,11 @@ export const LoadSummaryCard: React.FC<LoadSummaryCardProps> = ({ load, classNam
       </div>
 
       {/* Valor principal */}
-      <div className="flex items-end gap-3">
-        <span className="font-display text-5xl font-bold text-[#D4E4FA]">
+      <div className="flex items-end gap-2">
+        <span className={`font-display ${compact ? 'text-2xl' : 'text-5xl'} font-bold text-[#D4E4FA]`}>
           {formatAU(load.currentSrpe)}
         </span>
-        <span className="font-mono text-sm text-[#8F9380] mb-1">{load.unit}</span>
+        <span className="font-mono text-[10px] text-[#8F9380] mb-1">{load.unit}</span>
       </div>
 
       {/* Variação vs baseline */}
@@ -82,14 +87,18 @@ export const LoadSummaryCard: React.FC<LoadSummaryCardProps> = ({ load, classNam
       )}
 
       {/* Status message */}
-      <p className="font-sans text-sm text-[#8F9380] leading-relaxed">
-        {load.statusMessage}
-      </p>
+      {!compact && (
+        <p className="font-sans text-sm text-[#8F9380] leading-relaxed">
+          {load.statusMessage}
+        </p>
+      )}
 
       {/* Disclaimer */}
-      <p className="font-mono text-[9px] text-[#4A5568] leading-relaxed border-t border-[#1F2937] pt-3">
-        {load.disclaimer}
-      </p>
+      {!compact && (
+        <p className="font-mono text-[9px] text-[#4A5568] leading-relaxed border-t border-[#1F2937] pt-3">
+          {load.disclaimer}
+        </p>
+      )}
     </div>
   );
 };
