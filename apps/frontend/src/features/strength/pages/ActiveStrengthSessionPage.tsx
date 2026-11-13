@@ -8,11 +8,12 @@ import { ActiveSessionHeader } from '../components/ActiveSessionHeader';
 import { ExerciseEntryCard } from '../components/ExerciseEntryCard';
 import { ExerciseSearch } from '../components/ExerciseSearch';
 import { RestTimer } from '../components/RestTimer';
+import { AIWorkoutBuilderCard } from '../components/AIWorkoutBuilderCard';
 import { strengthApi } from '../../../services/strength.api';
 import { RpeSelector } from '../../../components/ui/RpeSelector';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toLocalInputDateTime } from '../../../lib/utils';
-import type { Exercise, StrengthSet } from '@pacelog/shared';
+import type { Exercise, StrengthSet, GeneratedStrengthWorkoutDTO } from '@pacelog/shared';
 
 export const ActiveStrengthSessionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -96,6 +97,20 @@ export const ActiveStrengthSessionPage: React.FC = () => {
       primaryMuscleGroup: exercise.primaryMuscleGroup,
       equipment: exercise.equipment,
     });
+  }
+
+  async function handleApplyAIWorkoutToActiveSession(workout: GeneratedStrengthWorkoutDTO) {
+    if (!session) return;
+    setMutationError(null);
+    try {
+      const updated = await strengthApi.applyWorkoutTemplate(session.id, {
+        exercises: workout.exercises,
+        notes: `IA Personal: ${workout.name}`,
+      });
+      setSession(updated);
+    } catch (err: any) {
+      setMutationError(err?.message || 'Erro ao aplicar sugestão da IA Personal.');
+    }
   }
 
   async function handleAddSet(exerciseId: string) {
@@ -235,10 +250,19 @@ export const ActiveStrengthSessionPage: React.FC = () => {
       {/* Lista de exercícios */}
       <div className="flex flex-col gap-4 p-4 max-w-2xl mx-auto w-full">
         {exercisesList.length === 0 && (
-          <div className="flex flex-col items-center justify-center p-8 border border-dashed border-[#1F2937] rounded-[4px] gap-2 text-center text-[#8F9380]">
-            <p className="font-mono text-sm uppercase">Nenhum exercício adicionado</p>
-            <p className="text-xs">Toque em "Adicionar Exercício" para começar seu treino.</p>
-          </div>
+          <>
+            <div className="flex flex-col items-center justify-center p-6 border border-dashed border-[#1F2937] rounded-[4px] gap-1.5 text-center text-[#8F9380]">
+              <p className="font-mono text-sm uppercase">Nenhum exercício adicionado</p>
+              <p className="text-xs">
+                Adicione exercícios manualmente abaixo ou peça uma sugestão opcional à <strong className="text-[#D4F684]">IA Personal</strong>.
+              </p>
+            </div>
+
+            <AIWorkoutBuilderCard
+              onStartGeneratedWorkout={handleApplyAIWorkoutToActiveSession}
+              onRoutineSaved={() => {}}
+            />
+          </>
         )}
 
         {exercisesList

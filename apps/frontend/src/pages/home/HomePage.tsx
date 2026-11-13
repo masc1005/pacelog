@@ -7,9 +7,11 @@ import { AIProgressInsight } from '../../components/ui/AIProgressInsight';
 import { LoadSummaryCard } from '../../components/progress/LoadSummaryCard';
 import { SportDistributionCard } from '../../components/progress/SportDistributionCard';
 import { WeekNavigator } from '../../components/progress/WeekNavigator';
-import { ShoeUsageSummary } from '../../components/shoes/ShoeUsageSummary';
+import { GearUsageSummary } from '../../components/gear/GearUsageSummary';
 import { GoalHighlightCard } from '../../components/goals/GoalHighlightCard';
-import { shoeApi } from '../../services/shoe.api';
+import { WeeklyScheduleCard } from '../../components/schedule/WeeklyScheduleCard';
+import { DailyReadinessCard } from '../../components/readiness/DailyReadinessCard';
+import { gearApi } from '../../services/gear.api';
 import {
   Flame,
   Zap,
@@ -20,6 +22,7 @@ import {
   Waves,
   Bike,
   Shield,
+  Calendar,
 } from 'lucide-react';
 import {
   SPORT_KEYS,
@@ -27,7 +30,7 @@ import {
   type SessionSummaryDTO,
   type ProgressSummaryDTO,
   type ProgressBySportDTO,
-  type RunningShoe,
+  type Gear,
 } from '@pacelog/shared';
 import { formatPace, formatDuration } from '../../lib/utils';
 import { apiClient } from '../../lib/api';
@@ -42,7 +45,7 @@ export const HomePage: React.FC = () => {
   const [progressSummary, setProgressSummary] = useState<ProgressSummaryDTO | null>(null);
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [isWeekLoading, setIsWeekLoading] = useState<boolean>(false);
-  const [shoes, setShoes] = useState<RunningShoe[]>([]);
+  const [gearList, setGearList] = useState<Gear[]>([]);
 
   const loadWeekProgress = async (offset: number) => {
     setIsWeekLoading(true);
@@ -77,16 +80,16 @@ export const HomePage: React.FC = () => {
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const [summaryData, sessionsData, progressData, shoesData] = await Promise.all([
+        const [summaryData, sessionsData, progressData, gearData] = await Promise.all([
           apiClient<SessionSummaryDTO>('/api/sessions/summary?timeframe=week').catch(() => null),
-          apiClient<any[]>('/api/sessions?limit=6').catch(() => []),
+          apiClient<any[]>('/api/sessions?limit=20').catch(() => []),
           apiClient<ProgressSummaryDTO>('/api/progress/summary?weekOffset=0').catch(() => null),
-          shoeApi.getShoes(false).catch(() => []),
+          gearApi.getGear(false).catch(() => []),
         ]);
 
         if (summaryData) setSummary(summaryData);
         if (sessionsData && Array.isArray(sessionsData)) setSessions(sessionsData);
-        if (shoesData) setShoes(shoesData);
+        if (gearData) setGearList(gearData);
         if (progressData) {
           setProgressSummary(progressData);
 
@@ -122,10 +125,11 @@ export const HomePage: React.FC = () => {
     jiujitsu: { name: 'Jiu-Jitsu', color: '#E11D48', badge: 'crimson', icon: Shield },
   };
 
+  const recentSessionsList = sessions.slice(0, 6);
   const filteredSessions =
     selectedSport === 'all'
-      ? sessions
-      : sessions.filter((s) => s.sportKey === selectedSport);
+      ? recentSessionsList
+      : recentSessionsList.filter((s) => s.sportKey === selectedSport);
 
   const totalWeeklyDurationMins = Math.round((summary?.totalDurationSeconds || 0) / 60);
 
@@ -147,27 +151,41 @@ export const HomePage: React.FC = () => {
           <span className="w-1.5 h-1.5 bg-[#D4F684] rounded-full" />
           ATLETA // {user?.name || 'SESSÃO PRINCIPAL'}
         </span>
-        <span className="font-mono text-[10px] text-[#8F9380] uppercase">TELEMETRIA ATIVA</span>
+        <Link
+          to="/schedule"
+          className="font-mono text-[10px] text-[#D4F684] hover:underline uppercase flex items-center gap-1"
+        >
+          <Calendar className="w-3 h-3" /> Cronograma Completo
+        </Link>
       </div>
 
       {/* ==========================================
-          1. META EM DESTAQUE
+          1. CRONOGRAMA DA SEMANA (DIAS + TREINOS)
+      ========================================== */}
+      <WeeklyScheduleCard recentSessions={sessions} compact />
+
+      {/* ==========================================
+          2. CHECK-IN DIÁRIO DE PRONTIDÃO & RECUPERAÇÃO
+      ========================================== */}
+      <DailyReadinessCard />
+
+      {/* ==========================================
+          3. META EM DESTAQUE
       ========================================== */}
       <GoalHighlightCard />
 
       {/* ==========================================
-          2. INSIGHT DE ANÁLISE E TÊNIS
+          4. INSIGHT DE ANÁLISE E TÊNIS
       ========================================== */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <AIProgressInsight />
-        <ShoeUsageSummary 
-          defaultShoe={shoes.find(s => s.isDefault) || shoes[0]} 
-          activeShoesCount={shoes.length} 
+        <GearUsageSummary 
+          gearList={gearList} 
         />
       </div>
 
       {/* ==========================================
-          2. ÚLTIMA SESSÃO
+          5. ÚLTIMA SESSÃO
       ========================================== */}
       <section className="flex flex-col gap-3">
         <div className="flex justify-between items-baseline border-b border-[#1F2937] pb-2">
@@ -232,7 +250,7 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* ==========================================
-          4. CONSISTÊNCIA DA SEMANA
+          6. CONSISTÊNCIA DA SEMANA
       ========================================== */}
       {summary && (
         <section className="flex flex-col gap-3">
@@ -264,7 +282,7 @@ export const HomePage: React.FC = () => {
       )}
 
       {/* ==========================================
-          5. CARGA PERCEBIDA (SECUNDÁRIO)
+          7. CARGA PERCEBIDA (SECUNDÁRIO)
       ========================================== */}
       {progressSummary && (
         <section className="flex flex-col gap-3">
@@ -299,7 +317,7 @@ export const HomePage: React.FC = () => {
       )}
 
       {/* ==========================================
-          6. TREINOS RECENTES + FILTROS
+          8. TREINOS RECENTES + FILTROS
       ========================================== */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between border-b border-[#1F2937] pb-2">
@@ -318,12 +336,12 @@ export const HomePage: React.FC = () => {
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           <button
             onClick={() => setSelectedSport('all')}
-            className={`px-3.5 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer border ${selectedSport === 'all'
+            className={`px-3.5 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all text-nowrap cursor-pointer border ${selectedSport === 'all'
               ? 'bg-[#D4F684] text-[#051424] border-[#D4F684] font-bold shadow-[0_0_12px_rgba(212,246,132,0.25)]'
               : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
               }`}
           >
-            Todas ({sessions.length})
+            Todas ({recentSessionsList.length})
           </button>
 
           {SPORT_KEYS.map((key) => {
@@ -335,7 +353,7 @@ export const HomePage: React.FC = () => {
               <button
                 key={key}
                 onClick={() => setSelectedSport(key)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer border ${isSelected
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-[2px] text-xs font-mono font-semibold uppercase tracking-wider transition-all text-nowrap cursor-pointer border ${isSelected
                   ? 'bg-[#161C24] text-[#D4E4FA] border-[#D4F684] shadow-[0_0_12px_rgba(212,246,132,0.15)]'
                   : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
                   }`}

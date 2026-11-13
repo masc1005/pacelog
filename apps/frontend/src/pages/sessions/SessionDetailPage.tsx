@@ -46,6 +46,9 @@ export const SessionDetailPage: React.FC = () => {
         // Tenta buscar insight já existente para esta sessão (falha silenciosamente se não existir)
         try {
           const insightData = await apiClient<AIInsightDTO>(`/api/insights/session/${id}`);
+          if (insightData) {
+            console.info(`[Gemini AI] Session Insight — model executed: ${insightData.modelUsed ?? 'cached'}`);
+          }
           setInsight(insightData);
         } catch (e) {
           // Ignora, significa que ainda não foi gerado
@@ -80,6 +83,9 @@ export const SessionDetailPage: React.FC = () => {
     try {
       const url = force ? `/api/insights/session/${id}/generate?force=true` : `/api/insights/session/${id}/generate`;
       const data = await apiClient<AIInsightDTO>(url, { method: 'POST' });
+      if (data) {
+        console.info(`[Gemini AI] Session Insight generated — model executed: ${data.modelUsed ?? 'unknown'}`);
+      }
       setInsight(data);
       success('Análise gerada com sucesso!');
     } catch {
@@ -165,7 +171,9 @@ export const SessionDetailPage: React.FC = () => {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-[#A855F7]" />
-              <h2 className="font-mono text-[10px] text-[#A855F7] uppercase tracking-widest font-bold">Coach de IA</h2>
+              <h2 className="font-mono text-[10px] text-[#A855F7] uppercase tracking-widest font-bold">
+                Coach de IA{insight?.modelUsed ? ` • ${insight.modelUsed}` : ''}
+              </h2>
             </div>
             {insight && (
               <button 
@@ -248,19 +256,46 @@ export const SessionDetailPage: React.FC = () => {
                 <span className="font-mono text-[9px] text-[#8F9380] uppercase">Distância</span>
                 <span className="font-display text-xl font-bold text-[#D4E4FA]">{session.metrics.totalDistanceMeters} m</span>
               </div>
-              <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
-                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Pace Médio</span>
-                <span className="font-display text-xl font-bold text-[#38BDF8]">
-                  {session.metrics.paceSecondsPer100m ? `${Math.floor(session.metrics.paceSecondsPer100m / 60)}:${String(Math.floor(session.metrics.paceSecondsPer100m % 60)).padStart(2, '0')}/100m` : '--'}
-                </span>
-              </div>
-              {session.metrics.totalLaps !== undefined && (
+              {session.metrics.poolLengthMeters && (
                 <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
-                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Piscinas</span>
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Piscina</span>
+                  <span className="font-display text-xl font-bold text-[#38BDF8]">{session.metrics.poolLengthMeters} m</span>
+                </div>
+              )}
+              {session.metrics.totalLaps != null && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Piscinas (Laps)</span>
                   <span className="font-display text-xl font-bold text-[#38BDF8]">{session.metrics.totalLaps}</span>
                 </div>
               )}
-              {session.metrics.swolf !== undefined && (
+              {session.metrics.paceSecondsPer100m != null && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Pace / 100m</span>
+                  <span className="font-display text-xl font-bold text-[#38BDF8]">
+                    {`${Math.floor(session.metrics.paceSecondsPer100m / 60)}:${String(Math.round(session.metrics.paceSecondsPer100m % 60)).padStart(2, '0')}`}
+                  </span>
+                </div>
+              )}
+              {session.metrics.strokeType && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Nado Principal</span>
+                  <span className="font-display text-sm font-bold text-[#38BDF8] uppercase">
+                    {session.metrics.strokeType === 'freestyle' ? 'Crawl' :
+                     session.metrics.strokeType === 'backstroke' ? 'Costas' :
+                     session.metrics.strokeType === 'breaststroke' ? 'Peito' :
+                     session.metrics.strokeType === 'butterfly' ? 'Borboleta' :
+                     session.metrics.strokeType === 'medley' ? 'Medley' :
+                     session.metrics.strokeType === 'mixed' ? 'Misto' : session.metrics.strokeType}
+                  </span>
+                </div>
+              )}
+              {session.metrics.avgHeartRate != null && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">FC Média</span>
+                  <span className="font-display text-xl font-bold text-[#38BDF8]">{session.metrics.avgHeartRate} bpm</span>
+                </div>
+              )}
+              {session.metrics.swolf != null && (
                 <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
                   <span className="font-mono text-[9px] text-[#8F9380] uppercase">SWOLF</span>
                   <span className="font-display text-xl font-bold text-[#38BDF8]">{session.metrics.swolf}</span>
@@ -270,63 +305,75 @@ export const SessionDetailPage: React.FC = () => {
             {session.sportKey === 'cycling' && <>
               <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
                 <span className="font-mono text-[9px] text-[#8F9380] uppercase">Distância</span>
-                <span className="font-display text-xl font-bold text-[#D4E4FA]">{session.metrics.distanceKm} km</span>
+                <span className="font-display text-xl font-bold text-[#D4E4FA]">{((session.metrics.distanceMeters || 0) / 1000).toFixed(1)} km</span>
               </div>
               <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
-                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Velocidade Média</span>
+                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Vel. Média</span>
                 <span className="font-display text-xl font-bold text-[#10B981]">
-                  {session.metrics.averageSpeedKmh ? `${session.metrics.averageSpeedKmh} km/h` : '--'}
+                  {session.metrics.averageSpeedKmh != null ? `${session.metrics.averageSpeedKmh.toFixed(1)} km/h` : '--'}
                 </span>
               </div>
               {session.metrics.cyclingType && (
                 <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
-                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Tipo de Pedal</span>
-                  <span className="font-display text-sm font-bold text-[#D4E4FA] uppercase">
-                    {session.metrics.cyclingType === 'road' ? 'Rua / Asfalto' :
-                     session.metrics.cyclingType === 'indoor' ? 'Indoor / Spinning' :
-                     session.metrics.cyclingType === 'mountain_bike' ? 'Mountain Bike (MTB)' : 'Misto'}
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Modalidade</span>
+                  <span className="font-display text-sm font-bold text-[#10B981] uppercase">
+                    {session.metrics.cyclingType === 'road' ? 'Speed / Rua' :
+                     session.metrics.cyclingType === 'mountain_bike' ? 'Mountain Bike' :
+                     session.metrics.cyclingType === 'indoor' ? 'Indoor / Rolo' :
+                     session.metrics.cyclingType === 'gravel' ? 'Gravel' :
+                     session.metrics.cyclingType === 'commute' ? 'Deslocamento' : session.metrics.cyclingType}
                   </span>
                 </div>
               )}
-              {session.metrics.cyclingType !== 'indoor' && session.metrics.elevationGainMeters !== undefined && (
+              {session.metrics.elevationGainMeters != null && (
                 <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
-                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Elevação</span>
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Altimetria</span>
                   <span className="font-display text-xl font-bold text-[#10B981]">{session.metrics.elevationGainMeters} m</span>
                 </div>
               )}
-              {session.metrics.averageHeartRate !== undefined && (
+              {session.metrics.cadenceRpm != null && (
                 <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
-                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">FC Média</span>
-                  <span className="font-display text-xl font-bold text-[#10B981]">{session.metrics.averageHeartRate} bpm</span>
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Cadência</span>
+                  <span className="font-display text-xl font-bold text-[#10B981]">{session.metrics.cadenceRpm} rpm</span>
                 </div>
               )}
-              {session.metrics.maxHeartRate !== undefined && (
+              {session.metrics.averagePowerWatts != null && (
                 <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
-                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">FC Máxima</span>
-                  <span className="font-display text-xl font-bold text-[#10B981]">{session.metrics.maxHeartRate} bpm</span>
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Potência Média</span>
+                  <span className="font-display text-xl font-bold text-[#10B981]">{session.metrics.averagePowerWatts} W</span>
+                </div>
+              )}
+              {session.metrics.avgHeartRate != null && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">FC Média</span>
+                  <span className="font-display text-xl font-bold text-[#10B981]">{session.metrics.avgHeartRate} bpm</span>
                 </div>
               )}
             </>}
             {session.sportKey === 'jiujitsu' && <>
-              <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3">
-                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Tipo de Treino</span>
-                <span className="font-display text-base font-bold text-[#D4E4FA] uppercase">
-                  {session.metrics.trainingType === 'technique' ? 'Técnica' :
-                   session.metrics.trainingType === 'sparring' ? 'Sparring (Rolas)' :
-                   session.metrics.trainingType === 'competition' ? 'Competição' :
-                   session.metrics.trainingType === 'drilling' ? 'Drilling' :
-                   session.metrics.trainingType === 'seminar' ? 'Seminário' : session.metrics.trainingType}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3">
-                <span className="font-mono text-[9px] text-[#8F9380] uppercase">Estilo</span>
-                <span className="font-display text-base font-bold text-[#E11D48]">
-                  {session.metrics.gi === false ? 'Sem Kimono (No-Gi)' : 'Com Kimono (Gi)'}
-                </span>
-              </div>
+              {session.metrics.giType && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Modalidade</span>
+                  <span className="font-display text-base font-bold text-[#E11D48] uppercase">
+                    {session.metrics.giType === 'gi' ? 'Com Kimono (Gi)' : 'Sem Kimono (No-Gi)'}
+                  </span>
+                </div>
+              )}
+              {session.metrics.sessionType && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Tipo de Treino</span>
+                  <span className="font-display text-base font-bold text-[#D4E4FA] uppercase">
+                    {session.metrics.sessionType === 'class' ? 'Aula Regular' :
+                     session.metrics.sessionType === 'sparring' ? 'Rola / Sparring' :
+                     session.metrics.sessionType === 'drilling' ? 'Drilling' :
+                     session.metrics.sessionType === 'open_mat' ? 'Open Mat' :
+                     session.metrics.sessionType === 'competition' ? 'Competição' : session.metrics.sessionType}
+                  </span>
+                </div>
+              )}
               {session.metrics.beltRank && (
                 <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3">
-                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Faixa / Grau</span>
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Graduação</span>
                   <span className="font-display text-base font-bold text-[#D4E4FA] capitalize">
                     Faixa {session.metrics.beltRank === 'white' ? 'Branca' :
                            session.metrics.beltRank === 'blue' ? 'Azul' :

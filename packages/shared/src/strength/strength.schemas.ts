@@ -75,12 +75,56 @@ export const activeStrengthSessionSchema = z.object({
 // INPUTS DE API (mutações)
 // ==========================================
 
+export const routineExerciseTemplateSchema = z.object({
+  exerciseKey: z.string().min(1),
+  exerciseNameSnapshot: z.string().min(1).max(200),
+  primaryMuscleGroup: z.string().max(100).optional(),
+  equipment: z.string().max(100).optional(),
+  order: z.number().int().nonnegative(),
+  notes: z.string().max(500).optional(),
+  sets: z.array(
+    z.object({
+      setNumber: z.number().int().positive(),
+      type: z.enum(STRENGTH_SET_TYPES).default('working'),
+      reps: z.number().int().positive().optional(),
+      load: z.number().nonnegative().optional(),
+      loadUnit: z.enum(LOAD_UNITS).default('kg'),
+      restSeconds: z.number().nonnegative().optional(),
+    })
+  ),
+});
+
 export const startStrengthSessionSchema = z.object({
   operationId: z.string().uuid().optional(),
   notes: z.string().max(1000).optional(),
   startedAt: z.string().datetime().optional(),
+  routineId: z.string().optional(),
+  exercises: z.array(routineExerciseTemplateSchema).optional(),
 });
 export type StartStrengthSessionInput = z.infer<typeof startStrengthSessionSchema>;
+
+export const createStrengthRoutineSchema = z.object({
+  name: z.string().min(2, 'O nome da ficha deve ter no mínimo 2 caracteres').max(80),
+  description: z.string().max(300).optional(),
+  sessionId: z.string().optional(),
+  exercises: z.array(routineExerciseTemplateSchema).optional(),
+});
+export type CreateStrengthRoutineInput = z.infer<typeof createStrengthRoutineSchema>;
+
+export const generateStrengthWorkoutInputSchema = z.object({
+  prompt: z.string().max(500).optional(),
+  muscleGroups: z.array(z.string().max(50)).optional(),
+  durationMinutes: z.number().int().min(15).max(180).optional().default(45),
+  equipment: z.array(z.string().max(50)).optional(),
+  goal: z.enum(['hypertrophy', 'strength', 'endurance', 'full_body']).optional().default('hypertrophy'),
+});
+export type GenerateStrengthWorkoutInput = z.infer<typeof generateStrengthWorkoutInputSchema>;
+
+export const applyWorkoutTemplateInputSchema = z.object({
+  exercises: z.array(routineExerciseTemplateSchema).min(1),
+  notes: z.string().max(1000).optional(),
+});
+export type ApplyWorkoutTemplateInput = z.infer<typeof applyWorkoutTemplateInputSchema>;
 
 export const addExerciseInputSchema = z.object({
   operationId: z.string().uuid(),

@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import {
   startStrengthSessionSchema,
+  createStrengthRoutineSchema,
+  generateStrengthWorkoutInputSchema,
+  applyWorkoutTemplateInputSchema,
   addExerciseInputSchema,
   addSetInputSchema,
   completeSetInputSchema,
@@ -12,6 +15,9 @@ import {
 // Re-export dos schemas compartilhados para uso nas rotas do backend
 export {
   startStrengthSessionSchema,
+  createStrengthRoutineSchema,
+  generateStrengthWorkoutInputSchema,
+  applyWorkoutTemplateInputSchema,
   addExerciseInputSchema,
   addSetInputSchema,
   completeSetInputSchema,

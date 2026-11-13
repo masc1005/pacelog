@@ -23,6 +23,8 @@ export interface JiuJitsuMetrics {
   submissionsReceived?: number;
   techniquesFocus?: string[];
   gi?: boolean;
+  /** Kimono (gi) ou rashguard (no-gi) vinculado. null = nenhum. */
+  gearId?: string | null;
   notes?: string;
 }
 

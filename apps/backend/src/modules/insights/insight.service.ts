@@ -55,17 +55,19 @@ REGRAS OBRIGATÓRIAS:
 // INSIGHT SERVICE
 // ==========================================
 
+export const PRIMARY_GEMINI_MODEL = 'gemini-3.8-flash';
+export const FALLBACK_GEMINI_MODEL = 'gemini-3.5-flash-lite';
+
 export function getValidGeminiModel(model?: string): string {
-  if (!model) return 'gemini-flash-latest';
+  if (!model) return PRIMARY_GEMINI_MODEL;
   const m = model.trim();
-  if (m === 'gemini-3.5-flash' || m === 'gemini-3-flash') {
-    return 'gemini-flash-latest';
-  }
+  if (!m) return PRIMARY_GEMINI_MODEL;
   return m;
 }
 
 export class InsightService {
   private ai: GoogleGenAI | null = null;
+  private lastModelUsed?: string;
 
   constructor() {
     if (env.GEMINI_API_KEY) {
@@ -101,7 +103,9 @@ export class InsightService {
       await InsightModel.deleteOne({ _id: existingInsight._id });
     }
 
+    this.lastModelUsed = undefined;
     const insightContent = await this.generateDailyInsightFromGemini(userId);
+    const modelUsed = this.lastModelUsed;
 
     const isErrorOrInsufficient =
       insightContent.includes('Dados Insuficientes') ||
@@ -115,6 +119,7 @@ export class InsightService {
         userId,
         content: insightContent,
         type: 'daily_progress',
+        modelUsed,
       });
       return this.mapToDTO(newInsight);
     }
@@ -124,6 +129,7 @@ export class InsightService {
       userId,
       content: insightContent,
       type: 'daily_progress',
+      modelUsed,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -165,13 +171,16 @@ export class InsightService {
       startedAt: { $lt: currentSession.startedAt },
     }).sort({ startedAt: -1 });
 
+    this.lastModelUsed = undefined;
     const insightContent = await this.generateSessionInsightFromGemini(currentSession, previousSession);
+    const modelUsed = this.lastModelUsed;
 
     const newInsight = await InsightModel.create({
       userId,
       sessionId,
       content: insightContent,
       type: 'session_analysis',
+      modelUsed,
     });
 
     return this.mapToDTO(newInsight);
@@ -224,29 +233,25 @@ export class InsightService {
 
     const previous = await this.findPreviousMatchingStrengthSession(userId, current);
 
+    this.lastModelUsed = undefined;
     const content = await this.generateStrengthInsightFromGemini(current, previous);
+    const modelUsed = this.lastModelUsed;
 
     const newInsight = await InsightModel.create({
       userId,
       sessionId,
       content,
       type: 'strength_session_analysis',
+      modelUsed,
     });
 
     return this.mapToDTO(newInsight);
   }
 
   /**
-   * Identifica os grupos musculares de uma sessão e gera um rótulo legível.
+   * Extrai grupos musculares únicos e um rótulo legível para a sessão de musculação.
    */
   private getMuscleGroupsFromSession(session: any): { groups: string[]; label: string } {
-    const groupSet = new Set<string>();
-    for (const ex of session.exercises ?? []) {
-      if (ex.primaryMuscleGroup) {
-        groupSet.add(ex.primaryMuscleGroup.toLowerCase().trim());
-      }
-    }
-    const groups = Array.from(groupSet);
     const labelMap: Record<string, string> = {
       peito: 'Peito',
       costas: 'Costas',
@@ -257,15 +262,20 @@ export class InsightService {
       posteriores: 'Posteriores de Coxa',
       gluteos: 'Glúteos',
       panturrilhas: 'Panturrilhas',
-      abdomen: 'Abdômen',
+      abdomen: 'Abdômen/Core',
+      antebraco: 'Antebraço',
       corpo_inteiro: 'Corpo Inteiro',
-      mobilidade: 'Mobilidade',
       cardio: 'Cardio',
     };
 
-    const isLegs =
-      groups.length > 0 &&
-      groups.every((g) => ['quadriceps', 'posteriores', 'gluteos', 'panturrilhas'].includes(g));
+    const rawGroups = (session.exercises ?? [])
+      .map((ex: any) => ex.primaryMuscleGroup?.toLowerCase().trim())
+      .filter(Boolean) as string[];
+
+    const groups = Array.from(new Set(rawGroups));
+
+    const legGroups = new Set(['quadriceps', 'posteriores', 'gluteos', 'panturrilhas']);
+    const isLegs = groups.length > 0 && groups.every((g) => legGroups.has(g));
     const isPush =
       groups.length > 0 &&
       groups.every((g) => ['peito', 'triceps', 'ombros'].includes(g));
@@ -435,22 +445,27 @@ Interpretação:`;
           : `Primeira sessão de ${currentData.muscleGroupsLabel} registrada. Volume total: ${currentData.totalVolumeKg?.toFixed(0) ?? 'não calculado'} kg com ${currentData.completedSets ?? 0} séries concluídas. Excelente início!`;
       }
 
+      const primaryModel = getValidGeminiModel(env.GEMINI_MODEL);
+      const fallbackModel = FALLBACK_GEMINI_MODEL;
       let response: any = null;
-      const model = getValidGeminiModel(env.GEMINI_MODEL);
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          response = await this.ai.models.generateContent({
-            model,
-            contents: prompt,
-          });
-          break;
-        } catch (err: any) {
-          if (attempt < 3 && (err?.status === 503 || err?.status === 429 || String(err?.message).includes('503'))) {
-            await new Promise((r) => setTimeout(r, 1000 * attempt));
-            continue;
-          }
-          throw err;
-        }
+
+      try {
+        response = await this.ai.models.generateContent({
+          model: primaryModel,
+          contents: prompt,
+        });
+        const resolvedModel = response?.modelVersion ? `${primaryModel} (${response.modelVersion})` : primaryModel;
+        this.lastModelUsed = resolvedModel;
+        console.info(`[InsightService] Strength insight generated using primary model: ${resolvedModel}`);
+      } catch (primaryErr) {
+        console.warn(`[InsightService] Primary model ${primaryModel} failed, trying fallback ${fallbackModel}:`, primaryErr);
+        response = await this.ai.models.generateContent({
+          model: fallbackModel,
+          contents: prompt,
+        });
+        const resolvedModel = response?.modelVersion ? `${fallbackModel} (${response.modelVersion}) [fallback]` : `${fallbackModel} [fallback]`;
+        this.lastModelUsed = resolvedModel;
+        console.info(`[InsightService] Strength insight generated using fallback model: ${resolvedModel}`);
       }
 
       return response?.text || 'Sessão de musculação registrada. Acompanhe sua evolução de volume e séries.';
@@ -538,19 +553,25 @@ Interpretação:`;
       }
 
       const model = getValidGeminiModel(env.GEMINI_MODEL);
-      const fallbackModel = model === 'gemini-flash-latest' ? 'gemini-2.5-flash' : 'gemini-flash-latest';
+      const fallbackModel = FALLBACK_GEMINI_MODEL;
       let response: any;
       try {
         response = await this.ai.models.generateContent({
           model,
           contents: prompt,
         });
+        const resolvedModel = response?.modelVersion ? `${model} (${response.modelVersion})` : model;
+        this.lastModelUsed = resolvedModel;
+        console.info(`[InsightService] Session insight (${sportName}) generated using primary model: ${resolvedModel}`);
       } catch (primaryErr) {
         console.warn(`[InsightService] Primary model ${model} failed, trying ${fallbackModel}:`, primaryErr);
         response = await this.ai.models.generateContent({
           model: fallbackModel,
           contents: prompt,
         });
+        const resolvedModel = response?.modelVersion ? `${fallbackModel} (${response.modelVersion}) [fallback]` : `${fallbackModel} [fallback]`;
+        this.lastModelUsed = resolvedModel;
+        console.info(`[InsightService] Session insight (${sportName}) generated using fallback model: ${resolvedModel}`);
       }
 
       return response?.text || 'Sessão finalizada. Continue acompanhando suas métricas de carga e desempenho.';
@@ -687,7 +708,7 @@ Apenas o JSON. Nenhum texto antes ou depois.`;
       }
 
       const primaryModel = getValidGeminiModel(env.GEMINI_MODEL);
-      const fallbackModel = primaryModel === 'gemini-flash-latest' ? 'gemini-2.5-flash' : 'gemini-flash-latest';
+      const fallbackModel = FALLBACK_GEMINI_MODEL;
       let response: any;
       try {
         response = await this.ai.models.generateContent({
@@ -697,6 +718,9 @@ Apenas o JSON. Nenhum texto antes ou depois.`;
             responseMimeType: 'application/json',
           },
         });
+        const resolvedModel = response?.modelVersion ? `${primaryModel} (${response.modelVersion})` : primaryModel;
+        this.lastModelUsed = resolvedModel;
+        console.info(`[InsightService] Daily insight generated using primary model: ${resolvedModel}`);
       } catch (primaryErr) {
         console.warn(`[InsightService] Primary model ${primaryModel} failed, trying fallback ${fallbackModel}:`, primaryErr);
         response = await this.ai.models.generateContent({
@@ -706,6 +730,9 @@ Apenas o JSON. Nenhum texto antes ou depois.`;
             responseMimeType: 'application/json',
           },
         });
+        const resolvedModel = response?.modelVersion ? `${fallbackModel} (${response.modelVersion}) [fallback]` : `${fallbackModel} [fallback]`;
+        this.lastModelUsed = resolvedModel;
+        console.info(`[InsightService] Daily insight generated using fallback model: ${resolvedModel}`);
       }
 
       const responseText = (response?.text || '').trim();
@@ -740,6 +767,7 @@ Apenas o JSON. Nenhum texto antes ou depois.`;
       userId: insight.userId,
       content: insight.content,
       type: insight.type as any,
+      modelUsed: insight.modelUsed,
       createdAt: insight.createdAt,
       updatedAt: insight.updatedAt,
     };

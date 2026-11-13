@@ -1,8 +1,19 @@
-const BACKEND_URL = 'https://pacelog-api-production.up.railway.app';
+const DEFAULT_BACKEND_URL = 'https://pacelog-api.onrender.com';
 
-export async function onRequest({ request }: { request: Request }) {
+interface Env {
+  BACKEND_URL?: string;
+}
+
+export async function onRequest({
+  request,
+  env,
+}: {
+  request: Request;
+  env?: Env;
+}) {
+  const baseBackendUrl = (env?.BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/+$/, '');
   const url = new URL(request.url);
-  const backendUrl = `${BACKEND_URL}${url.pathname}${url.search}`;
+  const backendUrl = `${baseBackendUrl}${url.pathname}${url.search}`;
 
   const init: RequestInit = {
     method: request.method,
@@ -19,7 +30,7 @@ export async function onRequest({ request }: { request: Request }) {
   const backendRes = await fetch(backendUrl, init);
 
   // Reconstrói os headers da resposta, reescrevendo Set-Cookie para remover
-  // o atributo Domain do Railway (pacelog-api-production.up.railway.app).
+  // o atributo Domain do backend.
   // Sem isso, o browser em pages.dev ignora os cookies de autenticação
   // porque o Domain não bate com o domínio atual.
   const responseHeaders = new Headers(backendRes.headers);

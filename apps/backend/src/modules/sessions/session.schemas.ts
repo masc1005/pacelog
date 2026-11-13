@@ -21,7 +21,8 @@ export const runningMetricsSchema = z.object({
   maxHeartRate: z.number().int().min(30).max(250).optional(),
   cadenceAvg: z.number().int().positive().optional(),
   splits: z.array(splitMarkerSchema).optional(),
-  shoesId: z.string().optional(),
+  shoeId: z.string().nullable().optional(),
+  gearId: z.string().nullable().optional(),
   notes: z.string().max(500).optional(),
 });
 
@@ -68,6 +69,7 @@ export const boxingMetricsSchema = z.object({
   punchesThrownEstimate: z.number().int().nonnegative().optional(),
   sparring: z.boolean().optional().default(false),
   focusArea: z.enum(['bag_work', 'sparring', 'pad_work', 'technique', 'conditioning']).optional(),
+  gearId: z.string().nullable().optional(),
   notes: z.string().max(500).optional(),
 });
 
@@ -168,6 +170,7 @@ export const cyclingMetricsSchema = z.object({
   averageHeartRate: z.number().positive().optional(),
   maxHeartRate: z.number().positive().optional(),
   bikeId: z.string().optional(),
+  gearId: z.string().nullable().optional(),
   notes: z.string().max(500).optional(),
 });
 
@@ -202,6 +205,7 @@ export const jiuJitsuMetricsSchema = z.object({
   submissionsReceived: z.number().int().nonnegative().optional(),
   techniquesFocus: z.array(z.string()).optional(),
   gi: z.boolean().default(true),
+  gearId: z.string().nullable().optional(),
   notes: z.string().max(500).optional(),
 });
 

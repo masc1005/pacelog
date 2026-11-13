@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import { rateLimit } from 'express-rate-limit';
 import * as Sentry from '@sentry/node';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './config/auth.js';
@@ -16,15 +16,19 @@ import { progressRoutes } from './modules/progress/progress.routes.js';
 import notificationRoutes from './modules/notifications/notification.routes.js';
 import exportRoutes from './modules/export/export.routes.js';
 import insightRoutes from './modules/insights/insight.routes.js';
-import { shoeRoutes } from './modules/shoes/shoe.routes.js';
+import { gearRoutes } from './modules/gear/gear.routes.js';
 import { strengthRoutes } from './modules/strength/strength-session.routes.js';
 import { settingsRoutes } from './modules/settings/settings.routes.js';
+import { scheduleRoutes } from './modules/schedule/schedule.routes.js';
+import { readinessRoutes } from './modules/readiness/readiness.routes.js';
 
 export const app = express();
 app.set('trust proxy', 1);
 
+const helmetMiddleware = typeof helmet === 'function' ? helmet : (helmet as any).default;
+
 app.use(
-  helmet({
+  helmetMiddleware({
     // Permite que browsers em domínios diferentes (Cloudflare Pages → Railway API)
     // acessem os recursos. Sem isso, o CORP bloqueia cookies e respostas cross-origin.
     crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -46,13 +50,18 @@ app.use(
   })
 );
 
-// Rate limiting (não bloqueia rotas de teste/health)
+// Rate limiting (não bloqueia rotas de teste/health/ping)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path === '/health' || req.path === '/favicon.ico',
+  skip: (req: express.Request) =>
+    req.path === '/health' ||
+    req.path === '/api/health' ||
+    req.path === '/ping' ||
+    req.path === '/api/ping' ||
+    req.path === '/favicon.ico',
 });
 app.use(limiter);
 
@@ -70,19 +79,29 @@ app.use('/api/progress', progressRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/insights', insightRoutes);
-app.use('/api/shoes', shoeRoutes);
+app.use('/api/gear', gearRoutes);
+// Alias legado: clientes antigos (PWA em cache) ainda chamam /api/shoes
+app.use('/api/shoes', gearRoutes);
 app.use('/api/strength', strengthRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/schedule', scheduleRoutes);
+app.use('/api/readiness', readinessRoutes);
 
-// Health check para Railway, Docker e monitoramento
-app.get('/health', (_req, res) => {
+// Health check e Keep-Alive para Render, Railway, Docker e monitoramento
+const healthHandler = (_req: express.Request, res: express.Response) => {
   res.status(200).json({
     status: 'ok',
     service: 'pacelog-api',
+    uptimeSeconds: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
     env: env.NODE_ENV,
   });
-});
+};
+
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
+app.get('/ping', (_req, res) => res.status(200).send('pong'));
+app.get('/api/ping', (_req, res) => res.status(200).send('pong'));
 
 // Endpoint de teste de captura de exceção para validação de observabilidade (Sentry)
 app.get('/api/test-error', (req) => {

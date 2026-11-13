@@ -7,7 +7,7 @@ import { Badge } from '../../components/ui/Badge';
 import { SPORT_KEYS, type SportKey, type SessionDTO } from '@pacelog/shared';
 import { apiClient, ApiError } from '../../lib/api';
 import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, ChevronDown, Waves, Bike, Shield } from 'lucide-react';
-import { ShoePicker } from '../../components/shoes/ShoePicker';
+import { GearPicker } from '../../components/gear/GearPicker';
 import { toLocalInputDateTime } from '../../lib/utils';
 import { RpeSelector } from '../../components/ui/RpeSelector';
 import { useSyncQueue } from '../../pwa/hooks/useSyncQueue';
@@ -303,9 +303,11 @@ export const NewSessionPage: React.FC = () => {
                   onChange={e => setMetrics({...metrics, cadenceAvg: Number(e.target.value)})}
                 />
                 
-                <ShoePicker 
-                  value={metrics.shoeId}
-                  onChange={shoeId => setMetrics({...metrics, shoeId})}
+                <GearPicker 
+                  categories={['running_shoe']}
+                  value={metrics.gearId ?? metrics.shoeId}
+                  onChange={gearId => setMetrics({...metrics, gearId, shoeId: gearId || undefined})}
+                  label="Tênis Usado"
                 />
               </div>
             )}
@@ -443,6 +445,13 @@ export const NewSessionPage: React.FC = () => {
                   value={metrics.maxHeartRate || ''}
                   onChange={e => setMetrics({...metrics, maxHeartRate: Number(e.target.value)})}
                 />
+
+                <GearPicker
+                  categories={['bike']}
+                  value={metrics.gearId ?? metrics.bikeId}
+                  onChange={gearId => setMetrics({...metrics, gearId, bikeId: gearId || undefined})}
+                  label="Bicicleta Usada"
+                />
               </div>
             )}
 
@@ -472,7 +481,7 @@ export const NewSessionPage: React.FC = () => {
                   <select
                     className="input-precision py-2 text-sm bg-[#0D1C2D] border border-[#1F2937] text-[#D4E4FA] rounded px-3"
                     value={metrics.gi === false ? 'no_gi' : 'gi'}
-                    onChange={e => setMetrics({...metrics, gi: e.target.value === 'gi'})}
+                    onChange={e => setMetrics({...metrics, gi: e.target.value === 'gi', gearId: null})}
                   >
                     <option value="gi">Com Kimono (Gi)</option>
                     <option value="no_gi">Sem Kimono (No-Gi)</option>
@@ -562,6 +571,13 @@ export const NewSessionPage: React.FC = () => {
                     onChange={e => setMetrics({...metrics, techniquesFocus: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean)})}
                   />
                 </div>
+
+                <GearPicker
+                  categories={metrics.gi === false ? ['rashguard'] : ['jiujitsu_gi']}
+                  value={metrics.gearId}
+                  onChange={gearId => setMetrics({...metrics, gearId})}
+                  label={metrics.gi === false ? 'Rashguard Usada' : 'Kimono Usado'}
+                />
               </div>
             )}
 
@@ -621,6 +637,13 @@ export const NewSessionPage: React.FC = () => {
                     <option value="true">Sim</option>
                   </select>
                 </div>
+
+                <GearPicker
+                  categories={['boxing_gloves']}
+                  value={metrics.gearId}
+                  onChange={gearId => setMetrics({...metrics, gearId})}
+                  label="Luvas de Boxe Usadas"
+                />
               </div>
             )}
 

@@ -9,6 +9,7 @@ const InsightSchema: Schema = new Schema(
     sessionId: { type: String, index: true },
     content: { type: String, required: true },
     type: { type: String, enum: ['daily_coach', 'daily_progress', 'recovery_warning', 'milestone_celebration', 'session_analysis', 'strength_session_analysis'], required: true },
+    modelUsed: { type: String },
     createdAt: { type: Date, default: Date.now },
   },
   {

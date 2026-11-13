@@ -66,6 +66,7 @@ export class InsightController {
         sessionId: i.sessionId,
         content: i.content,
         type: i.type,
+        modelUsed: i.modelUsed,
         createdAt: i.createdAt,
         updatedAt: i.updatedAt
       }));

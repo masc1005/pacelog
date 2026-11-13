@@ -65,7 +65,7 @@ export const SettingsPage: React.FC = () => {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl whitespace-nowrap text-xs font-mono font-bold uppercase tracking-wider transition-all flex-shrink-0 border ${
+              className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-nowrap text-xs font-mono font-bold uppercase tracking-wider transition-all shrink-0 border ${
                 isActive
                   ? 'bg-[#161C24] text-[#D4F684] border-[#D4F684]/50 shadow-[0_0_15px_rgba(212,246,132,0.15)]'
                   : 'bg-[#0D1C2D] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA]'

@@ -97,7 +97,7 @@ export const AccountSettingsSection: React.FC = () => {
       {/* Zona de Perigo - Exclusão */}
       <Card className="p-5 bg-[#0D1C2D] border border-[#FF3366]/30 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[#FF3366]/15 border border-[#FF3366]/30 flex items-center justify-center text-[#FF3366] flex-shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-[#FF3366]/15 border border-[#FF3366]/30 flex items-center justify-center text-[#FF3366] shrink-0">
             <ShieldAlert className="w-5 h-5" />
           </div>
           <div className="flex flex-col">
@@ -113,7 +113,7 @@ export const AccountSettingsSection: React.FC = () => {
         <button
           type="button"
           onClick={() => setShowDeleteModal(true)}
-          className="py-2.5 px-4 bg-[#FF3366]/10 hover:bg-[#FF3366]/20 border border-[#FF3366]/40 text-[#FF3366] font-mono text-xs uppercase font-bold tracking-wider rounded-lg transition-colors flex-shrink-0"
+          className="py-2.5 px-4 bg-[#FF3366]/10 hover:bg-[#FF3366]/20 border border-[#FF3366]/40 text-[#FF3366] font-mono text-xs uppercase font-bold tracking-wider rounded-lg transition-colors shrink-0"
         >
           Excluir Conta
         </button>

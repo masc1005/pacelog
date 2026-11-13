@@ -10,6 +10,9 @@ export interface CyclingMetrics {
   elevationGainMeters?: number;
   averageHeartRate?: number;
   maxHeartRate?: number;
+  /** @deprecated Use gearId. Mantido para sessões antigas. */
   bikeId?: string;
+  /** Bicicleta vinculada. null = nenhuma. */
+  gearId?: string | null;
   notes?: string;
 }

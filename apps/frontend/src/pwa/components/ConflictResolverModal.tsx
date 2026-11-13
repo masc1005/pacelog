@@ -38,7 +38,7 @@ export const ConflictResolverModal: React.FC = () => {
       <div className="w-full max-w-md bg-[#0D1C2D] border border-yellow-500/30 rounded-[4px] shadow-2xl flex flex-col gap-0 overflow-hidden">
         {/* Header */}
         <div className="flex items-start gap-3 px-5 py-4 border-b border-[#1F2937]">
-          <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <AlertTriangle className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" aria-hidden="true" />
           <div>
             <h2 id="conflict-title" className="font-display text-sm font-bold text-[#D4E4FA] uppercase tracking-wide">
               Conflito de dados detectado
@@ -69,7 +69,7 @@ export const ConflictResolverModal: React.FC = () => {
             onClick={() => resolveConflict(conflict.queueItem.id, 'server')}
             className="group flex items-start gap-3 w-full text-left p-3 border border-[#1F2937] hover:border-[#38BDF8]/50 hover:bg-[#38BDF8]/5 rounded-[4px] transition-all"
           >
-            <Server className="w-4 h-4 text-[#38BDF8] mt-0.5 flex-shrink-0" aria-hidden="true" />
+            <Server className="w-4 h-4 text-[#38BDF8] mt-0.5 shrink-0" aria-hidden="true" />
             <div>
               <p className="font-mono text-xs font-bold text-[#D4E4FA] group-hover:text-[#38BDF8] transition-colors">
                 Manter versão do servidor
@@ -83,7 +83,7 @@ export const ConflictResolverModal: React.FC = () => {
             onClick={() => resolveConflict(conflict.queueItem.id, 'local')}
             className="group flex items-start gap-3 w-full text-left p-3 border border-[#1F2937] hover:border-[#D4F684]/50 hover:bg-[#D4F684]/5 rounded-[4px] transition-all"
           >
-            <Smartphone className="w-4 h-4 text-[#D4F684] mt-0.5 flex-shrink-0" aria-hidden="true" />
+            <Smartphone className="w-4 h-4 text-[#D4F684] mt-0.5 shrink-0" aria-hidden="true" />
             <div>
               <p className="font-mono text-xs font-bold text-[#D4E4FA] group-hover:text-[#D4F684] transition-colors">
                 Usar minha versão local

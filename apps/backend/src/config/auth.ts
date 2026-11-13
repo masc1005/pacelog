@@ -31,6 +31,7 @@ export const auth = betterAuth({
     env.APP_ORIGIN,
     'https://pacelog-staging.pages.dev',
     'https://*.pages.dev',
+    'https://*.onrender.com',
     'https://*.railway.app',
     'https://*.vercel.app',
     'http://localhost:5173',

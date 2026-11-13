@@ -41,6 +41,12 @@ export const InsightsPage: React.FC = () => {
     async function loadInsights() {
       try {
         const data = await apiClient<AIInsightDTO[]>('/api/insights');
+        if (data?.length) {
+          console.info(
+            '[Gemini AI] Insights History loaded:',
+            data.map(i => ({ id: i.id, type: i.type, modelUsed: i.modelUsed ?? 'n/a' }))
+          );
+        }
         setInsights(data);
       } catch (err) {
         console.error('Falha ao carregar insights', err);
@@ -123,7 +129,7 @@ export const InsightsPage: React.FC = () => {
               <Card className="flex-1 p-5 bg-[#0D1C2D] border-[#1F2937] hover:border-[#454839] transition-colors flex flex-col gap-3">
                 <div className="flex items-start justify-between">
                   <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-display text-lg font-bold text-[#D4E4FA]">
                         {insight.type === 'daily_progress' && (
                           <span className="block text-[#D4E4FA]">
@@ -141,6 +147,11 @@ export const InsightsPage: React.FC = () => {
                       <Badge variant={getBadgeVariant(insight.type)} size="sm">
                         {new Date(insight.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                       </Badge>
+                      {insight.modelUsed && (
+                        <span className="font-mono text-[9px] text-[#8F9380] uppercase tracking-wider">
+                          • {insight.modelUsed}
+                        </span>
+                      )}
                     </div>
                   </div>
                   

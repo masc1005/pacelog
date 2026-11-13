@@ -67,7 +67,7 @@ export const DeleteLocalDataModal: React.FC<DeleteLocalDataModalProps> = ({ onCl
             Esta ação apagará o cache de preferências, dados temporários e bancos offline armazenados exclusivamente neste navegador.
           </p>
           <div className="p-3 bg-[#161C24] border border-[#1F2937] rounded-lg flex items-center gap-2.5 text-[#D4E4FA]">
-            <AlertTriangle className="w-4 h-4 text-[#FFB800] flex-shrink-0" />
+            <AlertTriangle className="w-4 h-4 text-[#FFB800] shrink-0" />
             <span>Seus dados salvos no servidor PACELOG permanecerão 100% seguros.</span>
           </div>
         </div>

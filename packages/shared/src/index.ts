@@ -33,7 +33,7 @@ export * from './jiujitsu/jiujitsu.types.js';
 import { JiuJitsuMetrics } from './jiujitsu/jiujitsu.types.js';
 
 // Tênis / Shoes Tracker
-export * from './shoes/index.js';
+export * from './gear/index.js';
 
 export const SPORT_KEYS = [
   'running',
@@ -80,7 +80,10 @@ export interface RunningMetrics {
   maxHeartRate?: number;
   cadenceAvg?: number;
   splits?: SplitMarker[];
+  /** @deprecated Use gearId. Mantido para sessões antigas. */
   shoeId?: string;
+  /** Equipamento vinculado (tênis). null = nenhum. */
+  gearId?: string | null;
   surface?: RunningSurface;
   runningType?: RunningType;
   elevationMeters?: number; // Alias ou complemento de elevationGainMeters para fins de histórico
@@ -130,6 +133,8 @@ export interface BoxingMetrics {
   punchesThrownEstimate?: number;
   sparring?: boolean;
   focusArea?: 'bag_work' | 'sparring' | 'pad_work' | 'technique' | 'conditioning';
+  /** Luvas vinculadas. null = nenhuma. */
+  gearId?: string | null;
   notes?: string;
 }
 
@@ -394,8 +399,9 @@ export interface WeeklyReportDTO {
 export interface AIInsightDTO extends BaseEntity {
   userId: string;
   content: string;
-  type: 'daily_coach' | 'daily_progress' | 'recovery_warning' | 'milestone_celebration' | 'session_analysis';
+  type: 'daily_coach' | 'daily_progress' | 'recovery_warning' | 'milestone_celebration' | 'session_analysis' | 'strength_session_analysis';
   sessionId?: string;
+  modelUsed?: string;
 }
 
 // ==========================================
@@ -560,4 +566,93 @@ export const updateGoalSchema = z.object({
   celebrationShown: z.boolean().optional(),
 });
 
+// ==========================================
+// MÓDULO DE CRONOGRAMA SEMANAL (WEEKLY SCHEDULE)
+// ==========================================
 
+export interface WeeklyScheduleWorkoutItem {
+  id: string;
+  sportKey: SportKey;
+  title?: string;
+  routineId?: string;
+  routineName?: string;
+  targetDurationMinutes?: number;
+  plannedTime?: string; // HH:mm
+  notes?: string;
+}
+
+export interface WeeklyScheduleDayPlan {
+  weekday: number; // 0 = Segunda-feira, 1 = Terça-feira, ..., 5 = Sábado, 6 = Domingo
+  isRestDay: boolean;
+  workouts: WeeklyScheduleWorkoutItem[];
+}
+
+export interface WeeklyScheduleDTO extends BaseEntity {
+  userId: string;
+  days: WeeklyScheduleDayPlan[];
+}
+
+export const weeklyScheduleWorkoutItemSchema = z.object({
+  id: z.string().optional(),
+  sportKey: z.enum(SPORT_KEYS),
+  title: z.string().max(100).optional(),
+  routineId: z.string().optional(),
+  routineName: z.string().max(100).optional(),
+  targetDurationMinutes: z.number().int().min(5).max(600).optional(),
+  plannedTime: z.string().max(10).optional(),
+  notes: z.string().max(300).optional(),
+});
+
+export const updateWeeklyScheduleDaySchema = z.object({
+  weekday: z.number().int().min(0).max(6),
+  isRestDay: z.boolean().default(false),
+  workouts: z.array(weeklyScheduleWorkoutItemSchema).default([]),
+});
+export type UpdateWeeklyScheduleDayInput = z.infer<typeof updateWeeklyScheduleDaySchema>;
+
+export const updateWeeklyScheduleSchema = z.object({
+  days: z.array(updateWeeklyScheduleDaySchema).min(1).max(7),
+});
+export type UpdateWeeklyScheduleInput = z.infer<typeof updateWeeklyScheduleSchema>;
+
+// ==========================================
+// MÓDULO DE CHECK-IN DIÁRIO DE PRONTIDÃO (DAILY READINESS)
+// ==========================================
+
+export const READINESS_STATUSES = ['prime', 'ready', 'moderate', 'recover'] as const;
+export type ReadinessStatus = (typeof READINESS_STATUSES)[number];
+
+export interface DailyReadinessDTO extends BaseEntity {
+  userId: string;
+  dateKey: string; // YYYY-MM-DD
+  sleepQuality: number; // 1 a 5 (1 = Ruim, 5 = Excelente)
+  sleepHours?: number;
+  muscleRecovery: number; // 1 a 5 (1 = Muita dor/DOMS, 5 = 100% recuperado)
+  energyLevel: number; // 1 a 5 (1 = Exausto, 5 = Energia máxima)
+  focusLevel: number; // 1 a 5 (1 = Alto estresse, 5 = Focado/Calmo)
+  bodyWeightKg?: number;
+  readinessScore: number; // 0 a 100
+  readinessStatus: ReadinessStatus;
+  recommendation: string;
+  notes?: string;
+}
+
+export interface DailyReadinessOverviewDTO {
+  today: DailyReadinessDTO | null;
+  history: DailyReadinessDTO[];
+}
+
+export const upsertDailyReadinessSchema = z.object({
+  dateKey: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD')
+    .optional(),
+  sleepQuality: z.number().int().min(1).max(5),
+  sleepHours: z.number().min(0).max(24).optional(),
+  muscleRecovery: z.number().int().min(1).max(5),
+  energyLevel: z.number().int().min(1).max(5),
+  focusLevel: z.number().int().min(1).max(5).default(3),
+  bodyWeightKg: z.number().positive().max(350).optional(),
+  notes: z.string().max(300).optional(),
+});
+export type UpsertDailyReadinessInput = z.infer<typeof upsertDailyReadinessSchema>;

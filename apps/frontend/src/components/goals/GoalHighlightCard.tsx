@@ -125,7 +125,7 @@ export const GoalHighlightCard: React.FC = () => {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <div
-            className="w-8 h-8 rounded-[4px] bg-[#161C24] flex items-center justify-center border flex-shrink-0"
+            className="w-8 h-8 rounded-[4px] bg-[#161C24] flex items-center justify-center border shrink-0"
             style={{ borderColor: `${color}40` }}
           >
             <Icon className="w-4 h-4" style={{ color }} />
@@ -150,7 +150,7 @@ export const GoalHighlightCard: React.FC = () => {
           </div>
         </div>
 
-        <div className="font-mono text-sm font-bold text-[#D4E4FA] flex-shrink-0">
+        <div className="font-mono text-sm font-bold text-[#D4E4FA] shrink-0">
           {progressPercent}%
         </div>
       </div>

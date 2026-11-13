@@ -13,6 +13,9 @@ export const AICoachWidget: React.FC = () => {
     async function loadInsight() {
       try {
         const data = await apiClient<AIInsightDTO>('/api/insights/daily');
+        if (data) {
+          console.info(`[Gemini AI] Coach Widget — model executed: ${data.modelUsed ?? 'cache / deterministic'}`);
+        }
         setInsight(data);
       } catch (error) {
         console.error('Failed to load AI Insight', error);
@@ -46,11 +49,11 @@ export const AICoachWidget: React.FC = () => {
 
       <div className="relative p-5 sm:p-6 flex flex-col sm:flex-row gap-5 items-start">
         {/* Icon & Badge Area */}
-        <div className="flex-shrink-0 flex flex-col gap-2">
+        <div className="shrink-0 flex flex-col gap-2">
           <div className="w-10 h-10 rounded-full bg-[#161C24] border border-[#D4F684]/30 flex items-center justify-center text-[#D4F684] shadow-[0_0_15px_rgba(212,246,132,0.15)]">
             <Sparkles className="h-5 w-5" />
           </div>
-          <Badge variant="sage" size="sm" className="whitespace-nowrap font-mono text-[9px] uppercase tracking-widest mt-1 justify-center border-none bg-[#D4F684]/10 text-[#D4F684]">
+          <Badge variant="sage" size="sm" className="text-nowrap font-mono text-[9px] uppercase tracking-widest mt-1 justify-center border-none bg-[#D4F684]/10 text-[#D4F684]">
             IA TÁTICA
           </Badge>
         </div>
@@ -68,7 +71,7 @@ export const AICoachWidget: React.FC = () => {
             <div className="flex items-center gap-1.5 text-[#8F9380]">
               <Activity className="h-3.5 w-3.5" />
               <span className="font-mono text-[10px] uppercase tracking-wider">
-                Motor Gemini IA
+                Motor Gemini IA{insight.modelUsed ? ` • ${insight.modelUsed}` : ''}
               </span>
             </div>
           </div>
