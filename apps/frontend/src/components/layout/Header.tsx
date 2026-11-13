@@ -47,7 +47,7 @@ export const Header: React.FC<HeaderProps> = () => {
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-[#0B1117]/90 backdrop-blur-md border-b border-[#1F2937] px-4 lg:px-8 py-3 transition-all">
+    <header className="sticky top-0 z-40 w-full bg-[#0B1117]/95 backdrop-blur-md border-b border-[#1F2937] px-4 lg:px-8 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 transition-all">
       <div className="max-w-6xl mx-auto flex items-center justify-between">
         {/* Brand */}
         <Link to="/" className="flex items-center gap-3 group">

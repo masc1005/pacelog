@@ -118,6 +118,18 @@
   color-scheme: dark;
 }
 
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #08090c;
+  overscroll-behavior-y: none;
+}
+
 select {
   color-scheme: dark;
   background-color: #0d1c2d;

@@ -52,7 +52,11 @@ const STATUS_META: Record<
 
 const PILL_LEVELS = [1, 2, 3, 4, 5] as const;
 
-export const DailyReadinessCard: React.FC = () => {
+interface DailyReadinessCardProps {
+  compact?: boolean;
+}
+
+export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact = false }) => {
   const { success, error: toastError } = useToast();
   const [todayEntry, setTodayEntry] = useState<DailyReadinessDTO | null>(null);
   const [history, setHistory] = useState<DailyReadinessDTO[]>([]);
@@ -136,7 +140,7 @@ export const DailyReadinessCard: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Card className="p-5 bg-[#0D1C2D] border-[#1F2937] animate-pulse">
+      <Card className={`${compact ? 'p-3' : 'p-5'} bg-[#0D1C2D] border-[#1F2937] animate-pulse`}>
         <div className="h-4 w-44 bg-[#1F2937] rounded mb-3" />
         <div className="h-16 bg-[#161C24] rounded" />
       </Card>
@@ -148,7 +152,7 @@ export const DailyReadinessCard: React.FC = () => {
     : STATUS_META.ready;
 
   return (
-    <Card className="p-5 bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-4">
+    <Card className={`${compact ? 'p-3' : 'p-5'} bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-4`}>
       {/* Cabeçalho */}
       <div className="flex items-center justify-between border-b border-[#1F2937] pb-3">
         <div className="flex items-center gap-2.5">
@@ -158,7 +162,7 @@ export const DailyReadinessCard: React.FC = () => {
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <h2 className="font-mono text-xs font-bold text-[#D4E4FA] uppercase tracking-widest">
-                Prontidão & Recuperação Diária
+                  Prontidão de hoje
               </h2>
               {todayEntry && !isEditing && (
                 <Badge variant={activeStatusMeta.badge} size="sm">
@@ -166,9 +170,11 @@ export const DailyReadinessCard: React.FC = () => {
                 </Badge>
               )}
             </div>
-            <span className="font-mono text-[10px] text-[#8F9380]">
-              Check-in fisiológico rápido (Sono, DOMS, Energia) integrado à IA
-            </span>
+            {!compact && (
+              <span className="font-mono text-[10px] text-[#8F9380]">
+                Check-in fisiológico rápido (Sono, DOMS, Energia) integrado à IA
+              </span>
+            )}
           </div>
         </div>
 
@@ -186,6 +192,30 @@ export const DailyReadinessCard: React.FC = () => {
 
       {/* Visão consolidada quando já respondeu hoje */}
       {todayEntry && !isEditing ? (
+        compact ? (
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span
+                className="font-display text-2xl font-bold"
+                style={{ color: activeStatusMeta.color }}
+              >
+                {todayEntry.readinessScore}%
+              </span>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-[#C5C8B4] truncate">
+                {activeStatusMeta.label}
+              </span>
+            </div>
+            <div className="h-1.5 flex-1 max-w-40 rounded-full bg-[#161C24] overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${todayEntry.readinessScore}%`,
+                  backgroundColor: activeStatusMeta.color,
+                }}
+              />
+            </div>
+          </div>
+        ) : (
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
             {/* Score Principal */}
@@ -301,6 +331,7 @@ export const DailyReadinessCard: React.FC = () => {
             )}
           </div>
         </div>
+        )
       ) : (
         /* Formulário de Check-in Rápido (30 segundos) */
         <form onSubmit={handleSave} className="flex flex-col gap-3.5">
