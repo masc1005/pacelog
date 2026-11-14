@@ -103,6 +103,7 @@ export class StrengthAIService {
             key: e.key,
             name: e.name,
             primaryMuscleGroup: e.primaryMuscleGroup,
+            secondaryMuscleGroups: e.secondaryMuscleGroups,
             equipment: e.equipment,
             type: e.type,
           }))
@@ -110,6 +111,7 @@ export class StrengthAIService {
             key: e.key,
             name: e.name,
             primaryMuscleGroup: e.primaryMuscleGroup,
+            secondaryMuscleGroups: [],
             equipment: e.equipment,
             type: e.type,
           }));
@@ -144,6 +146,26 @@ export class StrengthAIService {
     // 3. Filtrar catálogo candidato para enviar um prompt enxuto e rápido
     const requestedMuscles = (input.muscleGroups || []).filter(Boolean);
     const requestedEquipment = (input.equipment || []).filter(Boolean);
+    const soreRegions = (input.soreRegions ?? latestReadiness?.soreRegions ?? []).map((region) =>
+      region.toLowerCase()
+    );
+    const soreAliases: Record<string, string[]> = {
+      core: ['abdomen', 'lombar'],
+      pegada: ['antebracos', 'costas', 'biceps'],
+      joelhos: ['quadriceps', 'posteriores', 'gluteos'],
+      lombar: ['costas', 'posteriores', 'gluteos'],
+    };
+    const exerciseOverloadsSoreRegion = (exercise: { primaryMuscleGroup: string; secondaryMuscleGroups?: string[] }) => {
+      const exerciseGroups = [
+        exercise.primaryMuscleGroup,
+        ...(exercise.secondaryMuscleGroups ?? []),
+      ];
+      return soreRegions.some((region) =>
+        [region, ...(soreAliases[region] ?? [])].some((blocked) =>
+          exerciseGroups.includes(blocked)
+        )
+      );
+    };
 
     let candidateExercises = catalog;
     if (requestedMuscles.length > 0) {
@@ -162,6 +184,12 @@ export class StrengthAIService {
         candidateExercises = filtered;
       }
     }
+    if (soreRegions.length > 0) {
+      const protectedExercises = candidateExercises.filter(
+        (exercise) => !exerciseOverloadsSoreRegion(exercise)
+      );
+      if (protectedExercises.length >= 3) candidateExercises = protectedExercises;
+    }
 
     const durationMinutes = input.durationMinutes ?? 45;
     const goal = input.goal ?? 'hypertrophy';
@@ -177,7 +205,7 @@ export class StrengthAIService {
             ? 0.9
             : 1;
     const readinessContext = latestReadiness || readinessScore !== undefined
-      ? `Score ${readinessScore ?? latestReadiness?.readinessScore}/100 — Recuperação Muscular: ${muscleRecovery ?? latestReadiness?.muscleRecovery}/5. Multiplicador de volume: ${readinessMultiplier}.`
+      ? `Score ${readinessScore ?? latestReadiness?.readinessScore}/100 — Recuperação Muscular: ${muscleRecovery ?? latestReadiness?.muscleRecovery}/5. Multiplicador de volume: ${readinessMultiplier}. Regiões protegidas: ${soreRegions.join(', ') || 'nenhuma'}.`
       : 'Check-in de prontidão não registrado hoje.';
 
     // 4. Tentar gerar com padrão gemini-3.8-flash e fallback gemini-3.5-flash-lite
@@ -207,6 +235,7 @@ REGRAS OBRIGATÓRIAS:
   - ~60 min: 5 a 7 exercícios
   - ~75+ min: 6 a 8 exercícios
 - Se o atleta não especificou grupamentos musculares nem pedido livre, analise os últimos treinos dele e sugira uma sessão complementar lógica (ex.: se treinou Peito/Tríceps por último, sugira Costas/Bíceps ou Pernas).
+- Nunca selecione exercícios cujo grupo primário ou secundário sobrecarregue as regiões protegidas por dor: ${soreRegions.join(', ') || 'nenhuma'}.
 
 PARÂMETROS DO ATLETA:
 - Pedido livre / foco específico: ${input.prompt?.trim() ? `"${input.prompt.trim()}"` : 'Nenhum pedido específico'}
@@ -309,6 +338,7 @@ Retorne APENAS um JSON válido com a estrutura:
         primaryMuscleGroup: string;
         equipment: string;
         type: string;
+        secondaryMuscleGroups?: string[];
       }
     >,
     latestCompletedSetsByExercise: Map<string, any[]>

@@ -12,6 +12,8 @@ import {
   getLoadTimelineController,
   getTimelineController,
   getWeightHistoryController,
+  getMuscleFatigueMapController,
+  getDeloadNeedController,
 } from './progress.controller.js';
 
 export const progressRoutes = Router();
@@ -40,3 +42,5 @@ progressRoutes.get('/load', getLoadTimelineController);
 progressRoutes.get('/by-sport/:sportKey', getSportProgressV2Controller);
 progressRoutes.get('/timeline', getTimelineController);
 progressRoutes.get('/weight-history', getWeightHistoryController);
+progressRoutes.get('/muscle-fatigue', getMuscleFatigueMapController);
+progressRoutes.get('/deload', getDeloadNeedController);

@@ -18,6 +18,8 @@ const workoutItemSchema = new Schema(
     targetDurationMinutes: { type: Number, min: 5, max: 600 },
     plannedTime: { type: String, maxlength: 10 },
     notes: { type: String, maxlength: 300 },
+    volumeMultiplier: { type: Number, min: 0.1, max: 1 },
+    targetRpe: { type: Number, min: 1, max: 10 },
   },
   { _id: false }
 );

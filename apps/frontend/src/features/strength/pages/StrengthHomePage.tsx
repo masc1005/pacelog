@@ -10,6 +10,7 @@ import { useToast } from '../../../contexts/ToastContext';
 import { AIWorkoutBuilderCard } from '../components/AIWorkoutBuilderCard';
 import { Dumbbell, ArrowLeft, Play, Bookmark, Trash2, Layers } from 'lucide-react';
 import type { StrengthRoutineDTO, GeneratedStrengthWorkoutDTO } from '@pacelog/shared';
+import { MuscleFatigueTelemetry } from '../../../components/progress/MuscleFatigueTelemetry';
 
 /**
  * Ponto de entrada do módulo de musculação.
@@ -232,6 +233,7 @@ export const StrengthHomePage: React.FC = () => {
         onRoutineSaved={(newRoutine) => setRoutines((prev) => [newRoutine, ...prev])}
         disabled={isStarting || !!startingRoutineId}
       />
+      <MuscleFatigueTelemetry compact />
 
       {/* Seção de Fichas / Templates de Treino */}
       <section className="flex flex-col gap-3">

@@ -210,3 +210,33 @@ export async function getWeightHistoryController(
     next(error);
   }
 }
+
+export async function getMuscleFatigueMapController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    res.status(200).json({
+      success: true,
+      data: await progressService.getMuscleFatigueMap(req.userId!),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getDeloadNeedController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    res.status(200).json({
+      success: true,
+      data: await progressService.checkDeloadNeed(req.userId!),
+    });
+  } catch (error) {
+    next(error);
+  }
+}

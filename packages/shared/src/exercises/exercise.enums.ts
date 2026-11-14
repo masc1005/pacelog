@@ -15,6 +15,25 @@ export const MUSCLE_GROUPS = [
 ] as const;
 export type MuscleGroup = (typeof MUSCLE_GROUPS)[number];
 
+export const BODY_REGIONS = [
+  'ombros',
+  'peito',
+  'costas',
+  'lombar',
+  'quadriceps',
+  'posteriores',
+  'gluteos',
+  'joelhos',
+  'panturrilhas',
+  'core',
+  'abdomen',
+  'biceps',
+  'triceps',
+  'antebracos',
+  'pegada',
+] as const;
+export type BodyRegion = (typeof BODY_REGIONS)[number];
+
 export const EQUIPMENT_TYPES = [
   'barra',
   'halteres',

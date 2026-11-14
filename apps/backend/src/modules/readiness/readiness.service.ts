@@ -171,6 +171,7 @@ export class DailyReadinessService {
           focusLevel: input.focusLevel ?? 3,
           bodyWeightKg: weightKg,
           weightKg,
+          soreRegions: input.soreRegions ?? [],
           readinessScore,
           readinessStatus,
           recommendation,

@@ -57,3 +57,16 @@ export async function updateFullScheduleController(
     next(error);
   }
 }
+
+export async function activateDeloadController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const schedule = await weeklyScheduleService.activateDeloadMode(req.userId!);
+    res.status(200).json({ success: true, data: schedule.toJSON() });
+  } catch (error) {
+    next(error);
+  }
+}

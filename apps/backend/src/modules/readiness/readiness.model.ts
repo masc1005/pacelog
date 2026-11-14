@@ -16,6 +16,7 @@ export interface IDailyReadinessDocument extends Document {
   focusLevel: number;
   bodyWeightKg?: number;
   weightKg?: number;
+  soreRegions?: string[];
   readinessScore: number;
   readinessStatus: ReadinessStatus;
   recommendation: string;
@@ -36,6 +37,7 @@ const dailyReadinessSchema = new Schema<IDailyReadinessDocument>(
     focusLevel: { type: Number, required: true, min: 1, max: 5, default: 3 },
     bodyWeightKg: { type: Number, min: 20, max: 350 },
     weightKg: { type: Number, min: 20, max: 350 },
+    soreRegions: { type: [String], default: [] },
     readinessScore: { type: Number, required: true, min: 0, max: 100 },
     readinessStatus: {
       type: String,

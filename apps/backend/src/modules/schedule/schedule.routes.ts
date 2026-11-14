@@ -9,6 +9,7 @@ import {
   getScheduleController,
   updateScheduleDayController,
   updateFullScheduleController,
+  activateDeloadController,
 } from './schedule.controller.js';
 
 export const scheduleRoutes = Router();
@@ -22,6 +23,8 @@ scheduleRoutes.put(
   validate(updateWeeklyScheduleDaySchema),
   updateScheduleDayController
 );
+
+scheduleRoutes.post('/deload', activateDeloadController);
 
 scheduleRoutes.put(
   '/',
