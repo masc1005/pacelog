@@ -30,6 +30,11 @@ import { SportDistributionCard } from '../../components/progress/SportDistributi
 // ==========================================
 
 type Tab = 'overview' | 'load' | 'sports';
+type WeightHistory = {
+  points: Array<{ dateKey: string; weightKg: number }>;
+  currentWeightKg: number | null;
+  deltaKg: number;
+};
 
 const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
   { key: 'overview', label: 'Visão geral', icon: Activity },
@@ -48,22 +53,25 @@ export const ProgressPage: React.FC = () => {
   const [summary, setSummary] = useState<ProgressSummaryDTO | null>(null);
   const [loadData, setLoadData] = useState<ProgressLoadDTO | null>(null);
   const [comparison, setComparison] = useState<ProgressComparisonDTO | null>(null);
+  const [weightHistory, setWeightHistory] = useState<WeightHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [overviewData, summaryData, loadTimeline, compData] = await Promise.all([
+        const [overviewData, summaryData, loadTimeline, compData, weightData] = await Promise.all([
           apiClient<ProgressOverviewDTO>('/api/progress/overview').catch(() => null),
           apiClient<ProgressSummaryDTO>('/api/progress/summary').catch(() => null),
           apiClient<ProgressLoadDTO>('/api/progress/load').catch(() => null),
           apiClient<ProgressComparisonDTO>('/api/progress/comparison?period=30').catch(() => null),
+          apiClient<WeightHistory>('/api/progress/weight-history').catch(() => null),
         ]);
         if (overviewData) setData(overviewData);
         if (summaryData) setSummary(summaryData);
         if (loadTimeline) setLoadData(loadTimeline);
         if (compData) setComparison(compData);
+        if (weightData) setWeightHistory(weightData);
       } catch (err: any) {
         setError(err.message || 'Erro ao carregar telemetria');
       } finally {
@@ -158,6 +166,41 @@ export const ProgressPage: React.FC = () => {
       ========================================== */}
       {activeTab === 'overview' && (
         <div className="flex flex-col gap-6">
+          {weightHistory?.currentWeightKg !== null && weightHistory && (
+            <Card className="p-5 border-[#1F2937]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-display text-sm font-bold text-[#C5C8B4] uppercase tracking-wider">
+                    Evolução de Peso Corporal
+                  </h2>
+                  <p className="font-mono text-2xl text-[#D4E4FA] mt-2">
+                    {weightHistory.currentWeightKg.toFixed(1)} kg
+                  </p>
+                </div>
+                <span className={`font-mono text-sm ${weightHistory.deltaKg <= 0 ? 'text-[#D4F684]' : 'text-[#FFB800]'}`}>
+                  {weightHistory.deltaKg > 0 ? '+' : ''}{weightHistory.deltaKg.toFixed(1)} kg
+                </span>
+              </div>
+              <div className="flex items-end gap-1 h-10 mt-4">
+                {weightHistory.points.map((point) => (
+                  <div
+                    key={point.dateKey}
+                    className="flex-1 min-w-[3px] bg-[#5CA9E6] rounded-t"
+                    style={{
+                      height: `${Math.max(
+                        15,
+                        ((point.weightKg - Math.min(...weightHistory.points.map((p) => p.weightKg)) + 1) /
+                          (Math.max(...weightHistory.points.map((p) => p.weightKg)) -
+                            Math.min(...weightHistory.points.map((p) => p.weightKg)) + 1)) *
+                          85
+                      )}%`,
+                    }}
+                    title={`${point.dateKey}: ${point.weightKg} kg`}
+                  />
+                ))}
+              </div>
+            </Card>
+          )}
           {/* Evolução por esporte (comparação de períodos) */}
           {comparison && comparison.sports.length > 0 && (
             <div className="flex flex-col gap-4">

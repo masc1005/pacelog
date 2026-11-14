@@ -175,11 +175,12 @@ export class SettingsService {
   async updateSport(
     userId: string,
     sportKey: string,
-    input: { isActive?: boolean; metricsConfig?: SportMetricConfig[] }
+    input: { isActive?: boolean; defaultGearId?: string | null; metricsConfig?: SportMetricConfig[] }
   ): Promise<UserSportDTO> {
     const updateObj: Record<string, any> = {};
     if (input.isActive !== undefined) updateObj.isActive = input.isActive;
     if (input.metricsConfig !== undefined) updateObj.metricsConfig = input.metricsConfig;
+    if (input.defaultGearId !== undefined) updateObj.defaultGearId = input.defaultGearId;
 
     const updated = await UserSportModel.findOneAndUpdate(
       { userId, sportKey },
@@ -263,6 +264,7 @@ export class SettingsService {
       icon: sport.icon,
       color: sport.color,
       isActive: sport.isActive,
+      defaultGearId: sport.defaultGearId ?? null,
       metricsConfig: sport.metricsConfig || [],
       createdAt: sport.createdAt,
       updatedAt: sport.updatedAt,

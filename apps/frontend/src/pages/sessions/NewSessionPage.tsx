@@ -13,6 +13,7 @@ import { RpeSelector } from '../../components/ui/RpeSelector';
 import { useSyncQueue } from '../../pwa/hooks/useSyncQueue';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useSettings } from '../../hooks/useSettings';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity },
@@ -30,6 +31,7 @@ export const NewSessionPage: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
   const { addToast } = useToast();
+  const { userSports } = useSettings();
   const { enqueue } = useSyncQueue();
   const stateKey = (location.state as { sportKey?: SportKey } | null)?.sportKey;
 
@@ -45,6 +47,7 @@ export const NewSessionPage: React.FC = () => {
 
   // Dynamic metrics state
   const [metrics, setMetrics] = useState<Record<string, any>>({});
+  const defaultGearId = userSports.find((sport) => sport.sportKey === sportKey)?.defaultGearId;
 
   // Setup metric defaults when sportKey is pre-selected from sheet
   useEffect(() => {
@@ -305,6 +308,7 @@ export const NewSessionPage: React.FC = () => {
                 
                 <GearPicker 
                   categories={['running_shoe']}
+                  defaultGearId={defaultGearId}
                   value={metrics.gearId ?? metrics.shoeId}
                   onChange={gearId => setMetrics({...metrics, gearId, shoeId: gearId || undefined})}
                   label="Tênis Usado"
@@ -448,6 +452,7 @@ export const NewSessionPage: React.FC = () => {
 
                 <GearPicker
                   categories={['bike']}
+                  defaultGearId={defaultGearId}
                   value={metrics.gearId ?? metrics.bikeId}
                   onChange={gearId => setMetrics({...metrics, gearId, bikeId: gearId || undefined})}
                   label="Bicicleta Usada"
@@ -574,6 +579,7 @@ export const NewSessionPage: React.FC = () => {
 
                 <GearPicker
                   categories={metrics.gi === false ? ['rashguard'] : ['jiujitsu_gi']}
+                  defaultGearId={defaultGearId}
                   value={metrics.gearId}
                   onChange={gearId => setMetrics({...metrics, gearId})}
                   label={metrics.gi === false ? 'Rashguard Usada' : 'Kimono Usado'}
@@ -640,6 +646,7 @@ export const NewSessionPage: React.FC = () => {
 
                 <GearPicker
                   categories={['boxing_gloves']}
+                  defaultGearId={defaultGearId}
                   value={metrics.gearId}
                   onChange={gearId => setMetrics({...metrics, gearId})}
                   label="Luvas de Boxe Usadas"

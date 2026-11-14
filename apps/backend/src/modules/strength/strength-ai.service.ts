@@ -166,8 +166,18 @@ export class StrengthAIService {
     const durationMinutes = input.durationMinutes ?? 45;
     const goal = input.goal ?? 'hypertrophy';
 
-    const readinessContext = latestReadiness
-      ? `Score ${latestReadiness.readinessScore}/100 (${latestReadiness.readinessStatus}) em ${latestReadiness.dateKey} — Sono: ${latestReadiness.sleepQuality}/5, Recuperação Muscular: ${latestReadiness.muscleRecovery}/5, Energia: ${latestReadiness.energyLevel}/5.`
+    const readinessScore = input.readinessScore ?? latestReadiness?.readinessScore;
+    const muscleRecovery = input.muscleRecovery ?? latestReadiness?.muscleRecovery;
+    const readinessMultiplier =
+      muscleRecovery !== undefined && muscleRecovery <= 2
+        ? 0.75
+        : readinessScore !== undefined && readinessScore < 60
+          ? 0.75
+          : readinessScore !== undefined && readinessScore < 80
+            ? 0.9
+            : 1;
+    const readinessContext = latestReadiness || readinessScore !== undefined
+      ? `Score ${readinessScore ?? latestReadiness?.readinessScore}/100 — Recuperação Muscular: ${muscleRecovery ?? latestReadiness?.muscleRecovery}/5. Multiplicador de volume: ${readinessMultiplier}.`
       : 'Check-in de prontidão não registrado hoje.';
 
     // 4. Tentar gerar com padrão gemini-3.8-flash e fallback gemini-3.5-flash-lite
@@ -240,7 +250,10 @@ Retorne APENAS um JSON válido com a estrutura:
           const validated = aiGeneratedWorkoutSchema.parse(parsedJson);
 
           const mappedExercises = this.hydrateExercisesWithCatalogAndGhostLoads(
-            validated.exercises,
+            validated.exercises.map((exercise) => ({
+              ...exercise,
+              setsCount: Math.max(1, Math.round(exercise.setsCount * readinessMultiplier)),
+            })),
             catalogByKey,
             latestCompletedSetsByExercise
           );
@@ -273,7 +286,7 @@ Retorne APENAS um JSON válido com a estrutura:
 
     // 5. Fallback determinístico caso a API falhe
     return this.buildDeterministicFallback(
-      input,
+      { ...input, readinessScore, muscleRecovery },
       candidateExercises,
       catalogByKey,
       latestCompletedSetsByExercise
@@ -354,6 +367,14 @@ Retorne APENAS um JSON válido com a estrutura:
     const goal = input.goal ?? 'hypertrophy';
     const defaultReps = goal === 'strength' ? 6 : goal === 'endurance' ? 15 : 10;
     const defaultRest = goal === 'strength' ? 120 : goal === 'endurance' ? 60 : 90;
+    const volumeMultiplier =
+      input.muscleRecovery !== undefined && input.muscleRecovery <= 2
+        ? 0.75
+        : input.readinessScore !== undefined && input.readinessScore < 60
+          ? 0.75
+          : input.readinessScore !== undefined && input.readinessScore < 80
+            ? 0.9
+            : 1;
 
     // Ordena compostos primeiro, depois isoladores
     const sorted = [...candidateExercises].sort((a, b) => {
@@ -364,7 +385,7 @@ Retorne APENAS um JSON válido com a estrutura:
 
     const selected = sorted.slice(0, targetCount).map((c) => ({
       exerciseKey: c.key,
-      setsCount: c.type === 'compound' ? 4 : 3,
+      setsCount: Math.max(1, Math.round((c.type === 'compound' ? 4 : 3) * volumeMultiplier)),
       targetReps: defaultReps,
       restSeconds: defaultRest,
       notes:

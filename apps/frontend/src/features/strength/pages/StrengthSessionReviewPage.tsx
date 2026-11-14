@@ -13,7 +13,8 @@ export const StrengthSessionReviewPage: React.FC = () => {
 
   const [session, setSession] = useState<CompletedStrengthSession | null>(completedFromState ?? null);
   const [isLoading, setIsLoading] = useState(!completedFromState);
-  const [isSaving] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveAsRoutine, setSaveAsRoutine] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isEmptySession, setIsEmptySession] = useState(false);
 
@@ -59,7 +60,19 @@ export const StrengthSessionReviewPage: React.FC = () => {
     navigate('/strength/active');
   }
 
-  function handleSave() {
+  async function handleSave() {
+    if (saveAsRoutine && session) {
+      setIsSaving(true);
+      try {
+        await strengthApi.createRoutine({
+          name: `Treino de ${new Date(session.startedAt).toLocaleDateString('pt-BR')}`,
+          description: 'Rotina salva a partir de uma sessão concluída.',
+          sessionId: session.id,
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    }
     // Sessão já está salva no backend (status = completed e sincronizada no SessionModel).
     // Redireciona para o histórico unificado de treinos (/sessions).
     navigate('/sessions', { replace: true });
@@ -152,6 +165,15 @@ export const StrengthSessionReviewPage: React.FC = () => {
         onEdit={handleEdit}
         isSaving={isSaving}
       />
+      <label className="flex items-center gap-2 mt-3 font-mono text-xs text-[#C5C8B4]">
+        <input
+          type="checkbox"
+          checked={saveAsRoutine}
+          onChange={(event) => setSaveAsRoutine(event.target.checked)}
+          className="accent-[#D4F684]"
+        />
+        Salvar este treino como rotina
+      </label>
     </div>
   );
 };

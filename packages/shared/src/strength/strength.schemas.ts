@@ -110,6 +110,10 @@ export const createStrengthRoutineSchema = z.object({
   exercises: z.array(routineExerciseTemplateSchema).optional(),
 });
 export type CreateStrengthRoutineInput = z.infer<typeof createStrengthRoutineSchema>;
+export const updateStrengthRoutineSchema = createStrengthRoutineSchema.partial().extend({
+  exercises: z.array(routineExerciseTemplateSchema).optional(),
+});
+export type UpdateStrengthRoutineInput = z.infer<typeof updateStrengthRoutineSchema>;
 
 export const generateStrengthWorkoutInputSchema = z.object({
   prompt: z.string().max(500).optional(),
@@ -117,6 +121,8 @@ export const generateStrengthWorkoutInputSchema = z.object({
   durationMinutes: z.number().int().min(15).max(180).optional().default(45),
   equipment: z.array(z.string().max(50)).optional(),
   goal: z.enum(['hypertrophy', 'strength', 'endurance', 'full_body']).optional().default('hypertrophy'),
+  readinessScore: z.number().min(0).max(100).optional(),
+  muscleRecovery: z.number().int().min(1).max(5).optional(),
 });
 export type GenerateStrengthWorkoutInput = z.infer<typeof generateStrengthWorkoutInputSchema>;
 

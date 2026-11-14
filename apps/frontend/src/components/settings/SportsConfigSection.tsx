@@ -5,6 +5,8 @@ import { AddCustomSportModal } from './AddCustomSportModal';
 import { SportMetricsConfigModal } from './SportMetricsConfigModal';
 import { Plus, Sliders, Activity, Flame, Sun, Zap, Dumbbell, Waves, Bike, Shield, Trophy } from 'lucide-react';
 import type { UserSportDTO } from '@pacelog/shared';
+import { gearApi } from '../../services/gear.api';
+import type { Gear } from '@pacelog/shared';
 
 const ICON_MAP: Record<string, any> = {
   Activity,
@@ -22,6 +24,18 @@ export const SportsConfigSection: React.FC = () => {
   const { userSports, updateSport } = useSettings();
   const [showAddCustomModal, setShowAddCustomModal] = useState(false);
   const [selectedSportToConfig, setSelectedSportToConfig] = useState<UserSportDTO | null>(null);
+  const [gear, setGear] = useState<Gear[]>([]);
+
+  React.useEffect(() => {
+    gearApi.getGear(false).then(setGear).catch(() => setGear([]));
+  }, []);
+
+  const gearCategoryBySport: Record<string, string[]> = {
+    running: ['running_shoe'],
+    cycling: ['bike'],
+    boxing: ['boxing_gloves'],
+    jiujitsu: ['jiujitsu_gi', 'rashguard'],
+  };
 
   const handleToggleSport = async (sport: UserSportDTO) => {
     try {
@@ -89,6 +103,29 @@ export const SportsConfigSection: React.FC = () => {
                   <span className="font-mono text-[10px] text-[#8F9380]">
                     {sport.metricsConfig?.filter((m) => m.visible).length || 0} métricas ativas
                   </span>
+                  {(gearCategoryBySport[sport.sportKey] ?? []).length > 0 && (
+                    <select
+                      value={sport.defaultGearId ?? ''}
+                      onChange={(event) =>
+                        updateSport(sport.sportKey, {
+                          defaultGearId: event.target.value || null,
+                        })
+                      }
+                      className="mt-2 max-w-[190px] bg-[#161C24] border border-[#1F2937] rounded px-2 py-1 text-[10px] font-mono text-[#C5C8B4]"
+                      aria-label={`Equipamento padrão de ${sport.displayName}`}
+                    >
+                      <option value="">Sem equipamento padrão</option>
+                      {gear
+                        .filter((item) =>
+                          (gearCategoryBySport[sport.sportKey] ?? []).includes(item.category)
+                        )
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.model}
+                          </option>
+                        ))}
+                    </select>
+                  )}
                 </div>
               </div>
 

@@ -440,6 +440,7 @@ export interface UserSportDTO extends BaseEntity {
   icon: string;
   color: string;
   isActive: boolean;
+  defaultGearId?: string | null;
   metricsConfig: SportMetricConfig[];
 }
 
@@ -501,6 +502,7 @@ export const createCustomSportSchema = z.object({
 
 export const updateSportMetricsSchema = z.object({
   isActive: z.boolean().optional(),
+  defaultGearId: z.string().nullable().optional(),
   metricsConfig: z.array(
     z.object({
       metricKey: z.string(),
@@ -621,6 +623,14 @@ export type UpdateWeeklyScheduleInput = z.infer<typeof updateWeeklyScheduleSchem
 
 export const READINESS_STATUSES = ['prime', 'ready', 'moderate', 'recover'] as const;
 export type ReadinessStatus = (typeof READINESS_STATUSES)[number];
+export const TRAINING_RECOMMENDATION_STATUSES = ['optimal', 'moderate', 'recovery'] as const;
+export type TrainingRecommendationStatus = (typeof TRAINING_RECOMMENDATION_STATUSES)[number];
+
+export interface TrainingRecommendation {
+  status: TrainingRecommendationStatus;
+  volumeMultiplier: number;
+  advice: string;
+}
 
 export interface DailyReadinessDTO extends BaseEntity {
   userId: string;
@@ -631,9 +641,11 @@ export interface DailyReadinessDTO extends BaseEntity {
   energyLevel: number; // 1 a 5 (1 = Exausto, 5 = Energia máxima)
   focusLevel: number; // 1 a 5 (1 = Alto estresse, 5 = Focado/Calmo)
   bodyWeightKg?: number;
+  weightKg?: number;
   readinessScore: number; // 0 a 100
   readinessStatus: ReadinessStatus;
   recommendation: string;
+  trainingRecommendation?: TrainingRecommendation;
   notes?: string;
 }
 
@@ -653,6 +665,7 @@ export const upsertDailyReadinessSchema = z.object({
   energyLevel: z.number().int().min(1).max(5),
   focusLevel: z.number().int().min(1).max(5).default(3),
   bodyWeightKg: z.number().positive().max(350).optional(),
+  weightKg: z.number().positive().max(350).optional(),
   notes: z.string().max(300).optional(),
 });
 export type UpsertDailyReadinessInput = z.infer<typeof upsertDailyReadinessSchema>;
