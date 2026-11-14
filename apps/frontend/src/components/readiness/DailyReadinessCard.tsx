@@ -152,7 +152,21 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
     : STATUS_META.ready;
 
   return (
-    <Card className={`${compact ? 'p-3' : 'p-5'} bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-4`}>
+    <>
+      {compact && isEditing && (
+        <div
+          className="fixed inset-0 z-[55] bg-black/70 backdrop-blur-sm"
+          onClick={() => todayEntry && setIsEditing(false)}
+          aria-hidden="true"
+        />
+      )}
+      <Card
+        className={`${compact ? 'p-3' : 'p-5'} ${
+          compact && isEditing
+            ? 'fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-[60] max-h-[calc(100dvh-1.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-y-auto'
+            : ''
+        } bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-4`}
+      >
       {/* Cabeçalho */}
       <div className="flex items-center justify-between border-b border-[#1F2937] pb-3">
         <div className="flex items-center gap-2.5">
@@ -165,9 +179,11 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
                   Prontidão de hoje
               </h2>
               {todayEntry && !isEditing && (
-                <Badge variant={activeStatusMeta.badge} size="sm">
-                  {todayEntry.readinessScore}% • {activeStatusMeta.label}
-                </Badge>
+                <button type="button" onClick={() => compact && setIsEditing(true)}>
+                  <Badge variant={activeStatusMeta.badge} size="sm">
+                    {todayEntry.readinessScore}% • {activeStatusMeta.label}
+                  </Badge>
+                </button>
               )}
             </div>
             {!compact && (
@@ -193,7 +209,12 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
       {/* Visão consolidada quando já respondeu hoje */}
       {todayEntry && !isEditing ? (
         compact ? (
-          <div className="flex items-center justify-between gap-3">
+          <div
+            className="flex items-center justify-between gap-3"
+            onClick={() => compact && setIsEditing(true)}
+            role={compact ? 'button' : undefined}
+            tabIndex={compact ? 0 : undefined}
+          >
             <div className="flex items-center gap-3 min-w-0">
               <span
                 className="font-display text-2xl font-bold"
@@ -337,7 +358,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
         <form onSubmit={handleSave} className="flex flex-col gap-3.5">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* 1. Qualidade do Sono */}
-            <div className="p-3 rounded bg-[#161C24] border border-[#1F2937] flex flex-col gap-2">
+            <div className="p-2 rounded bg-[#161C24] border border-[#1F2937] flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[10px] uppercase text-[#C5C8B4] flex items-center gap-1">
                   <Moon className="h-3 w-3 text-[#5CA9E6]" /> Qualidade do Sono
@@ -352,7 +373,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
                     key={lvl}
                     type="button"
                     onClick={() => setSleepQuality(lvl)}
-                    className={`py-1.5 rounded font-mono text-xs font-bold border transition-colors ${
+                    className={`py-1 rounded font-mono text-xs font-bold border transition-colors ${
                       sleepQuality === lvl
                         ? 'bg-[#5CA9E6]/20 border-[#5CA9E6] text-[#D4E4FA]'
                         : 'bg-[#0D1C2D] border-[#1F2937] text-[#8F9380] hover:text-[#C5C8B4]'
@@ -368,7 +389,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
             </div>
 
             {/* 2. Recuperação Muscular (DOMS) */}
-            <div className="p-3 rounded bg-[#161C24] border border-[#1F2937] flex flex-col gap-2">
+            <div className="p-2 rounded bg-[#161C24] border border-[#1F2937] flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[10px] uppercase text-[#C5C8B4] flex items-center gap-1">
                   <Dumbbell className="h-3 w-3 text-[#A855F7]" /> Recup. Muscular
@@ -383,7 +404,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
                     key={lvl}
                     type="button"
                     onClick={() => setMuscleRecovery(lvl)}
-                    className={`py-1.5 rounded font-mono text-xs font-bold border transition-colors ${
+                    className={`py-1 rounded font-mono text-xs font-bold border transition-colors ${
                       muscleRecovery === lvl
                         ? 'bg-[#A855F7]/20 border-[#A855F7] text-[#D4E4FA]'
                         : 'bg-[#0D1C2D] border-[#1F2937] text-[#8F9380] hover:text-[#C5C8B4]'
@@ -399,7 +420,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
             </div>
 
             {/* 3. Energia Disponível */}
-            <div className="p-3 rounded bg-[#161C24] border border-[#1F2937] flex flex-col gap-2">
+            <div className="p-2 rounded bg-[#161C24] border border-[#1F2937] flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[10px] uppercase text-[#C5C8B4] flex items-center gap-1">
                   <BatteryCharging className="h-3 w-3 text-[#D4F684]" /> Energia
@@ -414,7 +435,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
                     key={lvl}
                     type="button"
                     onClick={() => setEnergyLevel(lvl)}
-                    className={`py-1.5 rounded font-mono text-xs font-bold border transition-colors ${
+                    className={`py-1 rounded font-mono text-xs font-bold border transition-colors ${
                       energyLevel === lvl
                         ? 'bg-[#D4F684]/20 border-[#D4F684] text-[#D4F684]'
                         : 'bg-[#0D1C2D] border-[#1F2937] text-[#8F9380] hover:text-[#C5C8B4]'
@@ -430,7 +451,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
             </div>
 
             {/* 4. Foco / Controle de Estresse */}
-            <div className="p-3 rounded bg-[#161C24] border border-[#1F2937] flex flex-col gap-2">
+            <div className="p-2 rounded bg-[#161C24] border border-[#1F2937] flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[10px] uppercase text-[#C5C8B4] flex items-center gap-1">
                   <Brain className="h-3 w-3 text-[#FFB800]" /> Foco & Mente
@@ -445,7 +466,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
                     key={lvl}
                     type="button"
                     onClick={() => setFocusLevel(lvl)}
-                    className={`py-1.5 rounded font-mono text-xs font-bold border transition-colors ${
+                    className={`py-1 rounded font-mono text-xs font-bold border transition-colors ${
                       focusLevel === lvl
                         ? 'bg-[#FFB800]/20 border-[#FFB800] text-[#D4E4FA]'
                         : 'bg-[#0D1C2D] border-[#1F2937] text-[#8F9380] hover:text-[#C5C8B4]'
@@ -524,6 +545,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
           </div>
         </form>
       )}
-    </Card>
+      </Card>
+    </>
   );
 };

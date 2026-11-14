@@ -10,6 +10,34 @@ interface AICoachWidgetProps {
   compact?: boolean;
 }
 
+function extractHeadline(content: string): string {
+  const source = content.trim();
+  const jsonSource = source.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
+  if (jsonSource.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(jsonSource) as { headline?: unknown };
+      if (typeof parsed.headline === 'string' && parsed.headline.trim()) {
+        return parsed.headline.trim();
+      }
+    } catch {
+      // Conteúdo truncado: usa a extração tolerante abaixo.
+    }
+  }
+
+  const headlineMatch = jsonSource.match(/"headline"\s*:\s*"([\s\S]*?)(?:"\s*[,}]|$)/i);
+  if (headlineMatch?.[1]) {
+    return headlineMatch[1].replace(/\\"/g, '"').trim();
+  }
+
+  return jsonSource
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/^\{\s*"headline"\s*:\s*"/i, '')
+    .replace(/"\s*,?\s*"[^"]*"\s*:\s*[\s\S]*\}?$/i, '')
+    .replace(/[{}"]/g, '')
+    .trim();
+}
+
 export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ compact = false }) => {
   const [insight, setInsight] = useState<AIInsightDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,7 +91,7 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ compact = false })
             Coach IA
           </span>
           <p className={`font-sans text-xs text-[#C5C8B4] truncate ${isExpanded ? 'whitespace-normal' : ''}`}>
-            {insight.content}
+            {extractHeadline(insight.content)}
           </p>
           <Link
             to="/insights"

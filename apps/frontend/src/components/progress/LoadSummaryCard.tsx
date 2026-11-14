@@ -61,9 +61,11 @@ export const LoadSummaryCard: React.FC<LoadSummaryCardProps> = ({
             sRPE-TL · {load.unit}
           </p>
         </div>
-        <span className={`font-mono text-[10px] border rounded-full px-2 py-0.5 ${badge.color}`}>
-          {badge.label}
-        </span>
+        {!compact && (
+          <span className={`font-mono text-[10px] border rounded-full px-2 py-0.5 ${badge.color}`}>
+            {badge.label}
+          </span>
+        )}
       </div>
 
       {/* Valor principal */}
