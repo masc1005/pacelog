@@ -1,5 +1,10 @@
 import mongoose, { Document, Schema } from 'mongoose';
-import { READINESS_STATUSES, type ReadinessStatus } from '@pacelog/shared';
+import {
+  READINESS_STATUSES,
+  TRAINING_RECOMMENDATION_STATUSES,
+  type ReadinessStatus,
+  type TrainingRecommendation,
+} from '@pacelog/shared';
 
 export interface IDailyReadinessDocument extends Document {
   userId: string;
@@ -10,9 +15,11 @@ export interface IDailyReadinessDocument extends Document {
   energyLevel: number;
   focusLevel: number;
   bodyWeightKg?: number;
+  weightKg?: number;
   readinessScore: number;
   readinessStatus: ReadinessStatus;
   recommendation: string;
+  trainingRecommendation?: TrainingRecommendation;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -28,6 +35,7 @@ const dailyReadinessSchema = new Schema<IDailyReadinessDocument>(
     energyLevel: { type: Number, required: true, min: 1, max: 5 },
     focusLevel: { type: Number, required: true, min: 1, max: 5, default: 3 },
     bodyWeightKg: { type: Number, min: 20, max: 350 },
+    weightKg: { type: Number, min: 20, max: 350 },
     readinessScore: { type: Number, required: true, min: 0, max: 100 },
     readinessStatus: {
       type: String,
@@ -36,6 +44,11 @@ const dailyReadinessSchema = new Schema<IDailyReadinessDocument>(
       default: 'ready',
     },
     recommendation: { type: String, required: true, maxlength: 400 },
+    trainingRecommendation: {
+      status: { type: String, enum: TRAINING_RECOMMENDATION_STATUSES },
+      volumeMultiplier: { type: Number, min: 0, max: 1 },
+      advice: { type: String, maxlength: 200 },
+    },
     notes: { type: String, maxlength: 300 },
   },
   {

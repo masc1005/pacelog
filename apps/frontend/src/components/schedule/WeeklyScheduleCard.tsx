@@ -25,6 +25,7 @@ import { scheduleApi } from '../../services/schedule.api';
 import { strengthApi } from '../../services/strength.api';
 import { useToast } from '../../contexts/ToastContext';
 import { randomUUID } from '../../lib/utils';
+import { readinessApi } from '../../services/readiness.api';
 import type {
   SportKey,
   WeeklyScheduleDTO,
@@ -85,6 +86,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
   const [schedule, setSchedule] = useState<WeeklyScheduleDTO | null>(null);
   const [routines, setRoutines] = useState<StrengthRoutineDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [todayReadiness, setTodayReadiness] = useState<Awaited<ReturnType<typeof readinessApi.getOverview>>['today']>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // Estado do formulário de adicionar treino ao dia
@@ -100,10 +102,12 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
     Promise.all([
       scheduleApi.getSchedule().catch(() => null),
       strengthApi.listRoutines().catch(() => []),
+      readinessApi.getOverview().catch(() => null),
     ])
-      .then(([schedData, routinesData]) => {
+      .then(([schedData, routinesData, readinessData]) => {
         if (schedData) setSchedule(schedData);
         if (routinesData) setRoutines(routinesData);
+        if (readinessData) setTodayReadiness(readinessData.today);
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -492,6 +496,19 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
                                 Concluído
                               </Badge>
                             )}
+                            {selectedWeekday === todayWeekday &&
+                              workout.sportKey === 'strength' &&
+                              todayReadiness?.trainingRecommendation?.status !== 'optimal' && (
+                                <span className="font-mono text-[10px] text-[#FFB800] bg-[#FFB800]/10 border border-[#FFB800]/30 rounded px-1.5 py-0.5">
+                                  Sugestão: -
+                                  {Math.round(
+                                    (1 -
+                                      (todayReadiness?.trainingRecommendation?.volumeMultiplier ?? 1)) *
+                                      100
+                                  )}
+                                  % volume
+                                </span>
+                              )}
                           </div>
 
                           <div className="flex items-center gap-2 font-mono text-[10px] text-[#8F9380] mt-0.5 flex-wrap">

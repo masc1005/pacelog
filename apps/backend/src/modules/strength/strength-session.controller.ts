@@ -115,6 +115,22 @@ export async function deleteRoutineController(
   }
 }
 
+export async function startRoutineController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const session = await strengthSessionService.startSession(req.userId!, {
+      ...(req.body ?? {}),
+      routineId: p(req.params.id),
+    });
+    res.status(201).json({ success: true, data: session.toJSON() });
+  } catch (error) {
+    next(error);
+  }
+}
+
 // ==========================================
 // SESSÃO
 // ==========================================

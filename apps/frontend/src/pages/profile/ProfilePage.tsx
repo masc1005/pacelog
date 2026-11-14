@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
 import { User, Settings, LogOut, Download, Sliders, Ruler, Bell, ChevronRight } from 'lucide-react';
@@ -7,6 +7,14 @@ import { Link } from 'react-router-dom';
 
 export const ProfilePage: React.FC = () => {
   const { user, signOut } = useAuth();
+  const [weightKg, setWeightKg] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch('/api/profile', { credentials: 'include' })
+      .then((response) => response.json())
+      .then((payload) => setWeightKg(payload.profile?.currentWeightKg ?? null))
+      .catch(() => setWeightKg(null));
+  }, []);
 
   return (
     <div className="flex flex-col gap-6 font-sans max-w-2xl mx-auto w-full pb-12">
@@ -39,6 +47,11 @@ export const ProfilePage: React.FC = () => {
           <span className="font-mono text-[10px] bg-[#161C24] text-[#D4F684] px-2 py-0.5 rounded-[2px] w-fit mt-2 border border-[#1F2937]">
             PACELOG PRO
           </span>
+          {weightKg !== null && (
+            <span className="font-mono text-xs text-[#5CA9E6] mt-2">
+              Peso atual: {weightKg.toFixed(1)} kg
+            </span>
+          )}
         </div>
       </Card>
 

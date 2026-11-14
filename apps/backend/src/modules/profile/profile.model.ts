@@ -5,6 +5,7 @@ export interface IProfile extends Document {
   userId: string;
   name: string;
   bio?: string;
+  currentWeightKg?: number;
   avatarUrl?: string;
   unitSystem: 'metric' | 'imperial';
   timezone: string;
@@ -37,6 +38,11 @@ const profileSchema = new Schema<IProfile>(
       type: String,
       maxlength: 500,
       trim: true,
+    },
+    currentWeightKg: {
+      type: Number,
+      min: 20,
+      max: 350,
     },
     avatarUrl: {
       type: String,

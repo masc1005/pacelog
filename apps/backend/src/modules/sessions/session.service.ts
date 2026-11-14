@@ -18,6 +18,7 @@ import { gearService } from '../gear/gear.service.js';
 import { calculateActiveStreak } from '../progress/streak.service.js';
 import { getGearImpact } from '@pacelog/shared';
 import type { SessionSummaryDTO, SportKey, SportSummaryStats } from '@pacelog/shared';
+import { UserSportModel } from '../settings/userSport.model.js';
 
 export class SessionService {
   /**
@@ -29,6 +30,16 @@ export class SessionService {
   ): Promise<ISessionDocument> {
     // 1. Enriquecer métricas de acordo com o esporte (pace de corrida, volume de musculação, rounds de boxe)
     const enrichedMetrics = enrichSportMetrics(input.sportKey, input.metrics);
+    if (!enrichedMetrics.gearId && !enrichedMetrics.shoeId) {
+      const sport = await UserSportModel.findOne({
+        userId,
+        sportKey: input.sportKey,
+        isActive: true,
+      })
+        .select('defaultGearId')
+        .lean();
+      if (sport?.defaultGearId) enrichedMetrics.gearId = sport.defaultGearId;
+    }
 
     // 2. Determinar a duração total em segundos da sessão
     let durationSeconds: number = Number(input.durationSeconds) || 0;

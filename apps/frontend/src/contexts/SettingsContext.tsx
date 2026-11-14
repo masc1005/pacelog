@@ -29,7 +29,7 @@ interface SettingsContextType {
   }) => Promise<UserSportDTO>;
   updateSport: (
     sportKey: string,
-    input: { isActive?: boolean; metricsConfig?: SportMetricConfig[] }
+    input: { isActive?: boolean; defaultGearId?: string | null; metricsConfig?: SportMetricConfig[] }
   ) => Promise<UserSportDTO>;
   restoreSportMetrics: (sportKey: string) => Promise<UserSportDTO>;
   // Formatters

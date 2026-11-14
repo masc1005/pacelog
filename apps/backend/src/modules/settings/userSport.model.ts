@@ -27,6 +27,7 @@ const userSportSchema = new Schema<IUserSport>(
     icon: { type: String, default: 'Activity' },
     color: { type: String, default: '#D4F684' },
     isActive: { type: Boolean, default: true },
+    defaultGearId: { type: String, default: null },
     metricsConfig: { type: [sportMetricConfigSchema], default: [] },
   },
   { timestamps: true }

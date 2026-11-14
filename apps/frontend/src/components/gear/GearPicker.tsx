@@ -16,6 +16,7 @@ interface GearPickerProps {
   onChange: (gearId: string | null) => void;
   label?: string;
   autoSelectDefault?: boolean;
+  defaultGearId?: string | null;
 }
 
 export const GearPicker: React.FC<GearPickerProps> = ({
@@ -24,6 +25,7 @@ export const GearPicker: React.FC<GearPickerProps> = ({
   onChange,
   label,
   autoSelectDefault = true,
+  defaultGearId,
 }) => {
   const [items, setItems] = useState<Gear[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -45,7 +47,8 @@ export const GearPicker: React.FC<GearPickerProps> = ({
 
         // Pré-seleciona padrão apenas se solicitado e se nenhum valor estiver definido
         if (autoSelectDefault && (value === undefined || value === null) && filtered.length > 0) {
-          const defaultItem = filtered.find((g) => g.isDefault);
+          const defaultItem =
+            filtered.find((g) => g.id === defaultGearId) ?? filtered.find((g) => g.isDefault);
           if (defaultItem) {
             onChange(defaultItem.id);
           }

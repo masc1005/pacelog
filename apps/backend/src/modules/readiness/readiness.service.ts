@@ -3,8 +3,10 @@ import {
   type IDailyReadinessDocument,
 } from './readiness.model.js';
 import { SessionModel } from '../sessions/session.model.js';
+import { ProfileModel } from '../profile/profile.model.js';
 import type {
   ReadinessStatus,
+  TrainingRecommendation,
   UpsertDailyReadinessInput,
 } from '@pacelog/shared';
 
@@ -33,6 +35,7 @@ export function computeReadinessMetrics(input: {
   readinessScore: number;
   readinessStatus: ReadinessStatus;
   recommendation: string;
+  trainingRecommendation: TrainingRecommendation;
 } {
   const weightedRaw =
     input.sleepQuality * 0.35 +
@@ -59,6 +62,24 @@ export function computeReadinessMetrics(input: {
 
   let recommendation = '';
   const highRecentLoad = (input.recentAcuteLoad ?? 0) > 1800;
+  const trainingRecommendation: TrainingRecommendation =
+    input.muscleRecovery <= 2 || readinessScore < 60
+      ? {
+          status: 'recovery',
+          volumeMultiplier: 0.75,
+          advice: 'Reduza o volume e a intensidade hoje para favorecer a recuperação.',
+        }
+      : readinessScore >= 80
+        ? {
+            status: 'optimal',
+            volumeMultiplier: 1,
+            advice: 'Mantenha a carga planejada e aproveite a boa prontidão.',
+          }
+        : {
+            status: 'moderate',
+            volumeMultiplier: 0.9,
+            advice: 'Modere o ritmo e mantenha o treino abaixo da falha hoje.',
+          };
 
   if (readinessStatus === 'prime') {
     recommendation = highRecentLoad
@@ -83,6 +104,7 @@ export function computeReadinessMetrics(input: {
     readinessScore,
     readinessStatus,
     recommendation,
+    trainingRecommendation,
   };
 }
 
@@ -111,6 +133,7 @@ export class DailyReadinessService {
     input: UpsertDailyReadinessInput
   ): Promise<IDailyReadinessDocument> {
     const targetDate = input.dateKey || getTodayDateKey();
+    const weightKg = input.weightKg ?? input.bodyWeightKg;
 
     // Consulta carga aguda dos últimos 7 dias para contextualizar recomendação
     const sevenDaysAgo = new Date();
@@ -128,7 +151,7 @@ export class DailyReadinessService {
       0
     );
 
-    const { readinessScore, readinessStatus, recommendation } =
+    const { readinessScore, readinessStatus, recommendation, trainingRecommendation } =
       computeReadinessMetrics({
         sleepQuality: input.sleepQuality,
         muscleRecovery: input.muscleRecovery,
@@ -146,15 +169,28 @@ export class DailyReadinessService {
           muscleRecovery: input.muscleRecovery,
           energyLevel: input.energyLevel,
           focusLevel: input.focusLevel ?? 3,
-          bodyWeightKg: input.bodyWeightKg,
+          bodyWeightKg: weightKg,
+          weightKg,
           readinessScore,
           readinessStatus,
           recommendation,
+          trainingRecommendation,
           notes: input.notes?.trim() || undefined,
         },
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
+
+    if (weightKg !== undefined) {
+      await ProfileModel.findOneAndUpdate(
+        { userId },
+        {
+          $set: { currentWeightKg: weightKg },
+          $setOnInsert: { userId, name: 'Atleta' },
+        },
+        { upsert: true, setDefaultsOnInsert: true }
+      );
+    }
 
     return updated;
   }

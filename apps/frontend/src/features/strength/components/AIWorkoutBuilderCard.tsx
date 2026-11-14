@@ -4,6 +4,7 @@ import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { strengthApi } from '../../../services/strength.api';
+import { readinessApi } from '../../../services/readiness.api';
 import { useToast } from '../../../contexts/ToastContext';
 import type {
   GeneratedStrengthWorkoutDTO,
@@ -75,11 +76,14 @@ export const AIWorkoutBuilderCard: React.FC<AIWorkoutBuilderCardProps> = ({
     if (isGenerating) return;
     setIsGenerating(true);
     try {
+      const readiness = await readinessApi.getOverview().catch(() => null);
       const result = await strengthApi.generateWorkoutWithAI({
         prompt: customPrompt.trim() || undefined,
         muscleGroups: selectedMuscles.length > 0 ? selectedMuscles : undefined,
         durationMinutes,
         goal,
+        readinessScore: readiness?.today?.readinessScore,
+        muscleRecovery: readiness?.today?.muscleRecovery,
       });
       setGeneratedWorkout(result);
     } catch (err: any) {

@@ -156,6 +156,8 @@ export type StrengthRoutineDTO = {
   updatedAt: string;
 };
 
+export type StrengthRoutine = StrengthRoutineDTO;
+
 // ==========================================
 // IA PERSONAL TRAINER (GERADOR DE TREINO)
 // ==========================================

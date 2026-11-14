@@ -11,6 +11,7 @@ import {
   getSportProgressV2Controller,
   getLoadTimelineController,
   getTimelineController,
+  getWeightHistoryController,
 } from './progress.controller.js';
 
 export const progressRoutes = Router();
@@ -38,3 +39,4 @@ progressRoutes.get('/comparison', getComparisonController);
 progressRoutes.get('/load', getLoadTimelineController);
 progressRoutes.get('/by-sport/:sportKey', getSportProgressV2Controller);
 progressRoutes.get('/timeline', getTimelineController);
+progressRoutes.get('/weight-history', getWeightHistoryController);

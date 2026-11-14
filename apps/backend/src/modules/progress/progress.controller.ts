@@ -194,3 +194,19 @@ export async function getTimelineController(
     next(error);
   }
 }
+
+export async function getWeightHistoryController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const periodDays = req.query.period ? Number(req.query.period) : 42;
+    res.status(200).json({
+      success: true,
+      data: await progressService.getWeightHistory(req.userId!, periodDays),
+    });
+  } catch (error) {
+    next(error);
+  }
+}

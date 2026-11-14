@@ -7,6 +7,7 @@ import {
   listRoutinesController,
   createRoutineController,
   deleteRoutineController,
+  startRoutineController,
   startSessionController,
   getActiveSessionController,
   getSessionByIdController,
@@ -70,6 +71,7 @@ strengthRoutes.post(
   createRoutineController
 );
 strengthRoutes.delete('/routines/:id', deleteRoutineController);
+strengthRoutes.post('/routines/:id/start', startRoutineController);
 
 // ==========================================
 // SESSÕES

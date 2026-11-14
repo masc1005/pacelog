@@ -1,4 +1,5 @@
 import { SessionModel } from '../sessions/session.model.js';
+import { DailyReadinessModel } from '../readiness/readiness.model.js';
 import type {
   SportKey,
   ProgressOverviewDTO,
@@ -72,6 +73,36 @@ function buildSportLabel(sportKey: SportKey): string {
 // ==========================================
 
 export class ProgressService {
+  async getWeightHistory(userId: string, periodDays = 42): Promise<{
+    points: Array<{ dateKey: string; weightKg: number }>;
+    currentWeightKg: number | null;
+    deltaKg: number;
+  }> {
+    const start = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
+    const entries = await DailyReadinessModel.find({
+      userId,
+      dateKey: { $gte: start.toISOString().slice(0, 10) },
+      $or: [
+        { bodyWeightKg: { $exists: true, $ne: null } },
+        { weightKg: { $exists: true, $ne: null } },
+      ],
+    })
+      .sort({ dateKey: 1 })
+      .select('dateKey bodyWeightKg')
+      .lean();
+    const points = entries.map((entry) => ({
+      dateKey: entry.dateKey,
+      weightKg: Number(entry.weightKg ?? entry.bodyWeightKg),
+    }));
+    return {
+      points,
+      currentWeightKg: points.at(-1)?.weightKg ?? null,
+      deltaKg:
+        points.length > 1
+          ? Number((points.at(-1)!.weightKg - points[0].weightKg).toFixed(2))
+          : 0,
+    };
+  }
   /**
    * GET /api/progress/comparison
    * Novo endpoint para o dashboard V2: ranking de evolução, eficiência e comparativos relativos.

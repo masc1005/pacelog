@@ -62,6 +62,12 @@ export const strengthApi = {
       body: JSON.stringify(input),
     }),
 
+  startRoutine: (routineId: string, input: Omit<StartStrengthSessionInput, 'routineId'> = {}) =>
+    apiClient<ActiveStrengthSession>(`${BASE}/routines/${routineId}/start`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
   getActiveSession: () =>
     apiClient<ActiveStrengthSession | null>(`${BASE}/sessions/active`),
 
