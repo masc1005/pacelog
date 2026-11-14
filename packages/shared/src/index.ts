@@ -581,6 +581,8 @@ export interface WeeklyScheduleWorkoutItem {
   targetDurationMinutes?: number;
   plannedTime?: string; // HH:mm
   notes?: string;
+  volumeMultiplier?: number;
+  targetRpe?: number;
 }
 
 export interface WeeklyScheduleDayPlan {
@@ -603,6 +605,8 @@ export const weeklyScheduleWorkoutItemSchema = z.object({
   targetDurationMinutes: z.number().int().min(5).max(600).optional(),
   plannedTime: z.string().max(10).optional(),
   notes: z.string().max(300).optional(),
+  volumeMultiplier: z.number().min(0.1).max(1).optional(),
+  targetRpe: z.number().min(1).max(10).optional(),
 });
 
 export const updateWeeklyScheduleDaySchema = z.object({
@@ -642,6 +646,7 @@ export interface DailyReadinessDTO extends BaseEntity {
   focusLevel: number; // 1 a 5 (1 = Alto estresse, 5 = Focado/Calmo)
   bodyWeightKg?: number;
   weightKg?: number;
+  soreRegions?: string[];
   readinessScore: number; // 0 a 100
   readinessStatus: ReadinessStatus;
   recommendation: string;
@@ -666,6 +671,7 @@ export const upsertDailyReadinessSchema = z.object({
   focusLevel: z.number().int().min(1).max(5).default(3),
   bodyWeightKg: z.number().positive().max(350).optional(),
   weightKg: z.number().positive().max(350).optional(),
+  soreRegions: z.array(z.string().min(1).max(40)).max(12).optional(),
   notes: z.string().max(300).optional(),
 });
 export type UpsertDailyReadinessInput = z.infer<typeof upsertDailyReadinessSchema>;

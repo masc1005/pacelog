@@ -35,6 +35,7 @@ interface LoadSummaryCardProps {
   load: LoadSummary;
   className?: string;
   compact?: boolean;
+  deloadNeed?: { needed: boolean; reasons: string[] };
 }
 
 /**
@@ -45,6 +46,7 @@ export const LoadSummaryCard: React.FC<LoadSummaryCardProps> = ({
   load,
   className = '',
   compact = false,
+  deloadNeed,
 }) => {
   const varColor = variationColor(load.status);
   const badge = confidenceBadge(load.confidence);
@@ -89,6 +91,11 @@ export const LoadSummaryCard: React.FC<LoadSummaryCardProps> = ({
       )}
 
       {/* Status message */}
+      {deloadNeed?.needed && (
+        <div className="rounded border border-[#FFB800]/40 bg-[#FFB800]/10 px-3 py-2 font-mono text-[10px] text-[#FFB800]">
+          Semana de deload recomendada: {deloadNeed.reasons.join('; ')}.
+        </div>
+      )}
       {!compact && (
         <p className="font-sans text-sm text-[#8F9380] leading-relaxed">
           {load.statusMessage}

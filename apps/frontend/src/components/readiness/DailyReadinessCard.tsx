@@ -51,6 +51,18 @@ const STATUS_META: Record<
 };
 
 const PILL_LEVELS = [1, 2, 3, 4, 5] as const;
+const SORE_REGION_OPTIONS = [
+  ['ombros', 'Ombros'],
+  ['peito', 'Peito'],
+  ['costas', 'Costas'],
+  ['lombar', 'Lombar'],
+  ['quadriceps', 'Quadríceps'],
+  ['posteriores', 'Posterior de coxa'],
+  ['joelhos', 'Joelhos'],
+  ['panturrilhas', 'Panturrilhas'],
+  ['core', 'Core'],
+  ['antebracos', 'Antebraços'],
+] as const;
 
 interface DailyReadinessCardProps {
   compact?: boolean;
@@ -71,6 +83,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
   const [energyLevel, setEnergyLevel] = useState<number>(4);
   const [focusLevel, setFocusLevel] = useState<number>(4);
   const [bodyWeightKg, setBodyWeightKg] = useState<string>('');
+  const [soreRegions, setSoreRegions] = useState<string[]>([]);
 
   useEffect(() => {
     readinessApi
@@ -88,6 +101,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
           setBodyWeightKg(
             res.today.bodyWeightKg != null ? String(res.today.bodyWeightKg) : ''
           );
+          setSoreRegions(res.today.soreRegions ?? []);
         } else {
           setIsEditing(true);
         }
@@ -123,6 +137,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
         energyLevel,
         focusLevel,
         bodyWeightKg: bodyWeightKg ? Number(bodyWeightKg) : undefined,
+        soreRegions: muscleRecovery <= 2 ? soreRegions : [],
       });
       setTodayEntry(saved);
       setHistory((prev) => {
@@ -417,6 +432,33 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
               <span className="font-mono text-[9px] text-[#8F9380]">
                 1 = Muita dor (DOMS) • 5 = 100% Solto
               </span>
+              {muscleRecovery <= 2 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {SORE_REGION_OPTIONS.map(([value, label]) => {
+                    const selected = soreRegions.includes(value);
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() =>
+                          setSoreRegions((current) =>
+                            selected
+                              ? current.filter((region) => region !== value)
+                              : [...current, value]
+                          )
+                        }
+                        className={`rounded-full border px-2 py-1 font-mono text-[9px] transition-colors ${
+                          selected
+                            ? 'border-[#FF6B35] bg-[#FF6B35]/15 text-[#FFB4AB]'
+                            : 'border-[#1F2937] bg-[#0D1C2D] text-[#8F9380]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* 3. Energia Disponível */}

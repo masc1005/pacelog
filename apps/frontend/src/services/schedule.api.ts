@@ -21,4 +21,9 @@ export const scheduleApi = {
       method: 'PUT',
       body: JSON.stringify(input),
     }),
+
+  activateDeload: () =>
+    apiClient<WeeklyScheduleDTO>(`${BASE}/deload`, {
+      method: 'POST',
+    }),
 };

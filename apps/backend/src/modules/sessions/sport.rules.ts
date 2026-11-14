@@ -7,6 +7,16 @@ import type {
 } from '@pacelog/shared';
 import { enrichSwimmingMetrics } from './swimming.rules.js';
 
+export const SPORT_MUSCLE_IMPACT: Record<string, string[]> = {
+  running: ['quadriceps', 'posteriores', 'panturrilhas', 'joelhos'],
+  futevolei: ['quadriceps', 'posteriores', 'panturrilhas', 'joelhos', 'core'],
+  football: ['quadriceps', 'posteriores', 'panturrilhas', 'joelhos'],
+  cycling: ['quadriceps', 'posteriores', 'panturrilhas'],
+  boxing: ['ombros', 'costas', 'antebracos', 'pegada', 'core'],
+  jiujitsu: ['ombros', 'costas', 'antebracos', 'pegada', 'core'],
+  swimming: ['ombros', 'costas', 'peito', 'core'],
+};
+
 /**
  * Calcula a Carga Fisiológica da Sessão (Foster sRPE / TRIMP modificado).
  * Fórmula: sessionalLoad = (Duração em minutos) * RPE

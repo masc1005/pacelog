@@ -26,6 +26,7 @@ import { strengthApi } from '../../services/strength.api';
 import { useToast } from '../../contexts/ToastContext';
 import { randomUUID } from '../../lib/utils';
 import { readinessApi } from '../../services/readiness.api';
+import { apiClient } from '../../lib/api';
 import type {
   SportKey,
   WeeklyScheduleDTO,
@@ -87,6 +88,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
   const [routines, setRoutines] = useState<StrengthRoutineDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [todayReadiness, setTodayReadiness] = useState<Awaited<ReturnType<typeof readinessApi.getOverview>>['today']>(null);
+  const [fatiguedRegions, setFatiguedRegions] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   // Estado do formulário de adicionar treino ao dia
@@ -103,11 +105,15 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
       scheduleApi.getSchedule().catch(() => null),
       strengthApi.listRoutines().catch(() => []),
       readinessApi.getOverview().catch(() => null),
+      apiClient<{ regions: Array<{ region: string; status: string }> }>('/api/progress/muscle-fatigue').catch(() => null),
     ])
-      .then(([schedData, routinesData, readinessData]) => {
+      .then(([schedData, routinesData, readinessData, fatigueData]) => {
         if (schedData) setSchedule(schedData);
         if (routinesData) setRoutines(routinesData);
         if (readinessData) setTodayReadiness(readinessData.today);
+        setFatiguedRegions(
+          fatigueData?.regions.filter((region) => region.status === 'fatigued').map((region) => region.region) ?? []
+        );
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -146,6 +152,9 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
 
   const selectedWeekdayMeta =
     WEEKDAYS.find((w) => w.weekday === selectedWeekday) || WEEKDAYS[0];
+  const lowerBodyFatigued = fatiguedRegions.some((region) =>
+    ['quadriceps', 'posteriores', 'gluteos', 'panturrilhas', 'joelhos'].includes(region)
+  );
 
   const handleToggleRestDay = async () => {
     if (isSaving) return;
@@ -404,6 +413,13 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
               </Badge>
             )}
           </div>
+          {selectedWeekday === todayWeekday &&
+            currentDayPlan.workouts.some((workout) => workout.sportKey === 'strength') &&
+            lowerBodyFatigued && (
+              <div className="rounded border border-[#FFB800]/40 bg-[#FFB800]/10 px-3 py-2 font-mono text-[10px] text-[#FFB800]">
+                Interferência detectada: o treino de musculação de hoje coincide com fadiga elevada em membros inferiores.
+              </div>
+            )}
 
           <div className="flex items-center gap-2">
             <button

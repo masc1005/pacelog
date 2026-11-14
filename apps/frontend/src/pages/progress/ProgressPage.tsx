@@ -24,6 +24,7 @@ import type {
 import { SPORT_LABELS } from '../../lib/utils';
 import { LoadSummaryCard } from '../../components/progress/LoadSummaryCard';
 import { SportDistributionCard } from '../../components/progress/SportDistributionCard';
+import { MuscleFatigueTelemetry } from '../../components/progress/MuscleFatigueTelemetry';
 
 // ==========================================
 // ABAS DA PÁGINA
@@ -54,24 +55,27 @@ export const ProgressPage: React.FC = () => {
   const [loadData, setLoadData] = useState<ProgressLoadDTO | null>(null);
   const [comparison, setComparison] = useState<ProgressComparisonDTO | null>(null);
   const [weightHistory, setWeightHistory] = useState<WeightHistory | null>(null);
+  const [deloadNeed, setDeloadNeed] = useState<{ needed: boolean; reasons: string[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [overviewData, summaryData, loadTimeline, compData, weightData] = await Promise.all([
+        const [overviewData, summaryData, loadTimeline, compData, weightData, deloadData] = await Promise.all([
           apiClient<ProgressOverviewDTO>('/api/progress/overview').catch(() => null),
           apiClient<ProgressSummaryDTO>('/api/progress/summary').catch(() => null),
           apiClient<ProgressLoadDTO>('/api/progress/load').catch(() => null),
           apiClient<ProgressComparisonDTO>('/api/progress/comparison?period=30').catch(() => null),
           apiClient<WeightHistory>('/api/progress/weight-history').catch(() => null),
+          apiClient<{ needed: boolean; reasons: string[] }>('/api/progress/deload').catch(() => null),
         ]);
         if (overviewData) setData(overviewData);
         if (summaryData) setSummary(summaryData);
         if (loadTimeline) setLoadData(loadTimeline);
         if (compData) setComparison(compData);
         if (weightData) setWeightHistory(weightData);
+        if (deloadData) setDeloadNeed(deloadData);
       } catch (err: any) {
         setError(err.message || 'Erro ao carregar telemetria');
       } finally {
@@ -166,6 +170,7 @@ export const ProgressPage: React.FC = () => {
       ========================================== */}
       {activeTab === 'overview' && (
         <div className="flex flex-col gap-6">
+          <MuscleFatigueTelemetry />
           {weightHistory?.currentWeightKg !== null && weightHistory && (
             <Card className="p-5 border-[#1F2937]">
               <div className="flex items-center justify-between">
@@ -322,7 +327,7 @@ export const ProgressPage: React.FC = () => {
       ========================================== */}
       {activeTab === 'load' && (
         <div className="flex flex-col gap-6">
-          {summary && <LoadSummaryCard load={summary.load} />}
+          {summary && <LoadSummaryCard load={summary.load} deloadNeed={deloadNeed ?? undefined} />}
 
           {summary && summary.distribution.length > 0 && (
             <SportDistributionCard

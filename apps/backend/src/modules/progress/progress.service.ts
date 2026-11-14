@@ -1,5 +1,9 @@
 import { SessionModel } from '../sessions/session.model.js';
 import { DailyReadinessModel } from '../readiness/readiness.model.js';
+import { ActiveStrengthSessionModel } from '../strength/strength-session.model.js';
+import { ExerciseModel } from '../strength/exercise.model.js';
+import { calculateSrpeLoadSafe } from './load/calculate-srpe.js';
+import { applyFatigueDecay, classifyFatigue, shouldRecommendDeload } from './fatigue.js';
 import type {
   SportKey,
   ProgressOverviewDTO,
@@ -28,7 +32,7 @@ import {
   LOAD_DISCLAIMER,
 } from './baseline.service.js';
 import { calculateActiveStreak } from './streak.service.js';
-import { computePrimaryMetric } from '../sessions/sport.rules.js';
+import { computePrimaryMetric, SPORT_MUSCLE_IMPACT } from '../sessions/sport.rules.js';
 import {
   calculateConfidence as calcComparisonConfidence,
   compareRunning,
@@ -73,6 +77,127 @@ function buildSportLabel(sportKey: SportKey): string {
 // ==========================================
 
 export class ProgressService {
+  async getMuscleFatigueMap(userId: string): Promise<{
+    generatedAt: string;
+    regions: Array<{
+      region: string;
+      fatigueScore: number;
+      recoveryPercent: number;
+      status: 'fresh' | 'recovering' | 'fatigued';
+      sources: string[];
+    }>;
+  }> {
+    const now = Date.now();
+    const since = new Date(now - 72 * 60 * 60 * 1000);
+    const [strengthSessions, generalSessions, readiness] = await Promise.all([
+      ActiveStrengthSessionModel.find({
+        userId,
+        status: 'completed',
+        finishedAt: { $gte: since },
+      }).lean(),
+      SessionModel.find({
+        userId,
+        status: 'completed',
+        startedAt: { $gte: since },
+        sportKey: { $ne: 'strength' },
+      }).select('sportKey startedAt durationSeconds rpe load sessionalLoad').lean(),
+      DailyReadinessModel.find({
+        userId,
+        createdAt: { $gte: since },
+      }).select('soreRegions').lean(),
+    ]);
+    const exerciseKeys = strengthSessions.flatMap((session) =>
+      (session.exercises ?? []).map((exercise) => exercise.exerciseKey)
+    );
+    const exerciseDefinitions = await ExerciseModel.find({ key: { $in: exerciseKeys } })
+      .select('key primaryMuscleGroup secondaryMuscleGroups')
+      .lean();
+    const exerciseMap = new Map(exerciseDefinitions.map((exercise) => [exercise.key, exercise]));
+
+    const scores = new Map<string, { score: number; sources: Set<string> }>();
+    const add = (region: string, points: number, source: string) => {
+      const current = scores.get(region) ?? { score: 0, sources: new Set<string>() };
+      current.score += points;
+      current.sources.add(source);
+      scores.set(region, current);
+    };
+    const decay = (date: Date) => applyFatigueDecay(1, (now - date.getTime()) / (60 * 60 * 1000));
+
+    for (const session of strengthSessions) {
+      const timestamp = new Date(session.finishedAt ?? session.startedAt);
+      const factor = decay(timestamp);
+      for (const exercise of session.exercises ?? []) {
+        const completedSets = (exercise.sets ?? []).filter((set) => set.status === 'completed').length;
+        if (!completedSets) continue;
+        const definition = exerciseMap.get(exercise.exerciseKey);
+        const groups = [
+          definition?.primaryMuscleGroup ?? exercise.primaryMuscleGroup ?? 'corpo_inteiro',
+          ...(definition?.secondaryMuscleGroups ?? []),
+        ];
+        groups.forEach((group, index) =>
+          add(group, completedSets * (index === 0 ? 12 : 5) * factor, 'musculação')
+        );
+      }
+    }
+
+    for (const session of generalSessions) {
+      const srpe = session.load?.srpe ?? session.sessionalLoad ??
+        calculateSrpeLoadSafe(session.rpe, session.durationSeconds) ?? 0;
+      const factor = decay(new Date(session.startedAt));
+      for (const region of SPORT_MUSCLE_IMPACT[session.sportKey] ?? ['corpo_inteiro']) {
+        add(region, Math.max(1, srpe / 10) * factor, session.sportKey);
+      }
+    }
+
+    for (const entry of readiness) {
+      for (const region of entry.soreRegions ?? []) add(region, 25, 'dor reportada');
+    }
+
+    const regions = Array.from(scores.entries()).map(([region, value]) => {
+      const fatigueScore = Math.min(100, Math.round(value.score));
+      const recoveryPercent = Math.max(0, 100 - fatigueScore);
+      return {
+        region,
+        fatigueScore,
+        recoveryPercent,
+        status: classifyFatigue(fatigueScore),
+        sources: Array.from(value.sources),
+      };
+    });
+    return {
+      generatedAt: new Date().toISOString(),
+      regions: regions.sort((a, b) => a.recoveryPercent - b.recoveryPercent),
+    };
+  }
+
+  async checkDeloadNeed(userId: string): Promise<{
+    needed: boolean;
+    reasons: string[];
+    score: number;
+  }> {
+    const [timeline, readiness, comparison] = await Promise.all([
+      this.getLoadTimeline(userId),
+      DailyReadinessModel.find({ userId }).sort({ dateKey: -1 }).limit(5).lean(),
+      this.getComparison(userId, 28),
+    ]);
+    const weeks = timeline.weekly.slice(-4).map((week) => week.totalSrpe);
+    const elevatedWeeks = weeks.length >= 3
+      ? weeks.slice(1).filter((value, index) => value >= weeks[index] * 0.95).length
+      : 0;
+    const loadSignal = elevatedWeeks >= 2 && weeks.at(-1)! > (timeline.baseline.fourWeekAvg || 0);
+    const readinessSignal = readiness.length >= 3 &&
+      readiness[0].readinessScore < readiness.reduce((sum, item) => sum + item.readinessScore, 0) / readiness.length - 5;
+    const performanceSignal = comparison.sports.some((sport) => sport.primaryMetric.status === 'declined');
+    const reasons: string[] = [];
+    if (loadSignal) reasons.push('carga elevada ou crescente por várias semanas');
+    if (readinessSignal) reasons.push('queda recente na prontidão média');
+    if (performanceSignal) reasons.push('estagnação ou queda de rendimento');
+    return {
+      needed: shouldRecommendDeload([loadSignal, readinessSignal, performanceSignal]),
+      reasons,
+      score: reasons.length,
+    };
+  }
   async getWeightHistory(userId: string, periodDays = 42): Promise<{
     points: Array<{ dateKey: string; weightKg: number }>;
     currentWeightKg: number | null;
@@ -88,7 +213,7 @@ export class ProgressService {
       ],
     })
       .sort({ dateKey: 1 })
-      .select('dateKey bodyWeightKg')
+      .select('dateKey bodyWeightKg weightKg')
       .lean();
     const points = entries.map((entry) => ({
       dateKey: entry.dateKey,

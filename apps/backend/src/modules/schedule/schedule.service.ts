@@ -32,6 +32,8 @@ function normalizeDays(days: WeeklyScheduleDayPlan[]): WeeklyScheduleDayPlan[] {
               targetDurationMinutes: w.targetDurationMinutes,
               plannedTime: w.plannedTime?.trim() || undefined,
               notes: w.notes?.trim() || undefined,
+              volumeMultiplier: w.volumeMultiplier,
+              targetRpe: w.targetRpe,
             })),
       });
     }
@@ -84,6 +86,8 @@ export class WeeklyScheduleService {
             targetDurationMinutes: w.targetDurationMinutes,
             plannedTime: w.plannedTime?.trim() || undefined,
             notes: w.notes?.trim() || undefined,
+            volumeMultiplier: w.volumeMultiplier,
+            targetRpe: w.targetRpe,
           })),
     };
 
@@ -121,11 +125,29 @@ export class WeeklyScheduleService {
               targetDurationMinutes: w.targetDurationMinutes,
               plannedTime: w.plannedTime?.trim() || undefined,
               notes: w.notes?.trim() || undefined,
+              volumeMultiplier: w.volumeMultiplier,
+              targetRpe: w.targetRpe,
             })),
       });
     }
 
     schedule.days = Array.from({ length: 7 }, (_, idx) => mergedMap.get(idx)!);
+    return schedule.save();
+  }
+
+  async activateDeloadMode(userId: string): Promise<IWeeklyScheduleDocument> {
+    const schedule = await this.getSchedule(userId);
+    schedule.days = normalizeDays(schedule.days).map((day) => ({
+      ...day,
+      workouts: day.workouts.map((workout) => ({
+        ...workout,
+        volumeMultiplier: 0.6,
+        targetRpe: 6,
+        notes: [workout.notes, 'Modo Deload Semanal: volume -40%, RPE-alvo 6.']
+          .filter(Boolean)
+          .join(' '),
+      })),
+    }));
     return schedule.save();
   }
 }

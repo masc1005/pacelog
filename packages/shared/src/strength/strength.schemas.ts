@@ -123,6 +123,7 @@ export const generateStrengthWorkoutInputSchema = z.object({
   goal: z.enum(['hypertrophy', 'strength', 'endurance', 'full_body']).optional().default('hypertrophy'),
   readinessScore: z.number().min(0).max(100).optional(),
   muscleRecovery: z.number().int().min(1).max(5).optional(),
+  soreRegions: z.array(z.string().min(1).max(40)).max(12).optional(),
 });
 export type GenerateStrengthWorkoutInput = z.infer<typeof generateStrengthWorkoutInputSchema>;
 

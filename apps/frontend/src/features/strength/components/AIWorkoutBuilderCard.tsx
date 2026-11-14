@@ -63,6 +63,7 @@ export const AIWorkoutBuilderCard: React.FC<AIWorkoutBuilderCardProps> = ({
   const [isStarting, setIsStarting] = useState(false);
   const [isSavingRoutine, setIsSavingRoutine] = useState(false);
   const [generatedWorkout, setGeneratedWorkout] = useState<GeneratedStrengthWorkoutDTO | null>(null);
+  const [protectedRegions, setProtectedRegions] = useState<string[]>([]);
 
   const toggleMuscle = (muscleKey: string) => {
     setSelectedMuscles((prev) =>
@@ -77,6 +78,7 @@ export const AIWorkoutBuilderCard: React.FC<AIWorkoutBuilderCardProps> = ({
     setIsGenerating(true);
     try {
       const readiness = await readinessApi.getOverview().catch(() => null);
+      setProtectedRegions(readiness?.today?.soreRegions ?? []);
       const result = await strengthApi.generateWorkoutWithAI({
         prompt: customPrompt.trim() || undefined,
         muscleGroups: selectedMuscles.length > 0 ? selectedMuscles : undefined,
@@ -84,6 +86,7 @@ export const AIWorkoutBuilderCard: React.FC<AIWorkoutBuilderCardProps> = ({
         goal,
         readinessScore: readiness?.today?.readinessScore,
         muscleRecovery: readiness?.today?.muscleRecovery,
+        soreRegions: readiness?.today?.soreRegions,
       });
       setGeneratedWorkout(result);
     } catch (err: any) {
@@ -315,6 +318,11 @@ export const AIWorkoutBuilderCard: React.FC<AIWorkoutBuilderCardProps> = ({
           >
             {generatedWorkout ? 'Gerar Outra Sugestão' : 'Sugerir Treino com IA Personal'}
           </Button>
+          {protectedRegions.length > 0 && (
+            <div className="rounded border border-[#FF6B35]/40 bg-[#FF6B35]/10 px-3 py-2 font-mono text-[10px] text-[#FFB4AB]">
+              IA protegendo hoje: {protectedRegions.join(', ')}. Exercícios que sobrecarregam essas regiões foram evitados.
+            </div>
+          )}
 
           {/* Preview do treino gerado */}
           {generatedWorkout && (
