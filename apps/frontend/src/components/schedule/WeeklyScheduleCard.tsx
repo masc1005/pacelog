@@ -76,6 +76,16 @@ const SPORT_META: Record<
   jiujitsu: { name: 'Jiu-Jitsu', color: '#E11D48', badge: 'crimson', icon: Shield },
 };
 
+const SPORT_MUSCLE_IMPACT: Partial<Record<SportKey, string[]>> = {
+  running: ['quadriceps', 'posteriores', 'panturrilhas', 'joelhos'],
+  football: ['quadriceps', 'posteriores', 'panturrilhas', 'joelhos'],
+  futevolei: ['quadriceps', 'posteriores', 'panturrilhas', 'joelhos', 'core'],
+  cycling: ['quadriceps', 'posteriores', 'panturrilhas'],
+  boxing: ['ombros', 'costas', 'antebracos', 'pegada', 'core'],
+  jiujitsu: ['ombros', 'costas', 'antebracos', 'pegada', 'core'],
+  swimming: ['ombros', 'costas', 'peito', 'core'],
+};
+
 export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
   recentSessions = [],
   compact = false,
@@ -155,6 +165,13 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
   const lowerBodyFatigued = fatiguedRegions.some((region) =>
     ['quadriceps', 'posteriores', 'gluteos', 'panturrilhas', 'joelhos'].includes(region)
   );
+  const getInterferingRegions = (workout: WeeklyScheduleWorkoutItem): string[] => {
+    const impacted = SPORT_MUSCLE_IMPACT[workout.sportKey] ??
+      (workout.sportKey === 'strength' && lowerBodyFatigued
+        ? ['quadriceps', 'posteriores', 'gluteos', 'panturrilhas', 'joelhos']
+        : []);
+    return impacted.filter((region) => fatiguedRegions.includes(region));
+  };
 
   const handleToggleRestDay = async () => {
     if (isSaving) return;
@@ -482,6 +499,9 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
                   const isDoneThisWeek = completedSportsByWeekday
                     .get(selectedWeekday)
                     ?.has(workout.sportKey);
+                  const interferingRegions = selectedWeekday === todayWeekday
+                    ? getInterferingRegions(workout)
+                    : [];
 
                   return (
                     <div
@@ -525,6 +545,11 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
                                   % volume
                                 </span>
                               )}
+                            {interferingRegions.length > 0 && (
+                              <span className="font-mono text-[10px] text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/30 rounded px-1.5 py-0.5">
+                                Interferência: {interferingRegions.join(', ')}
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-2 font-mono text-[10px] text-[#8F9380] mt-0.5 flex-wrap">

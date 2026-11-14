@@ -185,10 +185,11 @@ export class StrengthAIService {
       }
     }
     if (soreRegions.length > 0) {
-      const protectedExercises = candidateExercises.filter(
+      // Dor localizada é uma restrição rígida: nunca envie ao modelo um
+      // exercício que sobrecarregue uma região protegida.
+      candidateExercises = candidateExercises.filter(
         (exercise) => !exerciseOverloadsSoreRegion(exercise)
       );
-      if (protectedExercises.length >= 3) candidateExercises = protectedExercises;
     }
 
     const durationMinutes = input.durationMinutes ?? 45;
@@ -287,7 +288,14 @@ Retorne APENAS um JSON válido com a estrutura:
             latestCompletedSetsByExercise
           );
 
-          if (mappedExercises.length > 0) {
+          const protectedMappedExercises = mappedExercises.filter((exercise) => {
+            const catalogExercise = catalogByKey.get(exercise.exerciseKey);
+            return catalogExercise
+              ? !exerciseOverloadsSoreRegion(catalogExercise)
+              : false;
+          });
+
+          if (protectedMappedExercises.length > 0) {
             const elapsedMs = Date.now() - startedMs;
             const resolvedModel = response?.modelVersion
               ? `${modelName} (${response.modelVersion})`
@@ -299,7 +307,10 @@ Retorne APENAS um JSON válido com a estrutura:
               name: validated.name,
               description: validated.description,
               rationale: validated.rationale,
-              exercises: mappedExercises,
+              exercises: protectedMappedExercises.map((exercise, index) => ({
+                ...exercise,
+                order: index,
+              })),
               modelUsed: resolvedModel,
             };
           }

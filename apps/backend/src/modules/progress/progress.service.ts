@@ -185,9 +185,29 @@ export class ProgressService {
       ? weeks.slice(1).filter((value, index) => value >= weeks[index] * 0.95).length
       : 0;
     const loadSignal = elevatedWeeks >= 2 && weeks.at(-1)! > (timeline.baseline.fourWeekAvg || 0);
-    const readinessSignal = readiness.length >= 3 &&
-      readiness[0].readinessScore < readiness.reduce((sum, item) => sum + item.readinessScore, 0) / readiness.length - 5;
-    const performanceSignal = comparison.sports.some((sport) => sport.primaryMetric.status === 'declined');
+    const readinessSignal = (() => {
+      if (readiness.length < 3) return false;
+      const recentWindow = readiness.slice(0, Math.ceil(readiness.length / 2));
+      const previousWindow = readiness.slice(Math.ceil(readiness.length / 2));
+      const average = (items: typeof readiness) => ({
+        score: items.reduce((sum, item) => sum + item.readinessScore, 0) / items.length,
+        muscle: items.reduce((sum, item) => sum + item.muscleRecovery, 0) / items.length,
+        energy: items.reduce((sum, item) => sum + item.energyLevel, 0) / items.length,
+      });
+      const recentAverage = average(recentWindow);
+      const previousAverage = average(previousWindow);
+
+      return (
+        recentAverage.score <= previousAverage.score - 5 ||
+        recentAverage.muscle <= previousAverage.muscle - 0.5 ||
+        recentAverage.energy <= previousAverage.energy - 0.5
+      );
+    })();
+    const performanceSignal = comparison.sports.some(
+      (sport) =>
+        sport.primaryMetric.status === 'declined' ||
+        (sport.primaryMetric.status === 'stable' && sport.sessions.current >= 3)
+    );
     const reasons: string[] = [];
     if (loadSignal) reasons.push('carga elevada ou crescente por várias semanas');
     if (readinessSignal) reasons.push('queda recente na prontidão média');
