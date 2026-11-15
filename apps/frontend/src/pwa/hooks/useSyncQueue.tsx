@@ -17,13 +17,13 @@ import {
   processQueue,
   getQueueSnapshot,
   dismissQueueItem,
+  SYNC_QUEUE_UPDATED_EVENT,
 } from '../services/syncQueue.service';
 import {
   buildConflictInfo,
   resolveWithLocal,
 } from '../services/conflictResolver.service';
-import { dbPutQueueItem, dbDeleteQueueItem } from '../services/indexedDb.service';
-import { dbPurgeUser } from '../services/indexedDb.service';
+import { dbPutQueueItem, dbDeleteQueueItem, dbPurgeUser } from '../services/indexedDb.service';
 import { useOnlineStatus } from './useOnlineStatus';
 
 // ──────────────────────────────────────────────────────
@@ -74,6 +74,16 @@ export const SyncQueueProvider: React.FC<SyncQueueProviderProps> = ({ children, 
     }
   }, [userId]);
 
+  // Escuta atualizações na fila (inclusive de outras abas ou chamadas diretas a enqueueOperation)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = () => {
+      refreshSnapshot();
+    };
+    window.addEventListener(SYNC_QUEUE_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(SYNC_QUEUE_UPDATED_EVENT, handler);
+  }, [refreshSnapshot]);
+
   // Sincronizar agora
   const syncNow = useCallback(async () => {
     if (!userId || !isOnline || isSyncing) return;
@@ -115,15 +125,6 @@ export const SyncQueueProvider: React.FC<SyncQueueProviderProps> = ({ children, 
   useEffect(() => {
     refreshSnapshot();
   }, [refreshSnapshot]);
-
-  // Purge ao deslogar
-  useEffect(() => {
-    if (!userId) {
-      // userId foi para null — usuário deslogou
-      // Não purgar aqui pois não temos o userId anterior.
-      // O purge explícito é feito via useSyncQueue().purgeUser(userId) no AuthContext.
-    }
-  }, [userId]);
 
   // ──────────────────────────────────────────────────────
   // API pública

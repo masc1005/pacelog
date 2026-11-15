@@ -2,6 +2,7 @@ import type { ProgressMetric } from '@pacelog/shared';
 import type { ISessionDocument } from '../../sessions/session.model.js';
 import { calculateSportMetricBaseline } from './calculate-baseline.js';
 import { compareMetric } from './compare-metric.js';
+
 // Simple pace formatter for backend evidence strings
 function formatPaceStr(secondsPerKm: number): string {
   const m = Math.floor(secondsPerKm / 60);
@@ -21,7 +22,15 @@ export function compareRunning(
   const secondaryMetrics: ProgressMetric[] = [];
 
   // Primary: Pace
-  const extractPace = (s: ISessionDocument) => (s.metrics as any)?.paceSecondsPerKm ?? null;
+  const extractPace = (s: ISessionDocument) => {
+    const m = s.metrics as any;
+    if (m?.paceSecondsPerKm && m.paceSecondsPerKm > 0) return Number(m.paceSecondsPerKm);
+    const distMeters = Number(m?.distanceMeters || (m?.distanceKm ? m.distanceKm * 1000 : 0));
+    if (distMeters > 0 && s.durationSeconds > 0) {
+      return Math.round(s.durationSeconds / (distMeters / 1000));
+    }
+    return null;
+  };
   const currentPace = calculateSportMetricBaseline(currentSessions, extractPace) ?? (currentSessions[0] ? extractPace(currentSessions[0]) : null);
   const baselinePace = calculateSportMetricBaseline(baselineSessions, extractPace);
 
@@ -38,7 +47,14 @@ export function compareRunning(
   }
 
   // Secondary: Distance
-  const extractDistance = (s: ISessionDocument) => (s.metrics as any)?.distanceKm ?? null;
+  const extractDistance = (s: ISessionDocument) => {
+    const m = s.metrics as any;
+    if (m?.distanceKm && m.distanceKm > 0) return Number(m.distanceKm);
+    if (m?.distanceMeters && m.distanceMeters > 0) {
+      return Math.round((Number(m.distanceMeters) / 1000) * 100) / 100;
+    }
+    return null;
+  };
   const currentDist = calculateSportMetricBaseline(currentSessions, extractDistance) ?? (currentSessions[0] ? extractDistance(currentSessions[0]) : null);
   const baselineDist = calculateSportMetricBaseline(baselineSessions, extractDistance);
 

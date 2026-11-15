@@ -10,6 +10,7 @@ import { Calendar, Edit3, Wrench } from 'lucide-react';
 import { GearUsageBar } from './GearUsageBar';
 import { GearStatusBadge } from './GearStatusBadge';
 import { GEAR_VISUAL_META } from './gearMeta';
+import { useSettings } from '../../hooks/useSettings';
 
 interface GearCardProps {
   gear: Gear;
@@ -18,14 +19,18 @@ interface GearCardProps {
 }
 
 export const GearCard: React.FC<GearCardProps> = ({ gear, onEdit, onClick }) => {
+  const { settings, formatDistance } = useSettings();
   const meta = GEAR_VISUAL_META[gear.category] ?? GEAR_VISUAL_META.running_shoe;
   const Icon = meta.icon;
   const usage = getGearUsage(gear);
-  const unitLabel = GEAR_USAGE_UNIT_LABEL[usage.unit]?.short ?? usage.unit;
+  const unitLabel =
+    usage.unit === 'km'
+      ? settings?.distanceUnit ?? 'km'
+      : GEAR_USAGE_UNIT_LABEL[usage.unit]?.short ?? usage.unit;
 
   const primaryValue =
     usage.unit === 'km'
-      ? `${gear.accumulatedDistanceKm.toFixed(1)} km`
+      ? formatDistance(gear.accumulatedDistanceKm, 1)
       : usage.unit === 'rounds'
       ? `${gear.accumulatedRounds ?? 0} rounds`
       : `${gear.accumulatedSessions ?? 0} treinos`;

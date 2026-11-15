@@ -1,6 +1,7 @@
 import React from 'react';
 import type { SportKey } from '@pacelog/shared';
 import { SPORT_LABELS } from '../../lib/utils';
+import { useSettings } from '../../hooks/useSettings';
 
 // ==========================================
 // TIPOS
@@ -19,6 +20,9 @@ const SPORT_COLORS: Record<string, string> = {
   futevolei: '#F59E0B',
   boxing: '#FF6B35',
   strength: '#A78BFA',
+  swimming: '#38BDF8',
+  cycling: '#10B981',
+  jiujitsu: '#E11D48',
 };
 
 // ==========================================
@@ -40,6 +44,13 @@ export const SportDistributionCard: React.FC<SportDistributionCardProps> = ({
   totalSrpe,
   className = '',
 }) => {
+  const { userSports } = useSettings();
+
+  const resolveSportName = (key: string, fallback?: string) => {
+    const found = userSports.find((s) => s.sportKey === key);
+    return found?.displayName || SPORT_LABELS[key] || fallback || key;
+  };
+
   if (distribution.length === 0) {
     return (
       <div className={`bg-[#0D1C2D] border border-[#1F2937] rounded-2xl p-6 ${className}`}>
@@ -77,7 +88,7 @@ export const SportDistributionCard: React.FC<SportDistributionCardProps> = ({
               backgroundColor: SPORT_COLORS[s.sportKey] ?? '#8F9380',
             }}
             className="h-full"
-            title={`${s.sportLabel}: ${s.sharePercent}%`}
+            title={`${resolveSportName(s.sportKey, s.sportLabel)}: ${s.sharePercent}%`}
           />
         ))}
       </div>
@@ -90,7 +101,7 @@ export const SportDistributionCard: React.FC<SportDistributionCardProps> = ({
             <div key={s.sportKey} className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
               <span className="font-display text-sm font-bold text-[#D4E4FA] flex-1">
-                {SPORT_LABELS[s.sportKey] || s.sportLabel}
+                {resolveSportName(s.sportKey, s.sportLabel)}
               </span>
               <span className="font-mono text-xs text-[#D4E4FA]">{s.srpe} AU</span>
               <span className="font-mono text-xs text-[#8F9380] w-10 text-right">{s.sharePercent}%</span>

@@ -50,7 +50,8 @@ class InMemoryCache implements ICache {
   }
 
   async keys(pattern: string): Promise<string[]> {
-    const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+    const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+    const regex = new RegExp('^' + escaped + '$');
     return [...this.store.keys()].filter((k) => regex.test(k));
   }
 }
@@ -68,8 +69,9 @@ class UpstashCache implements ICache {
 
   async get(key: string): Promise<string | null> {
     try {
-      const val = await this.client.get<string>(key);
-      return val ?? null;
+      const val = await this.client.get<unknown>(key);
+      if (val == null) return null;
+      return typeof val === 'string' ? val : JSON.stringify(val);
     } catch (err) {
       console.warn('[cache] get falhou:', (err as Error).message);
       return null;

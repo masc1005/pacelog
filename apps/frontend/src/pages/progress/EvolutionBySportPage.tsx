@@ -3,23 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 import { apiClient } from '../../lib/api';
-import type { SportProgressDTO, SportProgressV2, SportKey } from '@pacelog/shared';
-import { SPORT_LABELS, formatDuration, formatPace } from '../../lib/utils';
+import type { SportProgressDTO, SportProgressV2 } from '@pacelog/shared';
+import { SPORT_LABELS, formatDuration } from '../../lib/utils';
+import { useSettings } from '../../hooks/useSettings';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-
-// ==========================================
-// HELPERS
-// ==========================================
-
-function formatMetricValue(value: number | null | undefined, unit: string, key: string): string {
-  if (value == null) return '—';
-  if (key === 'paceSecondsPerKm') return formatPace(value);
-  if (key === 'averageSpeedKmh' || unit === 'km/h') return `${value.toFixed(1)} km/h`;
-  if (unit === '%') return `${value.toFixed(1)}%`;
-  if (unit === 'kg' && value >= 1000) return `${(value / 1000).toFixed(1)} t`;
-  if (unit === 'AU') return `${value} AU`;
-  return `${value} ${unit}`;
-}
 
 function directionLabel(direction: string): string {
   if (direction === 'higher_is_better') return '↑ maior é melhor';
@@ -34,10 +21,28 @@ function directionLabel(direction: string): string {
 export const EvolutionBySportPage: React.FC = () => {
   const { sportKey } = useParams<{ sportKey: string }>();
   const navigate = useNavigate();
+  const { settings, userSports, formatPace, formatSpeed, formatWeight, formatDistance } = useSettings();
   const [data, setData] = useState<SportProgressDTO | null>(null);
   const [v2Data, setV2Data] = useState<SportProgressV2 | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const sportName = React.useMemo(() => {
+    if (!sportKey) return '';
+    const found = userSports.find((s) => s.sportKey === sportKey);
+    return found?.displayName || SPORT_LABELS[sportKey] || sportKey;
+  }, [sportKey, userSports]);
+
+  const formatMetricValue = (value: number | null | undefined, unit: string, key: string): string => {
+    if (value == null) return '—';
+    if (key === 'paceSecondsPerKm') return formatPace(value);
+    if (key === 'averageSpeedKmh' || unit === 'km/h') return formatSpeed(value);
+    if (unit === '%') return `${value.toFixed(1)}%`;
+    if (unit === 'kg' || key === 'totalVolumeKg') return formatWeight(value, 0);
+    if (unit === 'km') return formatDistance(value, 1);
+    if (unit === 'AU') return `${value} AU`;
+    return `${value} ${unit}`;
+  };
 
   useEffect(() => {
     async function fetchSportProgress() {
@@ -127,7 +132,7 @@ export const EvolutionBySportPage: React.FC = () => {
         </button>
         <div>
           <h1 className="font-display text-2xl font-bold text-[#D4E4FA] uppercase tracking-wide">
-            Evolução: {SPORT_LABELS[sportKey as SportKey] || sportKey}
+            Evolução: {sportName}
           </h1>
           <p className="font-mono text-xs text-[#8F9380] mt-1 uppercase">
             6 Semanas de Telemetria
@@ -283,7 +288,15 @@ export const EvolutionBySportPage: React.FC = () => {
           </div>
           <p className="font-mono text-[10px] text-[#4A5568] mb-4">
             Carga em AU (Unidades Arbitrárias) · Volume em {
-              sportKey === 'running' || sportKey === 'cycling' ? 'km' : sportKey === 'strength' ? 'kg' : sportKey === 'jiujitsu' ? 'rolas' : sportKey === 'boxing' ? 'rounds' : 'unidade'
+              sportKey === 'running' || sportKey === 'cycling'
+                ? settings?.distanceUnit || 'km'
+                : sportKey === 'strength'
+                  ? settings?.weightUnit || 'kg'
+                  : sportKey === 'jiujitsu'
+                    ? 'rolas'
+                    : sportKey === 'boxing'
+                      ? 'rounds'
+                      : 'unidade'
             }
           </p>
 

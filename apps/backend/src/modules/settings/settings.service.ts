@@ -2,6 +2,7 @@ import { UserSettingsModel, type IUserSettings } from './settings.model.js';
 import { UserSportModel, type IUserSport } from './userSport.model.js';
 import { OFFICIAL_SPORTS } from '../sports/sport.seed.js';
 import { randomUUID } from 'crypto';
+import { HttpError } from '../../utils/httpError.js';
 import type {
   UserSettingsDTO,
   TrainingReminder,
@@ -110,7 +111,7 @@ export class SettingsService {
 
     // 2. Se for o primeiro acesso, popula com os esportes oficiais
     if (userSports.length === 0) {
-      const initialSports = OFFICIAL_SPORTS.map((os, index) => ({
+      const initialSports = OFFICIAL_SPORTS.map((os) => ({
         userId,
         sportKey: os.sportKey,
         isCustom: false,
@@ -189,7 +190,7 @@ export class SettingsService {
     );
 
     if (!updated) {
-      throw new Error(`Esporte '${sportKey}' não encontrado para o usuário`);
+      throw new HttpError(404, 'SPORT_NOT_FOUND', { sportKey });
     }
 
     return this.mapSportToDTO(updated);
@@ -226,7 +227,7 @@ export class SettingsService {
     );
 
     if (!updated) {
-      throw new Error(`Esporte '${sportKey}' não encontrado`);
+      throw new HttpError(404, 'SPORT_NOT_FOUND', { sportKey });
     }
 
     return this.mapSportToDTO(updated);

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { SPORT_KEYS, type SportKey } from '@pacelog/shared';
+import { useSettings } from '../../hooks/useSettings';
 import {
   Activity,
   Flame,
@@ -12,7 +13,7 @@ import {
   Layers,
 } from 'lucide-react';
 
-const sportMeta: Record<SportKey, { name: string; color: string; icon: React.ElementType }> = {
+const sportMeta: Record<string, { name: string; color: string; icon: React.ElementType }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity },
   football: { name: 'Futebol', color: '#D4F684', icon: Flame },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun },
@@ -45,12 +46,22 @@ export const GoalFilters: React.FC<GoalFiltersProps> = ({
   onSportChange,
   counts,
 }) => {
+  const { userSports } = useSettings();
+
   const statusTabs: Array<{ id: GoalStatusFilter; label: string; count: number }> = [
     { id: 'all', label: 'Todas', count: counts.all },
     { id: 'active', label: 'Ativas', count: counts.active },
     { id: 'paused', label: 'Pausadas', count: counts.paused },
     { id: 'completed', label: 'Concluídas', count: counts.completed },
   ];
+
+  const sportFilterKeys = useMemo(() => {
+    const keys = new Set<string>(SPORT_KEYS);
+    for (const s of userSports) {
+      if (s.isActive) keys.add(s.sportKey);
+    }
+    return Array.from(keys);
+  }, [userSports]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -97,16 +108,19 @@ export const GoalFilters: React.FC<GoalFiltersProps> = ({
           <span>Todas</span>
         </button>
 
-        {SPORT_KEYS.map((key) => {
-          const meta = sportMeta[key];
-          const Icon = meta.icon;
+        {sportFilterKeys.map((key) => {
+          const base = sportMeta[key];
+          const found = userSports.find((s) => s.sportKey === key);
+          const name = found?.displayName || base?.name || key;
+          const color = base?.color || '#38BDF8';
+          const Icon = base?.icon || Activity;
           const isSelected = sportFilter === key;
 
           return (
             <button
               key={key}
               type="button"
-              onClick={() => onSportChange(isSelected ? 'all' : key)}
+              onClick={() => onSportChange(isSelected ? 'all' : (key as SportKey))}
               className={`shrink-0 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full font-mono text-[11px] uppercase font-bold border transition-all cursor-pointer ${
                 isSelected
                   ? 'bg-[#161C24] text-[#D4E4FA] border-[#D4F684]'
@@ -115,9 +129,9 @@ export const GoalFilters: React.FC<GoalFiltersProps> = ({
             >
               <Icon
                 className="w-3 h-3"
-                style={{ color: isSelected ? meta.color : undefined }}
+                style={{ color: isSelected ? color : undefined }}
               />
-              <span>{meta.name}</span>
+              <span>{name}</span>
             </button>
           );
         })}

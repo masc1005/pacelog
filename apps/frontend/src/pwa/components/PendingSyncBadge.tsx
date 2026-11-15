@@ -13,6 +13,7 @@ const OPERATION_LABELS: Record<string, string> = {
   create_session: 'Criar treino',
   update_session: 'Atualizar treino',
   delete_session: 'Excluir treino',
+  create_goal: 'Criar meta',
   update_settings: 'Salvar configurações',
   strength_finish_session: 'Finalizar sessão de força',
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useSettings } from '../../hooks/useSettings';
 import { Bell, X } from 'lucide-react';
 import { SPORT_LABELS } from '../../lib/utils';
@@ -18,11 +18,22 @@ const WEEKDAYS = [
 ];
 
 export const TrainingReminderModal: React.FC<TrainingReminderModalProps> = ({ onClose }) => {
-  const { addReminder, userSports } = useSettings();
-  const [weekday, setWeekday] = useState<number>(1);
+  const { settings, addReminder, userSports } = useSettings();
+  const [weekday, setWeekday] = useState<number>(settings?.weekStart === 'sunday' ? 0 : 1);
   const [time, setTime] = useState<string>('07:00');
   const [sportKey, setSportKey] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const orderedWeekdayIndices = useMemo(() => {
+    return settings?.weekStart === 'sunday'
+      ? [0, 1, 2, 3, 4, 5, 6]
+      : [1, 2, 3, 4, 5, 6, 0];
+  }, [settings?.weekStart]);
+
+  const activeSports = useMemo(() => {
+    const active = userSports.filter((s) => s.isActive);
+    return active.length > 0 ? active : userSports;
+  }, [userSports]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,9 +89,9 @@ export const TrainingReminderModal: React.FC<TrainingReminderModalProps> = ({ on
               value={weekday}
               onChange={(e) => setWeekday(Number(e.target.value))}
             >
-              {WEEKDAYS.map((name, idx) => (
+              {orderedWeekdayIndices.map((idx) => (
                 <option key={idx} value={idx}>
-                  {name}
+                  {WEEKDAYS[idx]}
                 </option>
               ))}
             </select>
@@ -111,7 +122,7 @@ export const TrainingReminderModal: React.FC<TrainingReminderModalProps> = ({ on
               onChange={(e) => setSportKey(e.target.value)}
             >
               <option value="">Qualquer treino / Geral</option>
-              {userSports.map((s) => (
+              {activeSports.map((s) => (
                 <option key={s.sportKey} value={s.sportKey}>
                   {s.displayName || SPORT_LABELS[s.sportKey] || s.sportKey}
                 </option>

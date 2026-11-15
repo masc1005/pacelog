@@ -8,6 +8,7 @@ import type {
   GoalPeriod,
 } from '@pacelog/shared';
 import type { IGoalDocument } from './goal.model.js';
+import { formatDateInTimeZone, resolveValidTimeZone } from '../progress/streak.service.js';
 
 export interface ContributingSessionItem {
   id: string;
@@ -67,11 +68,14 @@ export function resolveGoalTimeWindow(
  */
 export function extractSessionVolume(session: SessionDataForGoal): number {
   const { sportKey, metrics = {}, durationSeconds = 0 } = session;
-  if (sportKey === 'running' && metrics.distanceMeters) {
-    return Math.round((metrics.distanceMeters / 1000) * 100) / 100;
+  if (sportKey === 'running' && (metrics.distanceMeters || metrics.distanceKm)) {
+    return metrics.distanceKm ?? Math.round((metrics.distanceMeters / 1000) * 100) / 100;
   }
-  if (sportKey === 'cycling' && metrics.distanceKm !== undefined) {
-    return Number(metrics.distanceKm) || 0;
+  if (sportKey === 'cycling' && (metrics.distanceKm !== undefined || metrics.distanceMeters)) {
+    return Number(metrics.distanceKm ?? (metrics.distanceMeters / 1000)) || 0;
+  }
+  if (sportKey === 'swimming' && (metrics.totalDistanceMeters || metrics.distanceMeters)) {
+    return Math.round(((metrics.totalDistanceMeters || metrics.distanceMeters) / 1000) * 100) / 100;
   }
   if (sportKey === 'strength' && metrics.totalVolumeKg) {
     return Number(metrics.totalVolumeKg);
@@ -97,14 +101,20 @@ export function extractSessionMetricValue(
 
   switch (metricType) {
     case 'distance_km': {
-      if (sportKey === 'running' && metrics.distanceMeters) {
-        return Math.round((metrics.distanceMeters / 1000) * 100) / 100;
+      if (sportKey === 'running' && (metrics.distanceMeters || metrics.distanceKm)) {
+        return metrics.distanceKm !== undefined
+          ? Number(metrics.distanceKm) || 0
+          : Math.round((metrics.distanceMeters / 1000) * 100) / 100;
       }
       if (metrics.distanceKm !== undefined) {
         return Number(metrics.distanceKm) || 0;
       }
-      if (sportKey === 'swimming' && metrics.distanceMeters) {
-        return Math.round((metrics.distanceMeters / 1000) * 100) / 100;
+      if (sportKey === 'swimming' && (metrics.totalDistanceMeters || metrics.distanceMeters)) {
+        const meters = Number(metrics.totalDistanceMeters || metrics.distanceMeters || 0);
+        return Math.round((meters / 1000) * 100) / 100;
+      }
+      if (metrics.distanceMeters) {
+        return Math.round((Number(metrics.distanceMeters) / 1000) * 100) / 100;
       }
       return 0;
     }
@@ -121,11 +131,26 @@ export function extractSessionMetricValue(
     case 'volume_kg':
       return Number(metrics.totalVolumeKg || 0);
 
-    case 'weight_kg':
-      return Number(metrics.weightKg || metrics.maxWeightKg || metrics.loadKg || 0);
+    case 'weight_kg': {
+      const direct = Number(metrics.weightKg || metrics.maxWeightKg || metrics.loadKg || metrics.estimatedOneRepMax || metrics.estimated1RM || 0);
+      if (direct > 0) return direct;
+      if (Array.isArray(metrics.exercises)) {
+        let maxW = 0;
+        for (const ex of metrics.exercises) {
+          if (Array.isArray(ex?.sets)) {
+            for (const set of ex.sets) {
+              const w = Number(set?.weightKg ?? set?.load ?? 0);
+              if (w > maxW) maxW = w;
+            }
+          }
+        }
+        return maxW;
+      }
+      return 0;
+    }
 
     case 'average_speed_kmh':
-      return Number(metrics.averageSpeedKmh || metrics.speedKmh || 0);
+      return Number(metrics.averageSpeedKmh || metrics.avgSpeedKmh || metrics.speedKmh || 0);
 
     case 'average_pace_seconds_per_km':
       return Number(metrics.paceSecondsPerKm || 0);
@@ -200,7 +225,8 @@ export function calculateGoalProgress(
     deadline?: Date | string | null;
     status?: GoalStatus;
   },
-  sessions: SessionDataForGoal[]
+  sessions: SessionDataForGoal[],
+  timezone?: string
 ): GoalProgressResult {
   const metricType = resolveMetricType(goal);
   const direction: GoalDirection =
@@ -287,9 +313,10 @@ export function calculateGoalProgress(
 
   // Streak de consistência (dias únicos de treino)
   if (metricType === 'streak_days' || goal.type === 'consistency') {
+    const validTz = resolveValidTimeZone(timezone);
     const uniqueDays = new Set<string>();
     for (const s of relevantSessions) {
-      const dateStr = new Date(s.startedAt).toISOString().split('T')[0];
+      const dateStr = formatDateInTimeZone(new Date(s.startedAt), validTz);
       uniqueDays.add(dateStr);
       contributingSessions.push({
         id: s.id || (s._id ? s._id.toString() : ''),
@@ -416,4 +443,3 @@ export function mapGoalToDTO(
     updatedAt: goal.updatedAt,
   };
 }
-

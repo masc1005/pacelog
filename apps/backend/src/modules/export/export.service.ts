@@ -5,6 +5,10 @@ import { ProfileModel } from '../profile/profile.model.js';
 import { UserSettingsModel } from '../settings/settings.model.js';
 import { UserSportModel } from '../settings/userSport.model.js';
 import { PhysiqueAssessmentModel } from '../physique/physique.model.js';
+import { WeeklyScheduleModel } from '../schedule/schedule.model.js';
+import { DailyReadinessModel } from '../readiness/readiness.model.js';
+import { StrengthRoutineModel } from '../strength/strength-routine.model.js';
+import { ActiveStrengthSessionModel } from '../strength/strength-session.model.js';
 import { progressService } from '../progress/progress.service.js';
 import { goalService } from '../goals/goal.service.js';
 import { scopedFilter } from '../../utils/scopedQuery.js';
@@ -34,22 +38,37 @@ export class ExportService {
   }
 
   /**
-   * Exporta um backup completo com perfil, configurações, sessões, metas, tênis e avaliações físicas.
+   * Exporta um backup completo com perfil, configurações, sessões, metas, equipamentos, cronograma, prontidão, fichas e avaliações físicas.
    */
   async exportBackupJSON(userId: string) {
-    const [profile, settings, userSports, sessions, goals, shoes, physiqueAssessments] =
-      await Promise.all([
-        ProfileModel.findOne(scopedFilter(userId)).lean(),
-        UserSettingsModel.findOne({ userId }).lean(),
-        UserSportModel.find({ userId }).lean(),
-        SessionModel.find(scopedFilter(userId)).sort({ startedAt: -1 }).lean(),
-        GoalModel.find(scopedFilter(userId)).lean(),
-        GearModel.find(scopedFilter(userId)).lean(),
-        PhysiqueAssessmentModel.find(scopedFilter(userId)).sort({ createdAt: -1 }).lean(),
-      ]);
+    const [
+      profile,
+      settings,
+      userSports,
+      sessions,
+      goals,
+      shoes,
+      physiqueAssessments,
+      weeklySchedule,
+      dailyReadiness,
+      strengthRoutines,
+      strengthSessions,
+    ] = await Promise.all([
+      ProfileModel.findOne(scopedFilter(userId)).lean(),
+      UserSettingsModel.findOne({ userId }).lean(),
+      UserSportModel.find({ userId }).lean(),
+      SessionModel.find(scopedFilter(userId)).sort({ startedAt: -1 }).lean(),
+      GoalModel.find(scopedFilter(userId)).lean(),
+      GearModel.find(scopedFilter(userId)).lean(),
+      PhysiqueAssessmentModel.find(scopedFilter(userId)).sort({ createdAt: -1 }).lean(),
+      WeeklyScheduleModel.findOne({ userId }).lean(),
+      DailyReadinessModel.find({ userId }).sort({ dateKey: -1 }).lean(),
+      StrengthRoutineModel.find({ userId }).lean(),
+      ActiveStrengthSessionModel.find({ userId }).sort({ startedAt: -1 }).lean(),
+    ]);
 
     return {
-      version: '1.0',
+      version: '1.1',
       exportedAt: new Date().toISOString(),
       profile: profile ? { ...profile, _id: undefined, __v: undefined } : null,
       settings: settings ? { ...settings, _id: undefined, __v: undefined } : null,
@@ -62,6 +81,10 @@ export class ExportService {
         _id: undefined,
         __v: undefined,
       })),
+      weeklySchedule: weeklySchedule ? { ...weeklySchedule, _id: undefined, __v: undefined } : null,
+      dailyReadiness: dailyReadiness.map((dr: any) => ({ ...dr, _id: undefined, __v: undefined })),
+      strengthRoutines: strengthRoutines.map((sr: any) => ({ ...sr, _id: undefined, __v: undefined })),
+      strengthSessions: strengthSessions.map((ss: any) => ({ ...ss, _id: undefined, __v: undefined })),
     };
   }
 
@@ -80,6 +103,10 @@ export class ExportService {
         settings?: any;
         profile?: any;
         userSports?: any[] | null;
+        weeklySchedule?: any;
+        dailyReadiness?: any[] | null;
+        strengthRoutines?: any[] | null;
+        strengthSessions?: any[] | null;
       };
     }
   ) {
@@ -88,7 +115,11 @@ export class ExportService {
     const goals = backupData.data.goals || [];
     const shoes = backupData.data.shoes || [];
     const physiqueAssessments = backupData.data.physiqueAssessments || [];
-    const { settings, profile } = backupData.data;
+    const userSports = backupData.data.userSports || [];
+    const dailyReadiness = backupData.data.dailyReadiness || [];
+    const strengthRoutines = backupData.data.strengthRoutines || [];
+    const strengthSessions = backupData.data.strengthSessions || [];
+    const { settings, profile, weeklySchedule } = backupData.data;
 
     let importedSessionsCount = 0;
     let importedGoalsCount = 0;
@@ -102,23 +133,49 @@ export class ExportService {
         GoalModel.deleteMany({ userId }),
         GearModel.deleteMany({ userId }),
         PhysiqueAssessmentModel.deleteMany({ userId }),
+        ...(userSports.length > 0 ? [UserSportModel.deleteMany({ userId })] : []),
+        ...(dailyReadiness.length > 0 ? [DailyReadinessModel.deleteMany({ userId })] : []),
+        ...(strengthRoutines.length > 0 ? [StrengthRoutineModel.deleteMany({ userId })] : []),
+        ...(strengthSessions.length > 0 ? [ActiveStrengthSessionModel.deleteMany({ userId })] : []),
       ]);
     }
 
     // Importa/Atualiza Settings se fornecido
     if (settings) {
+      const { _id: _sId, __v: _sV, ...cleanSettings } = settings;
       await UserSettingsModel.findOneAndUpdate(
         { userId },
-        { $set: { ...settings, userId } },
+        { $set: { ...cleanSettings, userId } },
         { upsert: true, new: true }
       );
     }
 
     // Importa/Atualiza Profile se fornecido
     if (profile) {
+      const { _id: _pId, __v: _pV, ...cleanProfile } = profile;
       await ProfileModel.findOneAndUpdate(
         { userId },
-        { $set: { ...profile, userId } },
+        { $set: { ...cleanProfile, userId } },
+        { upsert: true, new: true }
+      );
+    }
+
+    // Importa/Atualiza Esportes do Usuário se fornecido
+    for (const sportData of userSports) {
+      if (!sportData.sportKey) continue;
+      const { _id: _spId, __v: _spV, ...cleanSport } = sportData;
+      await UserSportModel.findOneAndUpdate(
+        { userId, sportKey: sportData.sportKey },
+        { $set: { ...cleanSport, userId } },
+        { upsert: true, new: true }
+      );
+    }
+
+    // Importa Cronograma Semanal se fornecido
+    if (weeklySchedule && Array.isArray(weeklySchedule.days)) {
+      await WeeklyScheduleModel.findOneAndUpdate(
+        { userId },
+        { $set: { userId, days: weeklySchedule.days } },
         { upsert: true, new: true }
       );
     }
@@ -141,8 +198,9 @@ export class ExportService {
         if (exists) continue; // Pula duplicata
       }
 
+      const { _id: _sessId, __v: _sessV, ...cleanSession } = sessionData;
       await SessionModel.create({
-        ...sessionData,
+        ...cleanSession,
         userId,
         startedAt: new Date(sessionData.startedAt),
         endedAt: sessionData.endedAt ? new Date(sessionData.endedAt) : undefined,
@@ -157,25 +215,43 @@ export class ExportService {
         const exists = await GoalModel.findOne({ userId, title: goalData.title });
         if (exists) continue;
       }
+      const { _id: _gId, __v: _gV, ...cleanGoal } = goalData;
+      const deadlineVal = goalData.deadline || goalData.targetDate;
       await GoalModel.create({
-        ...goalData,
+        ...cleanGoal,
         userId,
-        targetDate: goalData.targetDate ? new Date(goalData.targetDate) : undefined,
+        startDate: goalData.startDate ? new Date(goalData.startDate) : new Date(),
+        deadline: deadlineVal ? new Date(deadlineVal) : undefined,
+        completedAt: goalData.completedAt ? new Date(goalData.completedAt) : undefined,
+        pausedAt: goalData.pausedAt ? new Date(goalData.pausedAt) : undefined,
       });
       importedGoalsCount++;
     }
 
-    // Importa Tênis
+    // Importa Equipamentos / Tênis (suporta modelo atual `model` e formato legado `name`)
     for (const shoeData of shoes) {
-      if (!shoeData.name) continue;
+      const modelName = shoeData.model || shoeData.name;
+      if (!modelName) continue;
       if (mode === 'merge') {
-        const exists = await GearModel.findOne({ userId, name: shoeData.name });
+        const exists = await GearModel.findOne({
+          userId,
+          model: modelName,
+          ...(shoeData.brand ? { brand: shoeData.brand } : {}),
+        });
         if (exists) continue;
       }
+      const { _id: _shId, __v: _shV, name: _legacyName, ...cleanShoe } = shoeData;
+      const purchaseDateVal = shoeData.purchaseDate || shoeData.purchasedAt;
       await GearModel.create({
-        ...shoeData,
+        ...cleanShoe,
+        model: modelName,
+        category: shoeData.category || 'running_shoe',
         userId,
-        purchasedAt: shoeData.purchasedAt ? new Date(shoeData.purchasedAt) : undefined,
+        purchaseDate: purchaseDateVal ? new Date(purchaseDateVal) : undefined,
+        startedUsingAt: shoeData.startedUsingAt ? new Date(shoeData.startedUsingAt) : undefined,
+        initialDistanceKm: Number(shoeData.initialDistanceKm ?? 0),
+        accumulatedDistanceKm: Number(shoeData.accumulatedDistanceKm ?? shoeData.currentDistanceKm ?? 0),
+        distanceLimitKm: shoeData.distanceLimitKm ?? shoeData.maxDistanceKm ?? undefined,
       });
       importedShoesCount++;
     }
@@ -195,6 +271,7 @@ export class ExportService {
         images: _ignoredImages,
         poses: _ignoredPoses,
         _id: _ignoredId,
+        __v: _ignoredV,
         ...cleanAssessment
       } = assessmentData;
       await PhysiqueAssessmentModel.create({
@@ -203,6 +280,50 @@ export class ExportService {
         createdAt,
       });
       importedPhysiqueAssessmentsCount++;
+    }
+
+    // Importa Prontidão Diária
+    for (const readinessData of dailyReadiness) {
+      if (!readinessData.dateKey) continue;
+      const { _id: _rId, __v: _rV, ...cleanReadiness } = readinessData;
+      await DailyReadinessModel.findOneAndUpdate(
+        { userId, dateKey: readinessData.dateKey },
+        { $set: { ...cleanReadiness, userId } },
+        { upsert: true, new: true }
+      );
+    }
+
+    // Importa Fichas de Musculação
+    for (const routineData of strengthRoutines) {
+      if (!routineData.name) continue;
+      if (mode === 'merge') {
+        const exists = await StrengthRoutineModel.findOne({ userId, name: routineData.name });
+        if (exists) continue;
+      }
+      const { _id: _rtId, __v: _rtV, ...cleanRoutine } = routineData;
+      await StrengthRoutineModel.create({
+        ...cleanRoutine,
+        userId,
+      });
+    }
+
+    // Importa Sessões de Musculação Detalhadas
+    for (const ssData of strengthSessions) {
+      if (!ssData.startedAt) continue;
+      if (mode === 'merge') {
+        const exists = await ActiveStrengthSessionModel.findOne({
+          userId,
+          startedAt: new Date(ssData.startedAt),
+        });
+        if (exists) continue;
+      }
+      const { _id: _ssId, __v: _ssV, ...cleanSs } = ssData;
+      await ActiveStrengthSessionModel.create({
+        ...cleanSs,
+        userId,
+        startedAt: new Date(ssData.startedAt),
+        finishedAt: ssData.finishedAt ? new Date(ssData.finishedAt) : undefined,
+      });
     }
 
     return {
@@ -270,9 +391,11 @@ export class ExportService {
     const overview = await progressService.getOverview(userId);
 
     const allGoals = await goalService.listGoals(userId, {});
-    const achievedGoals = allGoals.filter(
-      (g) => g.status === 'achieved' && g.updatedAt && new Date(g.updatedAt) >= sevenDaysAgo
-    ).length;
+    const achievedGoals = allGoals.filter((g) => {
+      if (g.status !== 'achieved' && g.status !== 'completed') return false;
+      const refDate = g.completedAt || g.updatedAt;
+      return refDate ? new Date(refDate) >= sevenDaysAgo : false;
+    }).length;
 
     const prsSet = overview.recentPersonalRecords.filter(
       (pr) => new Date(pr.achievedAt) >= sevenDaysAgo

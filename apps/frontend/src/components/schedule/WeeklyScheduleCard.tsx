@@ -24,6 +24,7 @@ import { Button } from '../ui/Button';
 import { scheduleApi } from '../../services/schedule.api';
 import { strengthApi } from '../../services/strength.api';
 import { useToast } from '../../contexts/ToastContext';
+import { useSettings } from '../../hooks/useSettings';
 import { randomUUID } from '../../lib/utils';
 import { readinessApi } from '../../services/readiness.api';
 import { apiClient } from '../../lib/api';
@@ -41,7 +42,7 @@ interface WeeklyScheduleCardProps {
 }
 
 /**
- * Semana começa na Segunda-feira:
+ * Índice interno no backend:
  * 0 = Segunda-feira, 1 = Terça-feira, ..., 5 = Sábado, 6 = Domingo
  */
 const WEEKDAYS = [
@@ -62,8 +63,20 @@ function toMondayBasedWeekday(date: Date): number {
   return (date.getDay() + 6) % 7;
 }
 
+function formatClockTime(timeStr: string, timeFormat?: '12h' | '24h'): string {
+  if (!timeStr) return '';
+  if (timeFormat !== '12h') return timeStr;
+  const [hStr, mStr] = timeStr.split(':');
+  const h = Number(hStr);
+  const m = Number(mStr);
+  if (isNaN(h) || isNaN(m)) return timeStr;
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
 const SPORT_META: Record<
-  SportKey,
+  string,
   { name: string; color: string; badge: 'cyan' | 'green' | 'amber' | 'crimson' | 'purple' | 'blue'; icon: React.ElementType }
 > = {
   running: { name: 'Corrida', color: '#5CA9E6', badge: 'cyan', icon: Activity },
@@ -92,6 +105,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
 }) => {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
+  const { settings, userSports } = useSettings();
   const todayWeekday = useMemo(() => toMondayBasedWeekday(new Date()), []);
   const [selectedWeekday, setSelectedWeekday] = useState<number>(todayWeekday);
   const [schedule, setSchedule] = useState<WeeklyScheduleDTO | null>(null);
@@ -109,6 +123,47 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
   const [newDuration, setNewDuration] = useState<string>('45');
   const [newTime, setNewTime] = useState<string>('');
   const [newNotes, setNewNotes] = useState<string>('');
+
+  const displayedWeekdays = useMemo(() => {
+    if (settings?.weekStart === 'sunday') {
+      return [WEEKDAYS[6], ...WEEKDAYS.slice(0, 6)];
+    }
+    return WEEKDAYS;
+  }, [settings?.weekStart]);
+
+  const availableSports = useMemo(() => {
+    const active = userSports.filter((s) => s.isActive);
+    if (active.length === 0) {
+      return Object.entries(SPORT_META).map(([key, meta]) => ({
+        sportKey: key as SportKey,
+        name: meta.name,
+        color: meta.color,
+        badge: meta.badge,
+        icon: meta.icon,
+      }));
+    }
+    return active.map((s) => {
+      const base = SPORT_META[s.sportKey];
+      return {
+        sportKey: s.sportKey as SportKey,
+        name: s.displayName || base?.name || s.sportKey,
+        color: base?.color || '#38BDF8',
+        badge: base?.badge || ('cyan' as const),
+        icon: base?.icon || Activity,
+      };
+    });
+  }, [userSports]);
+
+  const resolveSportMeta = (sportKey: string) => {
+    const found = userSports.find((s) => s.sportKey === sportKey);
+    const base = SPORT_META[sportKey];
+    return {
+      name: found?.displayName || base?.name || sportKey,
+      color: base?.color || '#38BDF8',
+      badge: base?.badge || ('cyan' as const),
+      icon: base?.icon || Activity,
+    };
+  };
 
   useEffect(() => {
     Promise.all([
@@ -134,9 +189,10 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
     for (let i = 0; i < 7; i++) map.set(i, new Set());
 
     const now = new Date();
-    const mondayBasedToday = toMondayBasedWeekday(now);
     const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - mondayBasedToday);
+    const offsetDays =
+      settings?.weekStart === 'sunday' ? now.getDay() : toMondayBasedWeekday(now);
+    startOfWeek.setDate(now.getDate() - offsetDays);
     startOfWeek.setHours(0, 0, 0, 0);
 
     for (const s of recentSessions || []) {
@@ -147,7 +203,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
       }
     }
     return map;
-  }, [recentSessions]);
+  }, [recentSessions, settings?.weekStart]);
 
   const currentDayPlan: WeeklyScheduleDayPlan = useMemo(() => {
     const found = schedule?.days?.find((d) => d.weekday === selectedWeekday);
@@ -207,13 +263,15 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
         ? routines.find((r) => r.id === newRoutineId)
         : undefined;
 
+    const sportMeta = resolveSportMeta(newSportKey);
+
     const item: WeeklyScheduleWorkoutItem = {
       id: randomUUID(),
       sportKey: newSportKey,
       title:
         newTitle.trim() ||
         chosenRoutine?.name ||
-        SPORT_META[newSportKey]?.name ||
+        sportMeta.name ||
         'Treino',
       routineId: chosenRoutine?.id,
       routineName: chosenRoutine?.name,
@@ -344,7 +402,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
         ) : (
           <div className="flex flex-wrap gap-2">
             {todayWorkouts.map((workout) => {
-              const meta = SPORT_META[workout.sportKey] || SPORT_META.strength;
+              const meta = resolveSportMeta(workout.sportKey);
               const Icon = meta.icon;
 
               return (
@@ -397,7 +455,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
 
       {/* Barra dos 7 dias da semana */}
       <div className="grid grid-cols-7 gap-1.5">
-        {WEEKDAYS.map((dayInfo) => {
+        {displayedWeekdays.map((dayInfo) => {
           const plan = schedule?.days?.find((d) => d.weekday === dayInfo.weekday);
           const workouts = plan?.workouts || [];
           const isRest = Boolean(plan?.isRestDay);
@@ -452,7 +510,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
                   <span className="font-mono text-[9px] text-[#454839]">—</span>
                 ) : (
                   workouts.slice(0, 3).map((w) => {
-                    const meta = SPORT_META[w.sportKey] || SPORT_META.strength;
+                    const meta = resolveSportMeta(w.sportKey);
                     return (
                       <span
                         key={w.id}
@@ -565,7 +623,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
             ) : (
               <div className="flex flex-col gap-2">
                 {(currentDayPlan.workouts || []).map((workout) => {
-                  const meta = SPORT_META[workout.sportKey] || SPORT_META.strength;
+                  const meta = resolveSportMeta(workout.sportKey);
                   const Icon = meta.icon;
                   const isDoneThisWeek = completedSportsByWeekday
                     .get(selectedWeekday)
@@ -636,7 +694,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
                               </span>
                             )}
                             {workout.plannedTime && (
-                              <span>às {workout.plannedTime}</span>
+                              <span>às {formatClockTime(workout.plannedTime, settings?.timeFormat)}</span>
                             )}
                             {workout.notes && (
                               <span className="italic text-[#C5C8B4]">
@@ -694,23 +752,22 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
 
                 {/* Escolha da modalidade */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                  {(Object.keys(SPORT_META) as SportKey[]).map((key) => {
-                    const m = SPORT_META[key];
-                    const Icon = m.icon;
-                    const active = newSportKey === key;
+                  {availableSports.map((sport) => {
+                    const Icon = sport.icon;
+                    const active = newSportKey === sport.sportKey;
                     return (
                       <button
-                        key={key}
+                        key={sport.sportKey}
                         type="button"
-                        onClick={() => setNewSportKey(key)}
+                        onClick={() => setNewSportKey(sport.sportKey)}
                         className={`p-2 rounded border font-mono text-[11px] flex items-center gap-2 transition-colors ${
                           active
                             ? 'bg-[#161C24] border-[#D4F684] text-[#D4E4FA] font-bold'
                             : 'bg-[#161C24]/50 border-[#1F2937] text-[#8F9380] hover:text-[#C5C8B4]'
                         }`}
                       >
-                        <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: m.color }} />
-                        <span className="truncate">{m.name}</span>
+                        <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: sport.color }} />
+                        <span className="truncate">{sport.name}</span>
                       </button>
                     );
                   })}

@@ -1,7 +1,6 @@
-import { SessionModel, type ISessionDocument } from './session.model.js';
+import { SessionModel } from './session.model.js';
 import {
   enrichSportMetrics,
-  calculateSessionalLoad,
 } from './sport.rules.js';
 import { buildSessionLoad } from '../progress/load/load.service.js';
 import type {
@@ -20,6 +19,8 @@ import { getGearImpact } from '@pacelog/shared';
 import type { SessionSummaryDTO, SportKey, SportSummaryStats } from '@pacelog/shared';
 import { UserSportModel } from '../settings/userSport.model.js';
 import { UserSettingsModel } from '../settings/settings.model.js';
+import { cache } from '../../config/cache.js';
+import type { ISessionDocument } from './session.model.js';
 
 export class SessionService {
   /**
@@ -29,8 +30,20 @@ export class SessionService {
     userId: string,
     input: CreateSessionInput
   ): Promise<ISessionDocument> {
-    // 1. Enriquecer métricas de acordo com o esporte (pace de corrida, volume de musculação, rounds de boxe)
-    const enrichedMetrics = enrichSportMetrics(input.sportKey, input.metrics);
+    // 1. Determinar a duração total preliminar em segundos
+    const rawMetrics = input.metrics as Record<string, any> | undefined;
+    const prelimDuration: number =
+      Number(input.durationSeconds) ||
+      Number(rawMetrics?.durationSeconds) ||
+      Number(rawMetrics?.totalDurationSeconds) ||
+      0;
+
+    // 2. Enriquecer métricas de acordo com o esporte (pace de corrida, volume de musculação, rounds de boxe, velocidade de ciclismo)
+    const enrichedMetrics = enrichSportMetrics(
+      input.sportKey,
+      input.metrics,
+      prelimDuration || undefined
+    );
     if (!enrichedMetrics.gearId && !enrichedMetrics.shoeId) {
       const sport = await UserSportModel.findOne({
         userId,
@@ -42,7 +55,7 @@ export class SessionService {
       if (sport?.defaultGearId) enrichedMetrics.gearId = sport.defaultGearId;
     }
 
-    // 2. Determinar a duração total em segundos da sessão
+    // 3. Determinar a duração total final em segundos da sessão
     let durationSeconds: number = Number(input.durationSeconds) || 0;
     if (durationSeconds <= 0) {
       if (enrichedMetrics.durationSeconds) {
@@ -54,7 +67,7 @@ export class SessionService {
       }
     }
 
-    // 3. Calcular carga da sessão via helper unificado
+    // 4. Calcular carga da sessão via helper unificado
     // sessionalLoad (legado) e load.srpe (oficial) sempre têm o mesmo valor
     const loadPayload = buildSessionLoad(input.rpe, durationSeconds, 'completed');
 
@@ -76,7 +89,7 @@ export class SessionService {
       sessionPayload.clientUuid = input.clientUuid;
     }
 
-    // 4. Se clientUuid estiver presente, fazer Upsert Idempotente para prevenir duplicidade offline
+    // 5. Se clientUuid estiver presente, fazer Upsert Idempotente para prevenir duplicidade offline
     if (input.clientUuid) {
       const filter = scopedFilter(userId, { clientUuid: input.clientUuid });
       // new:false devolve o estado ANTERIOR de forma atômica (null se foi inserção),
@@ -103,6 +116,8 @@ export class SessionService {
         getGearImpact(session.sportKey as SportKey, session.metrics as any)
       );
 
+      await this.invalidateUserCache(userId);
+
       // Disparar hooks assíncronos
       setImmediate(() => {
         this.dispatchAlerts(userId);
@@ -111,15 +126,17 @@ export class SessionService {
       return session;
     }
 
-    // 5. Caso contrário, criar nova sessão
+    // 6. Caso contrário, criar nova sessão
     const newSession = await SessionModel.create(sessionPayload);
     
-    // 6. Atualizar equipamento vinculado (se houver)
+    // 7. Atualizar equipamento vinculado (se houver)
     await this.applyGearUsage(
       userId,
       null,
       getGearImpact(newSession.sportKey as SportKey, newSession.metrics as any)
     );
+
+    await this.invalidateUserCache(userId);
 
     // Disparar hooks assíncronos
     setImmediate(() => {
@@ -142,6 +159,15 @@ export class SessionService {
       await gearService.applyUsageDelta(userId, prev, next);
     } catch (err) {
       console.error('[SessionService] Failed to apply gear usage:', err);
+    }
+  }
+
+  private async invalidateUserCache(userId: string): Promise<void> {
+    try {
+      const keys = await cache.keys(`*${userId}*`);
+      await Promise.all(keys.map((k) => cache.del(k)));
+    } catch {
+      // Silencioso se o cache não estiver disponível
     }
   }
 
@@ -236,18 +262,19 @@ export class SessionService {
     const existingSession = await this.getSessionById(userId, sessionId);
     const oldMetrics = { ...existingSession.metrics };
 
-    if (input.metrics) {
-      existingSession.metrics = enrichSportMetrics(
-        existingSession.sportKey,
-        { ...existingSession.metrics, ...input.metrics }
-      );
-    }
-
     if (input.startedAt) existingSession.startedAt = input.startedAt;
     if (input.endedAt !== undefined) existingSession.endedAt = input.endedAt;
     if (input.durationSeconds) existingSession.durationSeconds = input.durationSeconds;
     if (input.rpe) existingSession.rpe = input.rpe;
     if (input.notes !== undefined) existingSession.notes = input.notes;
+
+    if (input.metrics) {
+      existingSession.metrics = enrichSportMetrics(
+        existingSession.sportKey,
+        { ...existingSession.metrics, ...input.metrics },
+        existingSession.durationSeconds
+      );
+    }
 
     // Recalcular carga via helper unificado
     const loadPayload = buildSessionLoad(
@@ -265,6 +292,8 @@ export class SessionService {
       getGearImpact(existingSession.sportKey as SportKey, oldMetrics as any),
       getGearImpact(existingSession.sportKey as SportKey, existingSession.metrics as any)
     );
+
+    await this.invalidateUserCache(userId);
 
     // Disparar hooks assíncronos
     setImmediate(() => {
@@ -308,6 +337,7 @@ export class SessionService {
     }
 
     await SessionModel.deleteOne(filter);
+    await this.invalidateUserCache(userId);
   }
 
   /**
@@ -329,7 +359,7 @@ export class SessionService {
       startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
     }
 
-    const matchStage: Record<string, any> = { userId };
+    const matchStage: Record<string, any> = { userId, status: 'completed' };
     if (startDate) {
       matchStage.startedAt = { $gte: startDate };
     }
@@ -369,19 +399,20 @@ export class SessionService {
     const averageRpe =
       totalSessions > 0 ? Math.round((totalRpeSum / totalSessions) * 10) / 10 : 0;
 
-    // Streak de dias consecutivos ativos (respeitando o fuso horário do atleta)
+    // Streak de dias consecutivos ativos (respeitando o fuso horário e streakGraceDays do atleta)
     const [recentSessions, userSettings] = await Promise.all([
-      SessionModel.find({ userId })
+      SessionModel.find({ userId, status: 'completed' })
         .sort({ startedAt: -1 })
         .limit(60)
         .select('startedAt')
         .lean(),
-      UserSettingsModel.findOne({ userId }).select('timezone').lean(),
+      UserSettingsModel.findOne({ userId }).select('timezone streakGraceDays').lean(),
     ]);
     const streakDays = calculateActiveStreak(
       recentSessions.map((s) => s.startedAt),
       new Date(),
-      userSettings?.timezone
+      userSettings?.timezone,
+      userSettings?.streakGraceDays ?? 0
     );
 
     return {

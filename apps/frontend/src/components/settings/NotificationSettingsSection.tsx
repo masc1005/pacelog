@@ -7,14 +7,32 @@ import { SPORT_LABELS } from '../../lib/utils';
 
 const WEEKDAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
+function formatClockTime(timeStr: string, timeFormat?: '12h' | '24h'): string {
+  if (!timeStr) return '';
+  if (timeFormat !== '12h') return timeStr;
+  const [hStr, mStr] = timeStr.split(':');
+  const h = Number(hStr);
+  const m = Number(mStr);
+  if (isNaN(h) || isNaN(m)) return timeStr;
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
 export const NotificationSettingsSection: React.FC = () => {
-  const { settings, updateSettings, deleteReminder, toggleReminder } = useSettings();
+  const { settings, userSports, updateSettings, deleteReminder, toggleReminder } = useSettings();
   const [showAddModal, setShowAddModal] = useState(false);
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
 
   if (!settings) return null;
+
+  const resolveSportName = (sportKey?: string) => {
+    if (!sportKey) return 'Treino Geral';
+    const found = userSports.find((s) => s.sportKey === sportKey);
+    return found?.displayName || SPORT_LABELS[sportKey] || sportKey;
+  };
 
   const requestBrowserPermission = async () => {
     if (typeof Notification === 'undefined') return;
@@ -180,17 +198,17 @@ export const NotificationSettingsSection: React.FC = () => {
                 className="p-4 bg-[#0D1C2D] border-[#1F2937] flex items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-[#161C24] border border-[#1F2937] flex flex-col items-center justify-center font-mono">
+                  <div className="px-2.5 h-10 rounded-lg bg-[#161C24] border border-[#1F2937] flex flex-col items-center justify-center font-mono shrink-0">
                     <span className="text-[10px] text-[#8F9380] uppercase">
                       {WEEKDAYS_SHORT[rem.weekday]}
                     </span>
                     <span className="text-xs font-bold text-[#38BDF8]">
-                      {rem.time}
+                      {formatClockTime(rem.time, settings.timeFormat)}
                     </span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-display text-sm font-bold text-[#D4E4FA]">
-                      {rem.sportKey ? SPORT_LABELS[rem.sportKey] || rem.sportKey : 'Treino Geral'}
+                      {resolveSportName(rem.sportKey)}
                     </span>
                     <span className="font-mono text-[10px] text-[#8F9380]">
                       {rem.enabled ? 'Ativo' : 'Pausado'}

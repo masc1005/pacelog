@@ -1,4 +1,4 @@
-import { SportKey } from './sport.types.js';
+import type { SportKey } from '@pacelog/shared';
 
 export interface UserProfile {
   id: string;

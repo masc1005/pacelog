@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { SPORT_KEYS, type SportKey, type SessionDTO } from '@pacelog/shared';
 import { apiClient } from '../../lib/api';
+import { useToast } from '../../contexts/ToastContext';
 import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, ChevronDown, AlertTriangle, Waves, Bike, Shield } from 'lucide-react';
 import { GearPicker } from '../../components/gear/GearPicker';
 import { toLocalInputDateTime } from '../../lib/utils';
@@ -25,6 +26,7 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = 
 export const EditSessionPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { addToast } = useToast();
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +62,36 @@ export const EditSessionPage: React.FC = () => {
         const m = { ...(data.metrics || {}) };
         if (!m.gearId && m.shoeId) m.gearId = m.shoeId;
         else if (!m.gearId && m.bikeId) m.gearId = m.bikeId;
+
+        if (data.sportKey === 'running') {
+          if (m.distanceKm === undefined && m.distanceMeters !== undefined) {
+            m.distanceKm = Math.round((Number(m.distanceMeters) / 1000) * 100) / 100;
+          }
+          if (m.paceSecondsPerKm && m.paceMin === undefined) {
+            m.paceMin = Math.floor(Number(m.paceSecondsPerKm) / 60);
+            m.paceSec = Math.round(Number(m.paceSecondsPerKm) % 60);
+          }
+        }
+
+        if (data.sportKey === 'cycling' && m.distanceKm === undefined && m.distanceMeters !== undefined) {
+          m.distanceKm = Math.round((Number(m.distanceMeters) / 1000) * 100) / 100;
+        }
+
+        if (m.avgHeartRate !== undefined && m.averageHeartRate === undefined) {
+          m.averageHeartRate = m.avgHeartRate;
+        } else if (m.averageHeartRate !== undefined && m.avgHeartRate === undefined) {
+          m.avgHeartRate = m.averageHeartRate;
+        }
+
+        if (data.sportKey === 'jiujitsu') {
+          if (m.trainingType === undefined && m.sessionType !== undefined) {
+            m.trainingType = m.sessionType === 'class' ? 'technique' : m.sessionType;
+          }
+          if (m.gi === undefined && m.giType !== undefined) {
+            m.gi = m.giType === 'gi';
+          }
+        }
+
         setMetrics(m);
       } catch (err: any) {
         setError(err.message || 'Erro ao carregar sessão.');
@@ -73,7 +105,7 @@ export const EditSessionPage: React.FC = () => {
   const handleNext = () => {
     if (step === 1) {
       if (!sportKey || !startedAt || durationMinutes <= 0) {
-        alert('Preencha os campos obrigatórios do Passo 1.');
+        addToast('Preencha os campos obrigatórios do Passo 1.', 'error');
         return;
       }
       setStep(2);
@@ -83,19 +115,48 @@ export const EditSessionPage: React.FC = () => {
   };
 
   const handleBack = () => {
-    if (step === 2) setStep(1);
     if (step === 3) setStep(2);
+    else if (step === 2) setStep(1);
+    else navigate(-1);
   };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
       const finalMetrics = { ...metrics };
+      finalMetrics.durationSeconds = durationMinutes * 60;
+
+      if (sportKey === 'running' && finalMetrics.distanceKm) {
+        finalMetrics.distanceMeters = Math.round(Number(finalMetrics.distanceKm) * 1000);
+        if (finalMetrics.paceMin !== undefined || finalMetrics.paceSec !== undefined) {
+          finalMetrics.paceSecondsPerKm =
+            Number(finalMetrics.paceMin || 0) * 60 + Number(finalMetrics.paceSec || 0);
+        }
+      }
+
       if (sportKey === 'cycling') {
         const dist = Number(metrics.distanceKm || 0);
         const durMin = Number(durationMinutes || 0);
-        if (dist > 0 && durMin > 0) {
-          finalMetrics.avgSpeedKmh = Number((dist / (durMin / 60)).toFixed(1));
+        if (dist > 0) {
+          finalMetrics.distanceKm = dist;
+          finalMetrics.distanceMeters = Math.round(dist * 1000);
+          if (durMin > 0) {
+            finalMetrics.averageSpeedKmh = Number((dist / (durMin / 60)).toFixed(1));
+            finalMetrics.paceSecondsPerKm = Math.round((durMin * 60) / dist);
+          }
+        }
+      }
+
+      if (finalMetrics.averageHeartRate !== undefined && finalMetrics.avgHeartRate === undefined) {
+        finalMetrics.avgHeartRate = finalMetrics.averageHeartRate;
+      } else if (finalMetrics.avgHeartRate !== undefined && finalMetrics.averageHeartRate === undefined) {
+        finalMetrics.averageHeartRate = finalMetrics.avgHeartRate;
+      }
+
+      if (sportKey === 'jiujitsu') {
+        finalMetrics.giType = finalMetrics.gi === false ? 'nogi' : 'gi';
+        if (finalMetrics.trainingType) {
+          finalMetrics.sessionType = finalMetrics.trainingType;
         }
       }
 
@@ -116,9 +177,10 @@ export const EditSessionPage: React.FC = () => {
         body: JSON.stringify(payload),
       });
 
+      addToast('Sessão atualizada com sucesso!', 'success');
       navigate(`/sessions/${id}`);
     } catch (err: any) {
-      alert('Erro ao atualizar sessão.');
+      addToast('Erro ao atualizar sessão.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -245,7 +307,7 @@ export const EditSessionPage: React.FC = () => {
                   <Input
                     label="Pace (Seg)"
                     type="number"
-                    value={metrics.paceSec || ''}
+                    value={metrics.paceSec ?? ''}
                     onChange={e => setMetrics({...metrics, paceSec: Number(e.target.value)})}
                   />
                 </div>
@@ -337,7 +399,7 @@ export const EditSessionPage: React.FC = () => {
                   min={30}
                   max={250}
                   value={metrics.averageHeartRate || ''}
-                  onChange={e => setMetrics({...metrics, averageHeartRate: Number(e.target.value)})}
+                  onChange={e => setMetrics({...metrics, averageHeartRate: Number(e.target.value), avgHeartRate: Number(e.target.value)})}
                 />
                 <Input
                   label="SWOLF"
@@ -407,7 +469,7 @@ export const EditSessionPage: React.FC = () => {
                   min={30}
                   max={250}
                   value={metrics.averageHeartRate || ''}
-                  onChange={e => setMetrics({...metrics, averageHeartRate: Number(e.target.value)})}
+                  onChange={e => setMetrics({...metrics, averageHeartRate: Number(e.target.value), avgHeartRate: Number(e.target.value)})}
                 />
                 <Input
                   label="FC Máx (bpm)"

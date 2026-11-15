@@ -35,20 +35,27 @@ async function backfillSessionLoad(): Promise<void> {
   console.log(`[backfill] Sessões sem campo load: ${total}`);
 
   let processedTotal = 0;
+  let lastId: unknown = null;
 
   while (true) {
-    const sessions = await SessionModel.find({ load: null })
+    const queryFilter: Record<string, any> = { load: null };
+    if (lastId) {
+      queryFilter._id = { $gt: lastId };
+    }
+
+    const sessions = await SessionModel.find(queryFilter)
+      .sort({ _id: 1 })
       .limit(BATCH_SIZE)
       .lean();
 
     if (sessions.length === 0) break;
 
+    lastId = sessions[sessions.length - 1]!._id;
+
     for (const session of sessions) {
       try {
         if (session.status !== 'completed') {
           skippedNotCompleted++;
-          // Marca como processado com load: null explícito (campo existe, sem calcular)
-          await SessionModel.updateOne({ _id: session._id }, { $set: { 'load': null } });
           continue;
         }
 
@@ -57,14 +64,12 @@ async function backfillSessionLoad(): Promise<void> {
 
         if (!rpe || rpe <= 0 || !dur || dur <= 0) {
           skippedNoRpe++;
-          await SessionModel.updateOne({ _id: session._id }, { $set: { 'load': null } });
           continue;
         }
 
         const srpe = calculateSrpeLoadSafe(rpe, dur);
         if (srpe === null) {
           skippedNoRpe++;
-          await SessionModel.updateOne({ _id: session._id }, { $set: { 'load': null } });
           continue;
         }
 

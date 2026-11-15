@@ -5,10 +5,11 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
+import { useSettings } from '../../hooks/useSettings';
 import { GoalCelebrateModal } from '../../components/goals/GoalCelebrateModal';
 import { EditGoalModal } from '../../components/goals/EditGoalModal';
 import { DeleteGoalModal } from '../../components/goals/DeleteGoalModal';
-import type { GoalDTO, SportKey } from '@pacelog/shared';
+import type { GoalDTO } from '@pacelog/shared';
 import {
   Target,
   Activity,
@@ -31,7 +32,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
-const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
+const sportMeta: Record<string, { name: string; color: string; icon: any }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity },
   football: { name: 'Futebol', color: '#D4F684', icon: Flame },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun },
@@ -46,6 +47,7 @@ export const GoalDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { userSports, formatTime } = useSettings();
 
   const [goal, setGoal] = useState<GoalDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -336,6 +338,8 @@ export const GoalDetailsPage: React.FC = () => {
           <div className="flex flex-col gap-2">
             {goal.contributingSessions.map((session, idx) => {
               const sessionMeta = sportMeta[session.sportKey];
+              const customSport = userSports.find((s) => s.sportKey === session.sportKey);
+              const sessionSportName = customSport?.displayName || (sessionMeta ? sessionMeta.name : session.sportKey);
               const SessionIcon = sessionMeta ? sessionMeta.icon : Target;
               const sessionColor = sessionMeta ? sessionMeta.color : '#D4F684';
 
@@ -353,15 +357,13 @@ export const GoalDetailsPage: React.FC = () => {
                     </div>
                     <div className="flex flex-col">
                       <span className="font-display text-xs font-bold text-[#D4E4FA]">
-                        {sessionMeta ? sessionMeta.name : session.sportKey}
+                        {sessionSportName}
                       </span>
                       <span className="font-mono text-[10px] text-[#8F9380]">
                         {new Date(session.startedAt).toLocaleDateString('pt-BR', {
                           day: '2-digit',
                           month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        })} • {formatTime(session.startedAt)}
                       </span>
                     </div>
                   </div>
@@ -372,7 +374,7 @@ export const GoalDetailsPage: React.FC = () => {
                     </span>
                     {session.id && (
                       <Link
-                        to={`/sessions/${session.id}`}
+                        to={session.sportKey === 'strength' ? `/strength/sessions/${session.id}` : `/sessions/${session.id}`}
                         className="text-[#8F9380] hover:text-[#D4E4FA] p-1"
                         aria-label="Ver sessão"
                       >

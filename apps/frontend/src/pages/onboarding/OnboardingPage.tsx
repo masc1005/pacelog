@@ -6,6 +6,7 @@ import { Card } from '../../components/ui/Card';
 import { Activity, Zap, Sun, Dumbbell, Flame, ChevronRight, Target, Waves, Bike, Shield } from 'lucide-react';
 import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
+import { useSettings } from '../../hooks/useSettings';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any; desc: string }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity, desc: 'Rua, trilha ou esteira' },
@@ -23,6 +24,7 @@ const STEPS = ['Boas-vindas', 'Esportes', 'Meta Inicial', 'Pronto'];
 export const OnboardingPage: React.FC = () => {
   const navigate = useNavigate();
   const { success } = useToast();
+  const { loadUserSports } = useSettings();
   const [step, setStep] = useState(0);
   const [selectedSports, setSelectedSports] = useState<SportKey[]>([]);
   const [goalTitle, setGoalTitle] = useState('');
@@ -42,6 +44,10 @@ export const OnboardingPage: React.FC = () => {
     setIsLoading(true);
     try {
       const profilePayload: Record<string, any> = {};
+      if (selectedSports.length > 0) {
+        profilePayload.activeSports = selectedSports;
+        profilePayload.primarySportKey = selectedSports[0];
+      }
       const parsedHeight = Number(heightCm);
       if (heightCm && Number.isFinite(parsedHeight) && parsedHeight >= 100 && parsedHeight <= 250) {
         profilePayload.heightCm = parsedHeight;
@@ -58,15 +64,31 @@ export const OnboardingPage: React.FC = () => {
           body: JSON.stringify(profilePayload),
         }).catch(() => {}); // Non-blocking
       }
-      if (goalTitle && goalTarget) {
+
+      if (selectedSports.length > 0) {
+        await Promise.all(
+          SPORT_KEYS.map((key) =>
+            apiClient(`/api/settings/sports/${key}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ isActive: selectedSports.includes(key) }),
+            }).catch(() => {})
+          )
+        );
+        await loadUserSports().catch(() => {});
+      }
+
+      if (goalTitle && goalTarget && Number(goalTarget) > 0) {
         await apiClient('/api/goals', {
           method: 'POST',
           body: JSON.stringify({
             title: goalTitle,
+            scope: selectedSports.length === 1 ? 'sport' : 'overall',
+            sportKey: selectedSports.length === 1 ? selectedSports[0] : null,
+            metricType: 'sessions_count',
+            direction: 'increase',
             type: 'frequency',
-            sportKey: selectedSports[0] || null,
             targetValue: Number(goalTarget),
-            unit: 'sessions',
+            unit: 'sessões',
             period: 'weekly',
           }),
         }).catch(() => {}); // Non-blocking

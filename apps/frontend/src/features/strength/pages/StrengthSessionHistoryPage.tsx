@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { strengthApi } from '../../../services/strength.api';
 import { formatDuration } from '../hooks/useSessionTimer';
+import { useSettings } from '../../../hooks/useSettings';
 import type { CompletedStrengthSession } from '@pacelog/shared';
 
 export const StrengthSessionHistoryPage: React.FC = () => {
   const navigate = useNavigate();
+  const { formatWeight, formatTime } = useSettings();
   const [sessions, setSessions] = useState<CompletedStrengthSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -13,7 +15,6 @@ export const StrengthSessionHistoryPage: React.FC = () => {
     strengthApi
       .listSessions(1, 50)
       .then((data) => {
-        console.log('List sessions raw data:', data);
         setSessions(Array.isArray(data) ? data : ((data as any).items || []));
       })
       .catch((err) => {
@@ -65,7 +66,7 @@ export const StrengthSessionHistoryPage: React.FC = () => {
                     weekday: 'long',
                     day: '2-digit',
                     month: 'short',
-                  })} • {new Date(session.startedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  })} • {formatTime(session.startedAt)}
                 </span>
                 <span className="font-mono text-xs text-[#8F9380] uppercase tracking-widest">
                   {formatDuration(session.durationSeconds)}
@@ -74,7 +75,9 @@ export const StrengthSessionHistoryPage: React.FC = () => {
               <div className="grid grid-cols-3 gap-2 w-full border-t border-[#1F2937] pt-3">
                 <div className="flex flex-col">
                   <span className="font-mono text-[10px] uppercase text-[#8F9380]">Volume</span>
-                  <span className="font-mono text-sm text-[#D4E4FA]">{session.totalVolumeKg != null ? `${session.totalVolumeKg.toLocaleString('pt-BR')} kg` : '—'}</span>
+                  <span className="font-mono text-sm text-[#D4E4FA]">
+                    {session.totalVolumeKg != null ? formatWeight(session.totalVolumeKg, 0) : '—'}
+                  </span>
                 </div>
                 <div className="flex flex-col">
                   <span className="font-mono text-[10px] uppercase text-[#8F9380]">Séries</span>

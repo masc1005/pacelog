@@ -24,6 +24,7 @@ import type {
   SportKey,
 } from '@pacelog/shared';
 import { SPORT_LABELS } from '../../lib/utils';
+import { useSettings } from '../../hooks/useSettings';
 import { LoadSummaryCard } from '../../components/progress/LoadSummaryCard';
 import { SportDistributionCard } from '../../components/progress/SportDistributionCard';
 import { SportProgressSummary } from '../../components/progress/SportProgressSummary';
@@ -53,6 +54,7 @@ const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
 
 export const ProgressPage: React.FC = () => {
   const navigate = useNavigate();
+  const { settings, userSports, formatWeight } = useSettings();
   const [activeTab, setActiveTab] = useState<Tab>('load');
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [isWeekLoading, setIsWeekLoading] = useState<boolean>(false);
@@ -66,6 +68,11 @@ export const ProgressPage: React.FC = () => {
   const [deloadNeed, setDeloadNeed] = useState<{ needed: boolean; reasons: string[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const resolveSportName = (key: string, fallback?: string) => {
+    const found = userSports.find((s) => s.sportKey === key);
+    return found?.displayName || SPORT_LABELS[key] || fallback || key;
+  };
 
   const loadWeekSummary = async (offset: number) => {
     setIsWeekLoading(true);
@@ -320,7 +327,7 @@ export const ProgressPage: React.FC = () => {
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-baseline gap-1.5">
                       <span className="font-display text-xl font-bold text-[#D4E4FA] leading-none">
-                        {weightHistory.currentWeightKg.toFixed(1)} kg
+                        {formatWeight(weightHistory.currentWeightKg, 1)}
                       </span>
                       <span
                         className={`font-mono text-[10px] ${
@@ -328,7 +335,10 @@ export const ProgressPage: React.FC = () => {
                         }`}
                       >
                         {weightHistory.deltaKg > 0 ? '+' : ''}
-                        {weightHistory.deltaKg.toFixed(1)}
+                        {(settings?.weightUnit === 'lb'
+                          ? weightHistory.deltaKg * 2.20462262
+                          : weightHistory.deltaKg
+                        ).toFixed(1)}
                       </span>
                     </div>
                     <span className="font-mono text-[9px] text-[#8F9380] uppercase tracking-wider mt-1 truncate">
@@ -370,7 +380,7 @@ export const ProgressPage: React.FC = () => {
                   <div className="flex justify-between items-center">
                     <div>
                       <span className="font-display text-base font-bold text-[#D4E4FA]">
-                        {SPORT_LABELS[sport.sportKey] || sport.sportKey}
+                        {resolveSportName(sport.sportKey)}
                       </span>
                       <div className="flex gap-3 mt-1 font-mono text-[10px] text-[#8F9380] uppercase">
                         <span>{sport.totalSessions} sessões</span>

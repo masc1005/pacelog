@@ -14,34 +14,71 @@ export function compareFutevolei(
   const evidence: string[] = [];
   const secondaryMetrics: ProgressMetric[] = [];
 
-  // Primary: technicalAverage
-  const extractTechnical = (s: ISessionDocument) => (s.metrics as any)?.technicalAverage ?? null;
-  const currentTechnical = calculateSportMetricBaseline(currentSessions, extractTechnical) ?? (currentSessions[0] ? extractTechnical(currentSessions[0]) : null);
-  const baselineTechnical = calculateSportMetricBaseline(baselineSessions, extractTechnical);
+  // Primary: Taxa de sets vencidos ou Sets disputados / Média técnica
+  const extractSetsWonRate = (s: ISessionDocument) => {
+    const m = s.metrics as any;
+    if (m?.setsWonRate != null && m.setsWonRate > 0) return Number(m.setsWonRate);
+    if (m?.setsCount > 0 && m?.setsWon != null) {
+      return Math.round((Number(m.setsWon) / Number(m.setsCount)) * 100);
+    }
+    return null;
+  };
+
+  const extractSetsCount = (s: ISessionDocument) => {
+    const m = s.metrics as any;
+    return m?.setsCount && m.setsCount > 0 ? Number(m.setsCount) : null;
+  };
+
+  const extractTechnical = (s: ISessionDocument) => {
+    const m = s.metrics as any;
+    if (m?.technicalAverage && m.technicalAverage > 0) return Number(m.technicalAverage);
+    const actions = [m?.successfulReceptions, m?.successfulSets, m?.successfulAttacks, m?.aces]
+      .filter((v): v is number => v != null && Number(v) > 0)
+      .map(Number);
+    if (actions.length > 0) {
+      return Math.round((actions.reduce((a, b) => a + b, 0) / actions.length) * 10) / 10;
+    }
+    return null;
+  };
 
   let primaryMetric: ProgressMetric | null = null;
 
-  if (currentTechnical && baselineTechnical) {
-    primaryMetric = compareMetric('technicalAverage', 'Média técnica', '/5', 'higher_is_better', currentTechnical, baselineTechnical);
-    
+  const currentSetsWon = calculateSportMetricBaseline(currentSessions, extractSetsWonRate) ?? (currentSessions[0] ? extractSetsWonRate(currentSessions[0]) : null);
+  const baselineSetsWon = calculateSportMetricBaseline(baselineSessions, extractSetsWonRate);
+
+  if (currentSetsWon && baselineSetsWon) {
+    primaryMetric = compareMetric('setsWonRate', 'Taxa de sets vencidos', '%', 'higher_is_better', currentSetsWon, baselineSetsWon);
     if (primaryMetric.status === 'improved') {
-      evidence.push(`Sua média técnica subiu de ${baselineTechnical} para ${currentTechnical}/5.`);
+      evidence.push(`Seu aproveitamento de vitórias subiu de ${baselineSetsWon}% para ${currentSetsWon}%.`);
     } else if (primaryMetric.status === 'declined') {
-      evidence.push(`Sua média técnica caiu de ${baselineTechnical} para ${currentTechnical}/5.`);
+      evidence.push(`Seu aproveitamento de vitórias caiu de ${baselineSetsWon}% para ${currentSetsWon}%.`);
     }
   }
 
-  // Secondary: setsWonRate
-  const extractSetsWon = (s: ISessionDocument) => (s.metrics as any)?.setsWonRate ?? null;
-  const currentSetsWon = calculateSportMetricBaseline(currentSessions, extractSetsWon) ?? (currentSessions[0] ? extractSetsWon(currentSessions[0]) : null);
-  const baselineSetsWon = calculateSportMetricBaseline(baselineSessions, extractSetsWon);
+  const currentSetsCount = calculateSportMetricBaseline(currentSessions, extractSetsCount) ?? (currentSessions[0] ? extractSetsCount(currentSessions[0]) : null);
+  const baselineSetsCount = calculateSportMetricBaseline(baselineSessions, extractSetsCount);
 
-  if (currentSetsWon && baselineSetsWon) {
-    const setsWonMetric = compareMetric('setsWonRate', 'Taxa de sets vencidos', '%', 'higher_is_better', currentSetsWon, baselineSetsWon);
-    secondaryMetrics.push(setsWonMetric);
+  if (currentSetsCount && baselineSetsCount) {
+    const setsMetric = compareMetric('setsCount', 'Sets por sessão', 'sets', 'higher_is_better', currentSetsCount, baselineSetsCount);
+    if (!primaryMetric) {
+      primaryMetric = setsMetric;
+    } else {
+      secondaryMetrics.push(setsMetric);
+    }
+    if (setsMetric.status === 'improved') {
+      evidence.push(`Sua média de sets por treino subiu de ${baselineSetsCount} para ${currentSetsCount}.`);
+    }
+  }
 
-    if (setsWonMetric.status === 'improved') {
-      evidence.push(`Seu aproveitamento de vitórias subiu de ${baselineSetsWon}% para ${currentSetsWon}%.`);
+  const currentTechnical = calculateSportMetricBaseline(currentSessions, extractTechnical);
+  const baselineTechnical = calculateSportMetricBaseline(baselineSessions, extractTechnical);
+
+  if (currentTechnical && baselineTechnical) {
+    const techMetric = compareMetric('technicalAverage', 'Ações técnicas', 'ações', 'higher_is_better', currentTechnical, baselineTechnical);
+    if (!primaryMetric) {
+      primaryMetric = techMetric;
+    } else {
+      secondaryMetrics.push(techMetric);
     }
   }
 

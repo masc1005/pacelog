@@ -467,6 +467,14 @@ export interface UserSettingsDTO extends BaseEntity {
   achievementNotificationsEnabled: boolean;
 }
 
+export const trainingReminderSchema = z.object({
+  id: z.string().optional(),
+  weekday: z.number().int().min(0).max(6),
+  time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Horário deve estar no formato HH:mm'),
+  sportKey: z.string().optional(),
+  enabled: z.boolean().default(true),
+});
+
 export const updateSettingsSchema = z.object({
   distanceUnit: z.enum(['km', 'mi']).optional(),
   weightUnit: z.enum(['kg', 'lb']).optional(),
@@ -480,14 +488,7 @@ export const updateSettingsSchema = z.object({
   weeklyDigestEnabled: z.boolean().optional(),
   notificationsEnabled: z.boolean().optional(),
   achievementNotificationsEnabled: z.boolean().optional(),
-});
-
-export const trainingReminderSchema = z.object({
-  id: z.string().optional(),
-  weekday: z.number().int().min(0).max(6),
-  time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Horário deve estar no formato HH:mm'),
-  sportKey: z.string().optional(),
-  enabled: z.boolean().default(true),
+  trainingReminders: z.array(trainingReminderSchema).optional(),
 });
 
 export const createCustomSportSchema = z.object({
@@ -546,6 +547,10 @@ export const importBackupSchema = z.object({
     settings: z.record(z.any()).optional().nullable(),
     profile: z.record(z.any()).optional().nullable(),
     userSports: z.array(z.record(z.any())).optional().nullable(),
+    weeklySchedule: z.record(z.any()).optional().nullable(),
+    dailyReadiness: z.array(z.record(z.any())).optional().nullable(),
+    strengthRoutines: z.array(z.record(z.any())).optional().nullable(),
+    strengthSessions: z.array(z.record(z.any())).optional().nullable(),
   }),
 });
 

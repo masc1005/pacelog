@@ -7,6 +7,11 @@ import { Notification as NotificationModel } from '../notifications/notification
 import { UserSettingsModel } from '../settings/settings.model.js';
 import { UserSportModel } from '../settings/userSport.model.js';
 import { PhysiqueAssessmentModel } from '../physique/physique.model.js';
+import { WeeklyScheduleModel } from '../schedule/schedule.model.js';
+import { DailyReadinessModel } from '../readiness/readiness.model.js';
+import { StrengthRoutineModel } from '../strength/strength-routine.model.js';
+import { ActiveStrengthSessionModel } from '../strength/strength-session.model.js';
+import { ExerciseModel } from '../strength/exercise.model.js';
 import { scopedFilter } from '../../utils/scopedQuery.js';
 import { HttpError } from '../../utils/httpError.js';
 import type { UpdateProfileInput, UpdateSportsInput, OnboardingInput } from './profile.schemas.js';
@@ -122,5 +127,10 @@ export async function deleteAccountAndData(userId: string): Promise<void> {
     UserSettingsModel.deleteMany({ userId }),
     UserSportModel.deleteMany({ userId }),
     PhysiqueAssessmentModel.deleteMany({ userId }),
+    WeeklyScheduleModel.deleteMany({ userId }),
+    DailyReadinessModel.deleteMany({ userId }),
+    StrengthRoutineModel.deleteMany({ userId }),
+    ActiveStrengthSessionModel.deleteMany({ userId }),
+    ExerciseModel.deleteMany({ ownerId: userId, isSystem: false }),
   ]);
 }

@@ -4,6 +4,7 @@ import {
   getValidGeminiModel,
   PRIMARY_GEMINI_MODEL,
   aiProgressInsightSchema,
+  insightService,
 } from './insight.service.js';
 
 describe('AI Insight Zod Schema', () => {
@@ -78,8 +79,7 @@ describe('getValidGeminiModel', () => {
 });
 
 describe('Strength Session Muscle Group Matching', () => {
-  it('deve identificar corretamente os grupos musculares de membros inferiores', async () => {
-    const { insightService } = await import('./insight.service.js');
+  it('deve identificar corretamente os grupos musculares de membros inferiores', () => {
     const session = {
       exercises: [
         { primaryMuscleGroup: 'quadriceps' },
@@ -88,13 +88,12 @@ describe('Strength Session Muscle Group Matching', () => {
       ],
     };
 
-    const result = (insightService as any).getMuscleGroupsFromSession(session);
+    const result = insightService.getMuscleGroupsFromSession(session);
     expect(result.groups).toEqual(expect.arrayContaining(['quadriceps', 'posteriores', 'panturrilhas']));
     expect(result.label).toContain('Pernas / Membros Inferiores');
   });
 
-  it('deve identificar corretamente os grupos musculares de empurrar/peito', async () => {
-    const { insightService } = await import('./insight.service.js');
+  it('deve identificar corretamente os grupos musculares de empurrar/peito', () => {
     const session = {
       exercises: [
         { primaryMuscleGroup: 'peito' },
@@ -102,7 +101,7 @@ describe('Strength Session Muscle Group Matching', () => {
       ],
     };
 
-    const result = (insightService as any).getMuscleGroupsFromSession(session);
+    const result = insightService.getMuscleGroupsFromSession(session);
     expect(result.groups).toEqual(expect.arrayContaining(['peito', 'triceps']));
     expect(result.label).toContain('Superiores / Empurrar');
   });

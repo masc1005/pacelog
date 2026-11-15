@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SessionSummary } from '../components/SessionSummary';
 import { strengthApi } from '../../../services/strength.api';
+import { useActiveStrengthSession } from '../hooks/useActiveStrengthSession';
 import type { CompletedStrengthSession } from '@pacelog/shared';
 
 export const StrengthSessionReviewPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { setSession: setActiveSession } = useActiveStrengthSession();
   const state = location.state as any;
   const sessionId: string | undefined = state?.sessionId;
   const completedFromState: CompletedStrengthSession | undefined = state?.completedSession;
@@ -14,13 +16,13 @@ export const StrengthSessionReviewPage: React.FC = () => {
   const [session, setSession] = useState<CompletedStrengthSession | null>(completedFromState ?? null);
   const [isLoading, setIsLoading] = useState(!completedFromState);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveAsRoutine, setSaveAsRoutine] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isEmptySession, setIsEmptySession] = useState(false);
 
   useEffect(() => {
     if (completedFromState) {
       setSession(completedFromState);
+      setActiveSession(null);
       setIsLoading(false);
       return;
     }
@@ -37,6 +39,7 @@ export const StrengthSessionReviewPage: React.FC = () => {
       try {
         const completed = await strengthApi.finishSession(sessionId!, {});
         setSession(completed as CompletedStrengthSession);
+        setActiveSession(null);
       } catch (err: any) {
         const isNoExercises =
           err?.code === 'STRENGTH_SESSION_NO_EXERCISES' ||
@@ -54,10 +57,14 @@ export const StrengthSessionReviewPage: React.FC = () => {
     }
 
     finishAndLoad();
-  }, [sessionId, completedFromState, navigate]);
+  }, [sessionId, completedFromState, navigate, setActiveSession]);
 
   function handleEdit() {
-    navigate('/strength/active');
+    if (session?.id) {
+      navigate(`/strength/sessions/${session.id}`);
+    } else {
+      navigate('/strength/active');
+    }
   }
 
   async function handleSave(durationMinutes?: number) {
@@ -68,22 +75,12 @@ export const StrengthSessionReviewPage: React.FC = () => {
           durationMinutes,
         });
       } catch (err) {
-        console.error("Erro ao atualizar duração customizada:", err);
-      }
-    }
-
-    if (saveAsRoutine && session) {
-      setIsSaving(true);
-      try {
-        await strengthApi.createRoutine({
-          name: `Treino de ${new Date(session.startedAt).toLocaleDateString('pt-BR')}`,
-          description: 'Rotina salva a partir de uma sessão concluída.',
-          sessionId: session.id,
-        });
+        console.error('Erro ao atualizar duração customizada:', err);
       } finally {
         setIsSaving(false);
       }
     }
+
     // Sessão já está salva no backend (status = completed e sincronizada no SessionModel).
     // Redireciona para o histórico unificado de treinos (/sessions).
     navigate('/sessions', { replace: true });
@@ -93,6 +90,7 @@ export const StrengthSessionReviewPage: React.FC = () => {
     if (sessionId) {
       try {
         await strengthApi.cancelSession(sessionId);
+        setActiveSession(null);
       } catch (err) {
         console.error('Erro ao descartar sessão:', err);
       }
@@ -129,7 +127,7 @@ export const StrengthSessionReviewPage: React.FC = () => {
         <div className="flex gap-3 w-full mt-2">
           <button
             className="flex-1 py-2.5 px-4 border border-[#1F2937] text-[#C5C8B4] hover:bg-[#161C24] font-mono text-xs uppercase font-bold tracking-widest rounded-[2px] transition-colors"
-            onClick={handleEdit}
+            onClick={() => navigate('/strength/active')}
           >
             Voltar ao Treino
           </button>
@@ -153,7 +151,7 @@ export const StrengthSessionReviewPage: React.FC = () => {
         <div className="flex gap-3 w-full mt-2">
           <button
             className="flex-1 py-2.5 px-4 border border-[#1F2937] text-[#C5C8B4] hover:bg-[#161C24] font-mono text-xs uppercase font-bold tracking-widest rounded-[2px] transition-colors"
-            onClick={handleEdit}
+            onClick={() => navigate('/strength/active')}
           >
             Voltar ao Treino
           </button>
@@ -176,15 +174,6 @@ export const StrengthSessionReviewPage: React.FC = () => {
         onEdit={handleEdit}
         isSaving={isSaving}
       />
-      <label className="flex items-center gap-2 mt-3 font-mono text-xs text-[#C5C8B4]">
-        <input
-          type="checkbox"
-          checked={saveAsRoutine}
-          onChange={(event) => setSaveAsRoutine(event.target.checked)}
-          className="accent-[#D4F684]"
-        />
-        Salvar este treino como rotina
-      </label>
     </div>
   );
 };

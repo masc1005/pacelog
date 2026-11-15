@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { GoalProgressBar } from './GoalProgressBar';
-import type { GoalDTO, SportKey } from '@pacelog/shared';
+import { useSettings } from '../../hooks/useSettings';
+import type { GoalDTO } from '@pacelog/shared';
 import {
   Target,
   Activity,
@@ -20,7 +21,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
-const sportMeta: Record<SportKey, { name: string; color: string; icon: React.ElementType }> = {
+const sportMeta: Record<string, { name: string; color: string; icon: React.ElementType }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity },
   football: { name: 'Futebol', color: '#D4F684', icon: Flame },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun },
@@ -37,8 +38,11 @@ interface GoalCardProps {
 
 export const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
   const navigate = useNavigate();
+  const { userSports } = useSettings();
   const meta = goal.sportKey ? sportMeta[goal.sportKey] : null;
-  const Icon = meta ? meta.icon : Target;
+  const customSport = goal.sportKey ? userSports.find((s) => s.sportKey === goal.sportKey) : null;
+  const sportName = goal.sportKey ? (customSport?.displayName || meta?.name || goal.sportKey) : 'Geral';
+  const Icon = meta ? meta.icon : (goal.sportKey ? Activity : Target);
   const color = meta ? meta.color : '#D4F684';
 
   const progressPercent = Math.min(100, Math.max(0, Math.round(goal.progressPercent || 0)));
@@ -66,7 +70,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
         <div className="flex items-center gap-1.5 min-w-0">
           <Icon className="h-3.5 w-3.5 shrink-0" style={{ color }} />
           <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider truncate">
-            {meta ? meta.name : 'Geral'}
+            {sportName}
             {goal.period
               ? ` • ${goal.period === 'weekly' ? 'Semanal' : goal.period === 'monthly' ? 'Mensal' : 'Custom'}`
               : ''}

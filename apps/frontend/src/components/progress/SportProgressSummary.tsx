@@ -1,24 +1,12 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus, AlertCircle } from 'lucide-react';
 import type { SportProgressV2, ConfidenceLevel } from '@pacelog/shared';
+import { useSettings } from '../../hooks/useSettings';
+import { SPORT_LABELS } from '../../lib/utils';
 
 // ==========================================
 // HELPERS
 // ==========================================
-
-function formatMetricValue(value: number, unit: string, key: string): string {
-  if (key === 'paceSecondsPerKm') {
-    const mins = Math.floor(value / 60);
-    const secs = Math.floor(value % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}/km`;
-  }
-  if (key === 'totalVolumeKg' && value >= 1000) {
-    return `${(value / 1000).toFixed(1)}t`;
-  }
-  if (unit === '%') return `${value.toFixed(0)}%`;
-  if (unit === 'AU') return `${value} AU`;
-  return `${value} ${unit}`;
-}
 
 function confidenceBadge(confidence: ConfidenceLevel): string {
   if (confidence === 'high') return 'text-[#D4F684]';
@@ -36,6 +24,7 @@ interface SportProgressCardProps {
 }
 
 const SportProgressCard: React.FC<SportProgressCardProps> = ({ sport, onClick }) => {
+  const { userSports, formatPace, formatWeight, formatSpeed, formatDistance } = useSettings();
   const comparison = sport.comparison;
   const hasComparison = comparison !== null && sport.confidence !== 'low';
 
@@ -48,6 +37,29 @@ const SportProgressCard: React.FC<SportProgressCardProps> = ({ sport, onClick })
 
   const currentValue = comparison?.currentValue ?? null;
 
+  const sportName = React.useMemo(() => {
+    const found = userSports.find((s) => s.sportKey === sport.sportKey);
+    return found?.displayName || sport.sportLabel || SPORT_LABELS[sport.sportKey] || sport.sportKey;
+  }, [userSports, sport.sportKey, sport.sportLabel]);
+
+  const formatMetricValue = (value: number, unit: string, key: string): string => {
+    if (key === 'paceSecondsPerKm') {
+      return formatPace(value);
+    }
+    if (key === 'totalVolumeKg' || unit === 'kg') {
+      return formatWeight(value, 0);
+    }
+    if (key === 'averageSpeedKmh' || unit === 'km/h') {
+      return formatSpeed(value);
+    }
+    if (unit === 'km') {
+      return formatDistance(value, 1);
+    }
+    if (unit === '%') return `${value.toFixed(0)}%`;
+    if (unit === 'AU') return `${value} AU`;
+    return `${value} ${unit}`;
+  };
+
   return (
     <div
       onClick={onClick}
@@ -57,7 +69,7 @@ const SportProgressCard: React.FC<SportProgressCardProps> = ({ sport, onClick })
       <div className="flex justify-between items-start">
         <div>
           <p className="font-display text-base font-bold text-[#D4E4FA]">
-            {sport.sportLabel}
+            {sportName}
           </p>
           <p className="font-mono text-[10px] text-[#8F9380] uppercase tracking-widest mt-0.5">
             {sport.primaryMetricLabel}

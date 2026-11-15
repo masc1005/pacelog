@@ -6,8 +6,9 @@ import { SPORT_KEYS, type SessionDTO, type SportKey } from '@pacelog/shared';
 import { Activity, Zap, Sun, Dumbbell, Flame, Search, Waves, Bike, Shield, X } from 'lucide-react';
 import { formatDuration } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { useSettings } from '../../hooks/useSettings';
 
-const sportMeta: Record<SportKey, { name: string; color: string; icon: React.ElementType; badge: 'cyan' | 'amber' | 'crimson' | 'purple' | 'green' | 'blue' }> = {
+const sportMeta: Record<string, { name: string; color: string; icon: React.ElementType; badge: 'cyan' | 'amber' | 'crimson' | 'purple' | 'green' | 'blue' }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity, badge: 'cyan' },
   football: { name: 'Futebol', color: '#D4F684', icon: Flame, badge: 'green' },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun, badge: 'amber' },
@@ -18,23 +19,27 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: React.Ele
   cycling: { name: 'Ciclismo', color: '#10B981', icon: Bike, badge: 'green' },
 };
 
-function startOfIsoWeek(date: Date): Date {
+function startOfWeek(date: Date, weekStart: 'monday' | 'sunday' = 'monday'): Date {
   const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const day = (copy.getDay() + 6) % 7; // 0 = segunda
+  const day = weekStart === 'sunday' ? copy.getDay() : (copy.getDay() + 6) % 7;
   copy.setDate(copy.getDate() - day);
   copy.setHours(0, 0, 0, 0);
   return copy;
 }
 
-function getSessionGroupLabel(dateInput: Date | string, now: Date): string {
+function getSessionGroupLabel(
+  dateInput: Date | string,
+  now: Date,
+  weekStart: 'monday' | 'sunday' = 'monday'
+): string {
   const date = new Date(dateInput);
   if (isNaN(date.getTime())) return 'Outros';
 
-  const currentWeekStart = startOfIsoWeek(now);
+  const currentWeekStart = startOfWeek(now, weekStart);
   const lastWeekStart = new Date(currentWeekStart);
   lastWeekStart.setDate(currentWeekStart.getDate() - 7);
 
-  const sessionWeekStart = startOfIsoWeek(date);
+  const sessionWeekStart = startOfWeek(date, weekStart);
   if (sessionWeekStart.getTime() === currentWeekStart.getTime()) {
     return 'Esta semana';
   }
@@ -48,29 +53,39 @@ function getSessionGroupLabel(dateInput: Date | string, now: Date): string {
   });
 }
 
-function getPrimaryMetrics(session: SessionDTO): [string, string] {
+function getPrimaryMetrics(
+  session: SessionDTO,
+  formatters: {
+    formatDistance: (km: number, decimals?: number) => string;
+    formatWeight: (kg: number, decimals?: number) => string;
+    formatSpeed: (kmh: number) => string;
+  }
+): [string, string] {
   const duration = formatDuration(session.durationSeconds);
   const load = `${Math.round(session.sessionalLoad || 0)} AU`;
 
   switch (session.sportKey) {
     case 'running': {
-      const km = ((session.metrics?.distanceMeters || 0) / 1000).toFixed(1);
-      return [`${km} km`, duration];
+      const km = session.metrics?.distanceKm !== undefined
+        ? Number(session.metrics.distanceKm)
+        : (Number(session.metrics?.distanceMeters || 0) / 1000);
+      return [formatters.formatDistance(km, 1), duration];
     }
     case 'cycling': {
       const primary = session.metrics?.distanceKm
-        ? `${Number(session.metrics.distanceKm).toFixed(1)} km`
+        ? formatters.formatDistance(Number(session.metrics.distanceKm), 1)
         : session.metrics?.averageSpeedKmh
-          ? `${Number(session.metrics.averageSpeedKmh).toFixed(1)} km/h`
+          ? formatters.formatSpeed(Number(session.metrics.averageSpeedKmh))
           : load;
       return [primary, duration];
     }
     case 'swimming': {
-      return [`${session.metrics?.totalDistanceMeters || 0} m`, duration];
+      const meters = session.metrics?.totalDistanceMeters || session.metrics?.distanceMeters || 0;
+      return [`${meters} m`, duration];
     }
     case 'strength': {
       const primary = session.metrics?.totalVolumeKg
-        ? `${Math.round(session.metrics.totalVolumeKg).toLocaleString('pt-BR')} kg`
+        ? formatters.formatWeight(Number(session.metrics.totalVolumeKg), 0)
         : `${session.metrics?.totalSets || 0} séries`;
       return [primary, duration];
     }
@@ -89,8 +104,18 @@ function getPrimaryMetrics(session: SessionDTO): [string, string] {
       const primary = session.metrics?.setsCount ? `${session.metrics.setsCount} sets` : load;
       return [primary, duration];
     }
-    default:
+    default: {
+      if (session.metrics?.distanceKm || session.metrics?.distanceMeters) {
+        const km = session.metrics.distanceKm !== undefined
+          ? Number(session.metrics.distanceKm)
+          : Number(session.metrics.distanceMeters || 0) / 1000;
+        return [formatters.formatDistance(km, 1), duration];
+      }
+      if (session.metrics?.totalVolumeKg) {
+        return [formatters.formatWeight(Number(session.metrics.totalVolumeKg), 0), duration];
+      }
       return [duration, load];
+    }
   }
 }
 
@@ -103,10 +128,33 @@ function getRpeBadgeVariant(rpe: number): 'sage' | 'amber' | 'orange' | 'crimson
 
 export const SessionsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { settings, userSports, formatDistance, formatWeight, formatSpeed, formatTime } = useSettings();
   const [sessions, setSessions] = useState<SessionDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSport, setSelectedSport] = useState<SportKey | 'all'>('all');
+
+  const resolveSportMeta = (key: string) => {
+    const found = userSports.find((s) => s.sportKey === key);
+    const base = sportMeta[key];
+    return {
+      name: found?.displayName || base?.name || key,
+      color: base?.color || '#38BDF8',
+      icon: base?.icon || Activity,
+      badge: base?.badge || ('cyan' as const),
+    };
+  };
+
+  const sportFilterKeys = useMemo(() => {
+    const keys = new Set<string>(SPORT_KEYS);
+    for (const s of userSports) {
+      if (s.isActive) keys.add(s.sportKey);
+    }
+    for (const s of sessions) {
+      keys.add(s.sportKey);
+    }
+    return Array.from(keys);
+  }, [userSports, sessions]);
 
   useEffect(() => {
     async function loadSessions() {
@@ -129,7 +177,7 @@ export const SessionsPage: React.FC = () => {
         return false;
       }
       if (!query) return true;
-      const meta = sportMeta[session.sportKey] || sportMeta.running;
+      const meta = resolveSportMeta(session.sportKey);
       const dateStr = new Date(session.startedAt).toLocaleDateString('pt-BR');
       const notes = (session.notes || '').toLowerCase();
       return (
@@ -139,15 +187,16 @@ export const SessionsPage: React.FC = () => {
         notes.includes(query)
       );
     });
-  }, [sessions, selectedSport, searchQuery]);
+  }, [sessions, selectedSport, searchQuery, userSports]);
 
   const groupedSessions = useMemo(() => {
     const now = new Date();
+    const weekStart = settings?.weekStart || 'monday';
     const groups: Array<{ label: string; items: SessionDTO[] }> = [];
     const indexByLabel = new Map<string, number>();
 
     for (const session of filteredSessions) {
-      const label = getSessionGroupLabel(session.startedAt, now);
+      const label = getSessionGroupLabel(session.startedAt, now, weekStart);
       const existingIdx = indexByLabel.get(label);
       if (existingIdx !== undefined) {
         groups[existingIdx].items.push(session);
@@ -158,7 +207,7 @@ export const SessionsPage: React.FC = () => {
     }
 
     return groups;
-  }, [filteredSessions]);
+  }, [filteredSessions, settings?.weekStart]);
 
   return (
     <div className="flex flex-col gap-4 font-sans max-w-4xl mx-auto w-full pb-24">
@@ -212,15 +261,15 @@ export const SessionsPage: React.FC = () => {
           Todos
         </button>
 
-        {SPORT_KEYS.map((key) => {
-          const meta = sportMeta[key];
+        {sportFilterKeys.map((key) => {
+          const meta = resolveSportMeta(key);
           const Icon = meta.icon;
           const active = selectedSport === key;
           return (
             <button
               key={key}
               type="button"
-              onClick={() => setSelectedSport(active ? 'all' : key)}
+              onClick={() => setSelectedSport(active ? 'all' : (key as SportKey))}
               className={`shrink-0 h-8 inline-flex items-center gap-1.5 px-3 rounded-full font-mono text-[11px] uppercase font-bold border transition-all cursor-pointer ${
                 active
                   ? 'bg-[#161C24] text-[#D4E4FA] border-[#D4F684]'
@@ -275,17 +324,18 @@ export const SessionsPage: React.FC = () => {
 
               <div className="flex flex-col gap-1.5">
                 {group.items.map((session) => {
-                  const meta = sportMeta[session.sportKey] || sportMeta.running;
+                  const meta = resolveSportMeta(session.sportKey);
                   const Icon = meta.icon;
-                  const [primaryMetric, secondaryMetric] = getPrimaryMetrics(session);
+                  const [primaryMetric, secondaryMetric] = getPrimaryMetrics(session, {
+                    formatDistance,
+                    formatWeight,
+                    formatSpeed,
+                  });
                   const dateLabel = new Date(session.startedAt).toLocaleDateString('pt-BR', {
                     day: '2-digit',
                     month: '2-digit',
                   });
-                  const timeLabel = new Date(session.startedAt).toLocaleTimeString('pt-BR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  });
+                  const timeLabel = formatTime(session.startedAt);
 
                   return (
                     <Card

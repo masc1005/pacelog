@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSettings } from '../../hooks/useSettings';
 import {
   User,
   Settings,
@@ -23,6 +24,7 @@ import { PhysiqueAssessmentModal } from '../../features/physique/components/Phys
 
 export const ProfilePage: React.FC = () => {
   const { user, signOut } = useAuth();
+  const { formatWeight } = useSettings();
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
   const [weightKg, setWeightKg] = useState<number | null>(null);
@@ -153,7 +155,7 @@ export const ProfilePage: React.FC = () => {
               Peso Atual
             </span>
             <span className="font-display text-base font-bold text-[#5CA9E6] mt-0.5">
-              {weightKg !== null ? `${weightKg.toFixed(1)} kg` : '—'}
+              {weightKg !== null ? formatWeight(weightKg, 1) : '—'}
             </span>
           </div>
 

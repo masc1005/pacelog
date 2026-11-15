@@ -46,14 +46,24 @@ export function calculateRunningPace(
 /**
  * Enriquecimento automático de métricas de Corrida (Pace e consistência).
  */
-export function enrichRunningMetrics(metrics: RunningMetrics): RunningMetrics {
+export function enrichRunningMetrics(metrics: RunningMetrics, durationSeconds?: number): RunningMetrics {
+  const duration = durationSeconds || metrics.durationSeconds || 0;
+  const distanceMeters =
+    metrics.distanceMeters && metrics.distanceMeters > 0
+      ? Number(metrics.distanceMeters)
+      : (metrics as any).distanceKm
+        ? Math.round(Number((metrics as any).distanceKm) * 1000)
+        : 0;
+
   const paceSecondsPerKm =
     metrics.paceSecondsPerKm && metrics.paceSecondsPerKm > 0
       ? metrics.paceSecondsPerKm
-      : calculateRunningPace(metrics.distanceMeters, metrics.durationSeconds);
+      : calculateRunningPace(distanceMeters, duration);
 
   return {
     ...metrics,
+    distanceMeters,
+    durationSeconds: duration || metrics.durationSeconds,
     paceSecondsPerKm,
   };
 }
@@ -68,6 +78,7 @@ export function enrichStrengthMetrics(metrics: LegacyStrengthMetrics): LegacyStr
   let totalVolumeKg = 0;
   let totalSets = 0;
   let totalReps = 0;
+  let maxWeightKg = 0;
 
   if (Array.isArray(metrics.exercises)) {
     for (const exercise of metrics.exercises) {
@@ -77,6 +88,7 @@ export function enrichStrengthMetrics(metrics: LegacyStrengthMetrics): LegacyStr
           const reps = Number(set.reps) || 0;
           const weight = Number(set.weightKg) || 0;
           totalReps += reps;
+          if (weight > maxWeightKg) maxWeightKg = weight;
 
           // Séries de aquecimento não entram na contagem do volume total de carga de trabalho
           if (!set.isWarmup && reps > 0 && weight > 0) {
@@ -89,9 +101,10 @@ export function enrichStrengthMetrics(metrics: LegacyStrengthMetrics): LegacyStr
 
   return {
     ...metrics,
-    totalVolumeKg: Math.round(totalVolumeKg * 100) / 100,
-    totalSets,
-    totalReps,
+    totalVolumeKg: totalVolumeKg > 0 ? Math.round(totalVolumeKg * 100) / 100 : (metrics.totalVolumeKg || 0),
+    totalSets: totalSets > 0 ? totalSets : (metrics.totalSets || 0),
+    totalReps: totalReps > 0 ? totalReps : (metrics.totalReps || 0),
+    ...(maxWeightKg > 0 ? { maxWeightKg } : {}),
   };
 }
 
@@ -128,37 +141,60 @@ export function enrichBoxingMetrics(metrics: BoxingMetrics): BoxingMetrics {
  */
 export function enrichCyclingMetrics(metrics: any, durationSeconds?: number): any {
   const duration = durationSeconds || metrics.durationSeconds || 60;
-  const distanceKm = Number(metrics.distanceKm) || 0;
+  const distanceKm =
+    metrics.distanceKm != null
+      ? Number(metrics.distanceKm)
+      : metrics.distanceMeters
+        ? Math.round((Number(metrics.distanceMeters) / 1000) * 100) / 100
+        : 0;
 
   // Calcula velocidade média diretamente: Distância (km) / Tempo (horas)
   const averageSpeedKmh = distanceKm > 0 && duration > 0
     ? Math.round((distanceKm / (duration / 3600)) * 10) / 10
-    : (metrics.averageSpeedKmh || undefined);
+    : (metrics.averageSpeedKmh || metrics.avgSpeedKmh || undefined);
 
   // Calcula ritmo em segundos por km: Tempo (segundos) / Distância (km)
   const paceSecondsPerKm = distanceKm > 0 && duration > 0
     ? Math.round(duration / distanceKm)
     : (metrics.paceSecondsPerKm || undefined);
 
+  const avgHeartRate = metrics.avgHeartRate ?? metrics.averageHeartRate;
+
   return {
     ...metrics,
     distanceKm,
+    distanceMeters: distanceKm > 0 ? Math.round(distanceKm * 1000) : metrics.distanceMeters,
     durationSeconds: duration,
     averageSpeedKmh,
     paceSecondsPerKm,
+    ...(avgHeartRate !== undefined ? { avgHeartRate, averageHeartRate: avgHeartRate } : {}),
   };
 }
 
 /**
  * Enriquecimento de métricas de Jiu-Jitsu:
  * - Injeta durationSeconds se omitido
- * - Garante valores numéricos padrão
+ * - Garante valores numéricos padrão e normaliza gi / giType / trainingType / sessionType
  */
 export function enrichJiuJitsuMetrics(metrics: any, durationSeconds?: number): any {
   const duration = durationSeconds || metrics.durationSeconds || 60;
+  const giBoolean =
+    typeof metrics.gi === 'boolean'
+      ? metrics.gi
+      : metrics.giType === 'gi'
+        ? true
+        : metrics.giType === 'nogi'
+          ? false
+          : true;
+  const giType = metrics.giType || (giBoolean ? 'gi' : 'nogi');
+  const trainingType = metrics.trainingType || metrics.sessionType;
+
   return {
     ...metrics,
     durationSeconds: duration,
+    gi: giBoolean,
+    giType,
+    ...(trainingType ? { trainingType, sessionType: trainingType } : {}),
     roundsCount: metrics.roundsCount != null ? Number(metrics.roundsCount) : undefined,
     submissionsLanded: metrics.submissionsLanded != null ? Number(metrics.submissionsLanded) : undefined,
     submissionsReceived: metrics.submissionsReceived != null ? Number(metrics.submissionsReceived) : undefined,
@@ -173,17 +209,23 @@ export function enrichSportMetrics(sportKey: SportKey, metrics: any, durationSec
 
   switch (sportKey) {
     case 'running':
-      return enrichRunningMetrics(metrics);
+      return enrichRunningMetrics(metrics, durationSeconds);
     case 'strength':
       return enrichStrengthMetrics(metrics);
     case 'boxing':
       return enrichBoxingMetrics(metrics);
-    case 'swimming':
-      return enrichSwimmingMetrics(metrics, durationSeconds || 0);
+    case 'swimming': {
+      const enriched = enrichSwimmingMetrics(metrics, durationSeconds || metrics.durationSeconds || 0);
+      const hr = metrics.avgHeartRate ?? metrics.averageHeartRate;
+      return {
+        ...enriched,
+        ...(hr !== undefined ? { avgHeartRate: hr, averageHeartRate: hr } : {}),
+      };
+    }
     case 'cycling':
-      return enrichCyclingMetrics(metrics, durationSeconds || 0);
+      return enrichCyclingMetrics(metrics, durationSeconds);
     case 'jiujitsu':
-      return enrichJiuJitsuMetrics(metrics, durationSeconds || 0);
+      return enrichJiuJitsuMetrics(metrics, durationSeconds);
     case 'football':
     case 'futevolei':
     default:
@@ -207,7 +249,7 @@ export function computePrimaryMetric(
 
   switch (sportKey) {
     case 'running': {
-      const distKm = metrics.distanceMeters > 0 ? metrics.distanceMeters / 1000 : null;
+      const distKm = metrics.distanceMeters > 0 ? metrics.distanceMeters / 1000 : (metrics.distanceKm > 0 ? metrics.distanceKm : null);
       const pace = distKm && durationSeconds > 0
         ? Math.round(durationSeconds / distKm)
         : (metrics.paceSecondsPerKm ?? null);
@@ -222,34 +264,27 @@ export function computePrimaryMetric(
     }
 
     case 'football': {
-      const minutes = metrics.durationSeconds ? Math.round(metrics.durationSeconds / 60) : 0;
+      const dur = metrics.durationSeconds || durationSeconds || 0;
+      const minutes = metrics.minutesPlayed ?? (dur > 0 ? Math.round(dur / 60) : 0);
       if (minutes <= 0) return null;
       return { key: 'minutesPlayed', label: 'Minutos jogados', value: minutes, unit: 'min', direction: 'higher_is_better', comparability: 'same_sport' };
     }
 
     case 'futevolei': {
-      const ratings: number[] = [];
-      if (metrics.successfulReceptions != null) ratings.push(metrics.successfulReceptions);
-      if (metrics.successfulSets != null) ratings.push(metrics.successfulSets);
-      if (metrics.successfulAttacks != null) ratings.push(metrics.successfulAttacks);
-      if (metrics.serves != null) ratings.push(metrics.serves);
-      if (ratings.length === 0) {
-        // fallback: sets vencidos
-        const total = metrics.setsCount || 1;
-        const won = metrics.setsWon ?? null;
-        if (won === null) return null;
-        const rate = Math.round((won / total) * 100);
+      if (metrics.setsCount > 0 && metrics.setsWon != null) {
+        const rate = Math.round((metrics.setsWon / metrics.setsCount) * 100);
         return { key: 'setsWonRate', label: 'Taxa de sets vencidos', value: rate, unit: '%', direction: 'higher_is_better', comparability: 'same_metric' };
       }
-      const avg = Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 100) / 100;
-      return { key: 'technicalAverage', label: 'Média técnica', value: avg, unit: '/5', direction: 'higher_is_better', comparability: 'same_metric' };
+      if (metrics.setsCount > 0) {
+        return { key: 'setsCount', label: 'Sets por sessão', value: metrics.setsCount, unit: 'sets', direction: 'higher_is_better', comparability: 'same_sport' };
+      }
+      return null;
     }
 
     case 'boxing': {
       const completed = metrics.roundsCount ?? 0;
       if (completed <= 0) return null;
-      // Considera 100% se não houver target definido (todos os rounds concluídos)
-      return { key: 'roundCompletionRate', label: 'Conclusão de rounds', value: 100, unit: '%', direction: 'higher_is_better', comparability: 'same_metric' };
+      return { key: 'roundsCount', label: 'Rounds concluídos', value: completed, unit: 'rounds', direction: 'higher_is_better', comparability: 'same_metric' };
     }
 
     case 'strength': {
@@ -260,8 +295,14 @@ export function computePrimaryMetric(
 
     case 'swimming': {
       const pace = metrics.paceSecondsPer100m ?? null;
-      if (pace === null || pace <= 0) return null;
-      return { key: 'paceSecondsPer100m', label: 'Pace médio', value: pace, unit: 's/100m', direction: 'lower_is_better', comparability: 'same_metric' };
+      if (pace && pace > 0) {
+        return { key: 'paceSecondsPer100m', label: 'Pace médio', value: pace, unit: 's/100m', direction: 'lower_is_better', comparability: 'same_metric' };
+      }
+      const dist = metrics.totalDistanceMeters ?? metrics.distanceMeters ?? 0;
+      if (dist > 0) {
+        return { key: 'totalDistanceMeters', label: 'Distância', value: dist, unit: 'm', direction: 'higher_is_better', comparability: 'same_metric' };
+      }
+      return null;
     }
 
     case 'jiujitsu': {

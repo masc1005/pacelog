@@ -4,7 +4,7 @@ import { SPORT_KEYS, type SportKey } from '@pacelog/shared';
 export interface ISport extends Document {
   sportKey: SportKey;
   name: string;
-  category: 'endurance' | 'team' | 'combat' | 'strength';
+  category: 'endurance' | 'team' | 'combat' | 'strength' | 'individual';
   icon: string;
   color: string;
   supportedMetrics: string[];
@@ -32,7 +32,7 @@ const sportSchema = new Schema<ISport>(
     category: {
       type: String,
       required: true,
-      enum: ['endurance', 'team', 'combat', 'strength'],
+      enum: ['endurance', 'team', 'combat', 'strength', 'individual'],
     },
     icon: {
       type: String,

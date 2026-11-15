@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -21,7 +21,7 @@ const NEW_SESSION_SPORT_KEYS = SPORT_KEYS.filter(
   (key): key is NonStrengthSportKey => key !== 'strength'
 );
 
-const sportMeta: Record<NonStrengthSportKey, { name: string; color: string; icon: any }> = {
+const sportMeta: Record<string, { name: string; color: string; icon: any }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity },
   football: { name: 'Futebol', color: '#D4F684', icon: Flame },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun },
@@ -36,7 +36,7 @@ export const NewSessionPage: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
   const { addToast } = useToast();
-  const { userSports } = useSettings();
+  const { userSports, formatSpeed } = useSettings();
   const { enqueue } = useSyncQueue();
   const stateKey = (location.state as { sportKey?: SportKey } | null)?.sportKey;
 
@@ -54,7 +54,36 @@ export const NewSessionPage: React.FC = () => {
 
   // Dynamic metrics state
   const [metrics, setMetrics] = useState<Record<string, any>>({});
-  const defaultGearId = userSports.find((sport) => sport.sportKey === sportKey)?.defaultGearId;
+  const currentSportConfig = userSports.find((sport) => sport.sportKey === sportKey);
+  const defaultGearId = currentSportConfig?.defaultGearId;
+
+  const availableSports = useMemo(() => {
+    const active = userSports.filter((s) => s.isActive && s.sportKey !== 'strength');
+    if (active.length === 0) {
+      return NEW_SESSION_SPORT_KEYS.map((key) => ({
+        sportKey: key,
+        name: sportMeta[key]?.name || key,
+        color: sportMeta[key]?.color || '#38BDF8',
+        icon: sportMeta[key]?.icon || Activity,
+      }));
+    }
+    return active.map((s) => ({
+      sportKey: s.sportKey as NonStrengthSportKey,
+      name: s.displayName || sportMeta[s.sportKey]?.name || s.sportKey,
+      color: sportMeta[s.sportKey]?.color || '#38BDF8',
+      icon: sportMeta[s.sportKey]?.icon || Activity,
+    }));
+  }, [userSports]);
+
+  const resolveSportMeta = (key: string) => {
+    const found = userSports.find((s) => s.sportKey === key);
+    const base = sportMeta[key];
+    return {
+      name: found?.displayName || base?.name || key,
+      color: base?.color || '#38BDF8',
+      icon: base?.icon || Activity,
+    };
+  };
 
   // Redireciona diretamente caso chegue com sportKey === 'strength' e prepara defaults dos demais esportes
   useEffect(() => {
@@ -111,7 +140,7 @@ export const NewSessionPage: React.FC = () => {
 
       if (sportKey === 'running' && finalMetrics.distanceKm) {
         finalMetrics.distanceMeters = finalMetrics.distanceKm * 1000;
-        finalMetrics.paceSecondsPerKm = (finalMetrics.paceMin * 60) + finalMetrics.paceSec;
+        finalMetrics.paceSecondsPerKm = ((finalMetrics.paceMin || 0) * 60) + (finalMetrics.paceSec || 0);
       }
 
       if (sportKey === 'cycling' && finalMetrics.distanceKm) {
@@ -176,7 +205,9 @@ export const NewSessionPage: React.FC = () => {
     }
   };
 
-  const CurrentSportIcon = sportMeta[sportKey].icon;
+  const currentMeta = resolveSportMeta(sportKey);
+  const CurrentSportIcon = currentMeta.icon;
+  const isKnownBuiltIn = Boolean(sportMeta[sportKey]);
 
   return (
     <div className="flex flex-col gap-6 font-sans max-w-2xl mx-auto w-full">
@@ -203,7 +234,7 @@ export const NewSessionPage: React.FC = () => {
               </label>
               <div className="relative flex items-center">
                 <div className="absolute left-3.5 pointer-events-none flex items-center justify-center">
-                  <CurrentSportIcon className="h-5 w-5" style={{ color: sportMeta[sportKey].color }} />
+                  <CurrentSportIcon className="h-5 w-5" style={{ color: currentMeta.color }} />
                 </div>
                 <select
                   id="select-sport-key"
@@ -211,9 +242,9 @@ export const NewSessionPage: React.FC = () => {
                   onChange={(e) => setSportKey(e.target.value as NonStrengthSportKey)}
                   className="w-full pl-11 pr-10 py-3 bg-[#161C24] border border-[#1F2937] focus:border-[#D4F684] text-[#D4E4FA] font-mono text-sm rounded-[4px] outline-none transition-colors appearance-none cursor-pointer hover:border-[#454839]"
                 >
-                  {NEW_SESSION_SPORT_KEYS.map((key) => (
-                    <option key={key} value={key} className="bg-[#0D1C2D] text-[#D4E4FA] py-2">
-                      {sportMeta[key].name}
+                  {availableSports.map((sport) => (
+                    <option key={sport.sportKey} value={sport.sportKey} className="bg-[#0D1C2D] text-[#D4E4FA] py-2">
+                      {sport.name}
                     </option>
                   ))}
                 </select>
@@ -251,9 +282,9 @@ export const NewSessionPage: React.FC = () => {
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4">
           <Card className="p-6 bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-4">
             <div className="flex items-center gap-2 mb-2">
-              {React.createElement(sportMeta[sportKey].icon, { className: "h-5 w-5", style: { color: sportMeta[sportKey].color } })}
+              {React.createElement(currentMeta.icon, { className: "h-5 w-5", style: { color: currentMeta.color } })}
               <label className="font-mono text-xs text-[#C5C8B4] uppercase tracking-widest">
-                Métricas Específicas: {sportMeta[sportKey].name}
+                Métricas Específicas: {currentMeta.name}
               </label>
             </div>
 
@@ -418,8 +449,8 @@ export const NewSessionPage: React.FC = () => {
                   <span className="font-mono text-[9px] text-[#8F9380] uppercase">Velocidade Média Prevista</span>
                   <span className="font-display text-lg font-bold text-[#10B981]">
                     {metrics.distanceKm && durationMinutes > 0
-                      ? `${((metrics.distanceKm / (durationMinutes / 60))).toFixed(1)} km/h`
-                      : '-- km/h'}
+                      ? formatSpeed(metrics.distanceKm / (durationMinutes / 60))
+                      : '--'}
                   </span>
                 </div>
 
@@ -813,6 +844,37 @@ export const NewSessionPage: React.FC = () => {
                     <option value="sand_court">Quadra (Areia Dura)</option>
                   </select>
                 </div>
+              </div>
+            )}
+
+            {/* Modalidade Customizada */}
+            {!isKnownBuiltIn && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {(currentSportConfig?.metricsConfig || [])
+                  .filter((m) => m.visible)
+                  .map((m) => (
+                    <Input
+                      key={m.metricKey}
+                      label={m.label}
+                      type="number"
+                      step="any"
+                      value={metrics[m.metricKey] ?? ''}
+                      onChange={(e) => setMetrics({ ...metrics, [m.metricKey]: Number(e.target.value) })}
+                    />
+                  ))}
+                <Input
+                  label="Distância (km) (Opcional)"
+                  type="number"
+                  step="0.1"
+                  value={metrics.distanceKm ?? ''}
+                  onChange={(e) => setMetrics({ ...metrics, distanceKm: Number(e.target.value) })}
+                />
+                <Input
+                  label="FC Média (bpm) (Opcional)"
+                  type="number"
+                  value={metrics.averageHeartRate ?? ''}
+                  onChange={(e) => setMetrics({ ...metrics, averageHeartRate: Number(e.target.value) })}
+                />
               </div>
             )}
           </Card>

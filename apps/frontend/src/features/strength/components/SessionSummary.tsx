@@ -3,6 +3,7 @@ import type { CompletedStrengthSession } from '@pacelog/shared';
 import { formatDuration } from '../hooks/useSessionTimer';
 import { strengthApi } from '../../../services/strength.api';
 import { useToast } from '../../../contexts/ToastContext';
+import { useSettings } from '../../../hooks/useSettings';
 import { Bookmark, Check, Clock } from 'lucide-react';
 import { detectForgottenTimer } from '../utils/strengthOptimistic.utils';
 
@@ -20,6 +21,7 @@ export const SessionSummary: React.FC<SessionSummaryProps> = ({
   isSaving = false,
 }) => {
   const { success, error: toastError } = useToast();
+  const { formatWeight, formatTime } = useSettings();
   const [showRoutineInput, setShowRoutineInput] = useState(false);
   const [routineName, setRoutineName] = useState('');
   const [isCreatingRoutine, setIsCreatingRoutine] = useState(false);
@@ -33,14 +35,8 @@ export const SessionSummary: React.FC<SessionSummaryProps> = ({
     return detectForgottenTimer(session, refTime) || detectForgottenTimer(session, Date.now());
   }, [session]);
 
-  const startTime = new Date(session.startedAt).toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  const endTime = new Date(session.finishedAt).toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const startTime = formatTime(session.startedAt);
+  const endTime = formatTime(session.finishedAt);
 
   const handleCreateRoutine = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,13 +163,13 @@ export const SessionSummary: React.FC<SessionSummaryProps> = ({
         {session.totalVolumeKg != null && (
           <SummaryStat
             label="Volume"
-            value={`${session.totalVolumeKg.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`}
+            value={formatWeight(session.totalVolumeKg, 0)}
           />
         )}
         {session.estimatedOneRepMax != null && (
           <SummaryStat
             label="1RM estimado"
-            value={`${session.estimatedOneRepMax} kg`}
+            value={formatWeight(session.estimatedOneRepMax, 1)}
           />
         )}
         <SummaryStat label="Início" value={startTime} />

@@ -47,17 +47,18 @@ export class ExerciseService {
     query: ExerciseSearchQuery
   ) {
     const userCacheKey = `${USER_CATALOG_PREFIX}${userId}`;
+    const includeCustom = query.includeCustom !== false;
 
     // 1. Tenta cache Redis
     try {
       const [cachedSystem, cachedUser] = await Promise.all([
         cache.get(SYSTEM_CATALOG_KEY),
-        cache.get(userCacheKey),
+        includeCustom ? cache.get(userCacheKey) : Promise.resolve(null),
       ]);
 
       if (cachedSystem) {
         const systemItems = JSON.parse(cachedSystem) as any[];
-        const userItems = cachedUser ? (JSON.parse(cachedUser) as any[]) : [];
+        const userItems = includeCustom && cachedUser ? (JSON.parse(cachedUser) as any[]) : [];
         const allItems = [...systemItems, ...userItems];
         return this.buildPaginatedResult(allItems, query);
       }
@@ -67,7 +68,7 @@ export class ExerciseService {
     }
 
     // 2. Cache MISS — busca no MongoDB e escreve no cache
-    const result = await this.searchExercisesFromDB(userId, query);
+    const result = await this.searchExercisesFromDB(userId, { ...query, includeCustom: true });
     const systemItems = result.items.filter((e) => e.isSystem);
     const userItems = result.items.filter((e) => !e.isSystem);
 
@@ -83,6 +84,10 @@ export class ExerciseService {
       console.warn('[ExerciseService] Falha ao gravar cache Redis:', (err as Error).message)
     );
 
+    if (!includeCustom) {
+      return this.buildPaginatedResult(systemItems, query);
+    }
+
     return result;
   }
 
@@ -93,9 +98,12 @@ export class ExerciseService {
     userId: string,
     query: ExerciseSearchQuery
   ) {
+    const includeCustom = query.includeCustom !== false;
     const filter: Record<string, any> = {
       isActive: true,
-      $or: [{ isSystem: true }, { ownerId: userId }],
+      ...(includeCustom
+        ? { $or: [{ isSystem: true }, { ownerId: userId }] }
+        : { isSystem: true }),
     };
 
     if (query.query) {
@@ -137,7 +145,15 @@ export class ExerciseService {
       id: doc._id?.toString() ?? doc.id,
     }));
 
-    return this.buildPaginatedResult(items, { ...query, page, limit });
+    return {
+      items,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit) || 1,
+      },
+    };
   }
 
   private buildPaginatedResult(

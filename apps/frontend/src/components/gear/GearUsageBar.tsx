@@ -1,5 +1,6 @@
 import React from 'react';
 import type { GearUsage } from '@pacelog/shared';
+import { useSettings } from '../../hooks/useSettings';
 
 interface GearUsageBarProps {
   usage: GearUsage;
@@ -7,6 +8,8 @@ interface GearUsageBarProps {
 }
 
 export const GearUsageBar: React.FC<GearUsageBarProps> = ({ usage, label = 'Uso' }) => {
+  const { settings } = useSettings();
+
   if (usage.status === 'unlimited' || usage.limit === null || usage.percent === null) {
     return null;
   }
@@ -24,6 +27,12 @@ export const GearUsageBar: React.FC<GearUsageBarProps> = ({ usage, label = 'Uso'
     textColor = '#F59E0B';
   }
 
+  const isMiles = usage.unit === 'km' && settings?.distanceUnit === 'mi';
+  const factor = isMiles ? 0.621371 : 1;
+  const displayUsed = usage.used * factor;
+  const displayLimit = usage.limit * factor;
+  const displayUnit = isMiles ? 'mi' : usage.unit;
+
   return (
     <div className="w-full mt-2">
       <div className="flex justify-between items-center mb-1">
@@ -31,8 +40,8 @@ export const GearUsageBar: React.FC<GearUsageBarProps> = ({ usage, label = 'Uso'
           {label}
         </span>
         <span className="font-mono text-[10px] font-bold" style={{ color: textColor }}>
-          {usage.used.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} /{' '}
-          {usage.limit.toLocaleString('pt-BR')} {usage.unit} ({Math.round(usage.percent)}%)
+          {displayUsed.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} /{' '}
+          {displayLimit.toLocaleString('pt-BR', { maximumFractionDigits: isMiles ? 1 : 0 })} {displayUnit} ({Math.round(usage.percent)}%)
         </span>
       </div>
       <div className="h-1.5 w-full bg-[#161C24] rounded-full overflow-hidden">

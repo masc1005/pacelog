@@ -41,6 +41,11 @@ export const exerciseSearchQuerySchema = z.object({
   type: z.string().optional(),
   recent: z.coerce.boolean().optional(),
   favorites: z.coerce.boolean().optional(),
+  includeCustom: z
+    .preprocess(
+      (v) => (v === 'false' || v === false ? false : v === 'true' || v === true ? true : undefined),
+      z.boolean().optional()
+    ),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(1000).default(30),
 });

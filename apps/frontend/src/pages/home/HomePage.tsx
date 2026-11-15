@@ -1,88 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSettings } from '../../contexts/SettingsContext';
 import { Card } from '../../components/ui/Card';
 import { AICoachWidget } from '../../components/ui/AICoachWidget';
 import { LoadSummaryCard } from '../../components/progress/LoadSummaryCard';
 import { GoalHighlightCard } from '../../components/goals/GoalHighlightCard';
 import { WeeklyScheduleCard } from '../../components/schedule/WeeklyScheduleCard';
 import { DailyReadinessCard } from '../../components/readiness/DailyReadinessCard';
-import { gearApi } from '../../services/gear.api';
 import { ArrowRight, Calendar } from 'lucide-react';
 import {
   type SessionSummaryDTO,
   type ProgressSummaryDTO,
-  type ProgressBySportDTO,
-  type Gear,
 } from '@pacelog/shared';
-import { formatDuration } from '../../lib/utils';
+import { formatDuration, SPORT_LABELS } from '../../lib/utils';
 import { apiClient } from '../../lib/api';
 
 export const HomePage: React.FC = () => {
   const { user } = useAuth();
+  const { userSports } = useSettings();
   const [summary, setSummary] = useState<SessionSummaryDTO | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [progressSummary, setProgressSummary] = useState<ProgressSummaryDTO | null>(null);
-  const [weekOffset, setWeekOffset] = useState<number>(0);
-  const [isWeekLoading, setIsWeekLoading] = useState<boolean>(false);
-  const [gearList, setGearList] = useState<Gear[]>([]);
-
-  const loadWeekProgress = async (offset: number) => {
-    setIsWeekLoading(true);
-    try {
-      const progressData = await apiClient<ProgressSummaryDTO>(`/api/progress/summary?weekOffset=${offset}`).catch(() => null);
-      if (progressData) {
-        setProgressSummary(progressData);
-      }
-    } finally {
-      setIsWeekLoading(false);
-    }
-  };
-
-  const handlePrevWeek = () => {
-    const newOffset = weekOffset - 1;
-    setWeekOffset(newOffset);
-    loadWeekProgress(newOffset);
-  };
-
-  const handleNextWeek = () => {
-    if (weekOffset >= 0) return;
-    const newOffset = weekOffset + 1;
-    setWeekOffset(newOffset);
-    loadWeekProgress(newOffset);
-  };
-
-  const handleResetWeek = () => {
-    setWeekOffset(0);
-    loadWeekProgress(0);
-  };
 
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const [summaryData, sessionsData, progressData, gearData] = await Promise.all([
+        const [summaryData, sessionsData, progressData] = await Promise.all([
           apiClient<SessionSummaryDTO>('/api/sessions/summary?timeframe=week').catch(() => null),
           apiClient<any[]>('/api/sessions?limit=20').catch(() => []),
           apiClient<ProgressSummaryDTO>('/api/progress/summary?weekOffset=0').catch(() => null),
-          gearApi.getGear(false).catch(() => []),
         ]);
 
         if (summaryData) setSummary(summaryData);
         if (sessionsData && Array.isArray(sessionsData)) setSessions(sessionsData);
-        if (gearData) setGearList(gearData);
-        if (progressData) {
-          setProgressSummary(progressData);
-
-          if (progressData.distribution?.length > 0) {
-            const sportKeys = progressData.distribution.map((d: any) => d.sportKey);
-            await Promise.allSettled(
-              sportKeys.map((key) =>
-                apiClient<ProgressBySportDTO>(`/api/progress/by-sport/${key}`).catch(() => null)
-              )
-            );
-          }
-        }
+        if (progressData) setProgressSummary(progressData);
       } catch {
         // Silencioso em caso de inicialização offline
       } finally {
@@ -91,12 +44,6 @@ export const HomePage: React.FC = () => {
     }
     loadDashboardData();
   }, []);
-
-  void gearList;
-  void handlePrevWeek;
-  void handleNextWeek;
-  void handleResetWeek;
-  void isWeekLoading;
 
   if (isLoading) {
     return (
@@ -107,6 +54,13 @@ export const HomePage: React.FC = () => {
       </div>
     );
   }
+
+  const latestSession = sessions[0];
+  const latestSportDisplayName = latestSession
+    ? userSports.find((s) => s.sportKey === latestSession.sportKey)?.displayName ||
+      SPORT_LABELS[latestSession.sportKey] ||
+      latestSession.sportKey
+    : '';
 
   return (
     <div className="flex flex-col gap-4 sm:gap-5 font-sans text-[#D4E4FA] relative pb-8">
@@ -138,7 +92,7 @@ export const HomePage: React.FC = () => {
             </span>
             <div className="flex items-end justify-between gap-2">
               <span className="font-display text-2xl font-bold text-[#D4E4FA]">
-                {summary?.totalSessions ?? '--'}
+                {progressSummary.sessions?.current ?? summary?.totalSessions ?? '--'}
               </span>
               <span className="font-mono text-[10px] text-[#8F9380]">
                 sessões
@@ -159,30 +113,34 @@ export const HomePage: React.FC = () => {
             ÚLTIMA SESSÃO
           </h2>
           <Link to="/sessions" className="font-mono text-[10px] uppercase text-[#D4F684] hover:underline">
-            Ver todos <ArrowRight className="inline h-3 w-3" />
+            VER TODAS <ArrowRight className="inline h-3 w-3" />
           </Link>
         </div>
 
-        {sessions[0] ? (
-          <div className="grid grid-cols-3 gap-2.5">
-            <div className="bg-[#0D1C2D] border border-[#1F2937] rounded-[2px] p-3">
-              <span className="font-mono text-[9px] text-[#8F9380] uppercase">Modalidade</span>
-              <span className="font-display text-sm font-bold text-[#D4E4FA] uppercase block mt-1 truncate">{sessions[0].sportKey}</span>
-            </div>
-            <div className="bg-[#0D1C2D] border border-[#1F2937] rounded-[2px] p-3">
-              <span className="font-mono text-[9px] text-[#8F9380] uppercase">Duração</span>
-              <span className="font-display text-sm font-bold text-[#D4E4FA] block mt-1">{formatDuration(sessions[0].durationSeconds)}</span>
-            </div>
-            <div className="bg-[#0D1C2D] border border-[#1F2937] rounded-[2px] p-3">
-              <span className="font-mono text-[9px] text-[#8F9380] uppercase">RPE</span>
-              <span className="font-display text-sm font-bold text-[#FF6B35] block mt-1">{sessions[0].rpe || '--'}/10</span>
-            </div>
-          </div>
+        {latestSession ? (
+          <Link to={`/sessions/${latestSession.id}`}>
+            <Card className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:border-[#D4F684] transition-colors">
+              <div className="flex flex-col">
+                <span className="font-mono text-[10px] text-[#8F9380] uppercase">
+                  {new Date(latestSession.startedAt).toLocaleDateString('pt-BR')} // {latestSportDisplayName}
+                </span>
+                <span className="font-display text-lg font-bold text-[#D4E4FA]">
+                  {formatDuration(latestSession.durationSeconds)} | RPE {latestSession.rpe}/10
+                </span>
+              </div>
+              <div className="flex items-center gap-4 border-t sm:border-t-0 sm:border-l border-[#1F2937] pt-3 sm:pt-0 sm:pl-6 w-full sm:w-auto">
+                <div>
+                  <span className="font-mono text-[9px] text-[#8F9380] block uppercase">CARGA (TRIMP)</span>
+                  <span className="font-mono text-xl font-bold text-[#5CA9E6]">
+                    {latestSession.sessionalLoad} <small className="text-xs">AU</small>
+                  </span>
+                </div>
+              </div>
+            </Card>
+          </Link>
         ) : (
-          <Card className="p-8 flex flex-col items-center justify-center gap-2 border-dashed border-[#454839]">
-            <span className="font-mono text-[10px] text-[#8F9380] uppercase">
-              Nenhum treino registrado ainda
-            </span>
+          <Card className="p-6 text-center text-[#8F9380] font-mono text-xs uppercase">
+            NENHUMA SESSÃO REGISTRADA AINDA.
           </Card>
         )}
       </section>

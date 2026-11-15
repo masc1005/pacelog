@@ -6,6 +6,7 @@ import { Badge } from '../../components/ui/Badge';
 import { apiClient, ApiError } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useSettings } from '../../hooks/useSettings';
 import { useSyncQueue } from '../../pwa/hooks/useSyncQueue';
 import {
   SPORT_KEYS,
@@ -30,7 +31,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 
-const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
+const sportMeta: Record<string, { name: string; color: string; icon: any }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity },
   football: { name: 'Futebol', color: '#D4F684', icon: Flame },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun },
@@ -102,6 +103,12 @@ const METRICS_MAP: Record<string, MetricOption[]> = {
   ],
 };
 
+function parseLocalDeadlineEnd(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!y || !m || !d) return new Date(dateStr);
+  return new Date(y, m - 1, d, 23, 59, 59, 999);
+}
+
 const PERIODS: Array<{ value: GoalPeriod; label: string }> = [
   { value: 'weekly', label: 'Semanal' },
   { value: 'monthly', label: 'Mensal' },
@@ -112,6 +119,7 @@ export const CreateGoalPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addToast } = useToast();
+  const { userSports } = useSettings();
   const { enqueue } = useSyncQueue();
 
   // Form State
@@ -126,6 +134,24 @@ export const CreateGoalPage: React.FC = () => {
   const [customTitle, setCustomTitle] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const availableSportList = useMemo(() => {
+    const active = userSports.filter((s) => s.isActive);
+    if (active.length === 0) {
+      return SPORT_KEYS.map((key) => ({
+        sportKey: key as SportKey,
+        name: sportMeta[key]?.name || key,
+        color: sportMeta[key]?.color || '#38BDF8',
+        icon: sportMeta[key]?.icon || Activity,
+      }));
+    }
+    return active.map((s) => ({
+      sportKey: s.sportKey as SportKey,
+      name: s.displayName || sportMeta[s.sportKey]?.name || s.sportKey,
+      color: sportMeta[s.sportKey]?.color || '#38BDF8',
+      icon: sportMeta[s.sportKey]?.icon || Activity,
+    }));
+  }, [userSports]);
 
   // Lista de métricas disponíveis para a combinação atual
   const availableMetrics = useMemo(() => {
@@ -162,12 +188,13 @@ export const CreateGoalPage: React.FC = () => {
   // Título gerado dinamicamente para preview
   const previewTitle = useMemo(() => {
     if (customTitle.trim()) return customTitle.trim();
-    const sportName = sportKey ? sportMeta[sportKey].name : 'Geral';
+    const foundSport = availableSportList.find((s) => s.sportKey === sportKey);
+    const sportName = sportKey ? (foundSport?.name || sportMeta[sportKey]?.name || sportKey) : 'Geral';
     if (isPaceMetric) {
       return `${sportName} · Pace ${paceMin}:${paceSec.toString().padStart(2, '0')}/km`;
     }
     return `${sportName} · ${targetValue || '0'} ${selectedMetricOption.unit}`;
-  }, [customTitle, sportKey, isPaceMetric, paceMin, paceSec, targetValue, selectedMetricOption]);
+  }, [customTitle, sportKey, availableSportList, isPaceMetric, paceMin, paceSec, targetValue, selectedMetricOption]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,7 +222,7 @@ export const CreateGoalPage: React.FC = () => {
       targetValue: finalTarget,
       unit: selectedMetricOption.unit,
       period,
-      deadline: deadline ? new Date(deadline).toISOString() : null,
+      deadline: deadline ? parseLocalDeadlineEnd(deadline).toISOString() : null,
       notes: notes.trim() || null,
     };
 
@@ -267,16 +294,15 @@ export const CreateGoalPage: React.FC = () => {
               <span>Geral</span>
             </button>
 
-            {SPORT_KEYS.map((key) => {
-              const meta = sportMeta[key];
-              const Icon = meta.icon;
-              const isSelected = scope === 'sport' && sportKey === key;
+            {availableSportList.map((sport) => {
+              const Icon = sport.icon;
+              const isSelected = scope === 'sport' && sportKey === sport.sportKey;
 
               return (
                 <button
-                  key={key}
+                  key={sport.sportKey}
                   type="button"
-                  onClick={() => handleSportSelect(key)}
+                  onClick={() => handleSportSelect(sport.sportKey)}
                   className={`p-2.5 rounded-[4px] font-mono text-xs uppercase font-bold border flex flex-col items-center gap-1.5 transition-all ${
                     isSelected
                       ? 'bg-[#161C24] text-[#D4E4FA] border-[#D4F684] shadow-[0_0_15px_rgba(212,246,132,0.2)]'
@@ -285,9 +311,9 @@ export const CreateGoalPage: React.FC = () => {
                 >
                   <Icon
                     className="w-4 h-4"
-                    style={{ color: isSelected ? meta.color : undefined }}
+                    style={{ color: isSelected ? sport.color : undefined }}
                   />
-                  <span>{meta.name}</span>
+                  <span className="truncate max-w-full">{sport.name}</span>
                 </button>
               );
             })}
@@ -437,7 +463,7 @@ export const CreateGoalPage: React.FC = () => {
               {deadline && (
                 <>
                   <span>•</span>
-                  <span className="text-[#38BDF8]">Prazo: {new Date(deadline).toLocaleDateString('pt-BR')}</span>
+                  <span className="text-[#38BDF8]">Prazo: {parseLocalDeadlineEnd(deadline).toLocaleDateString('pt-BR')}</span>
                 </>
               )}
             </div>

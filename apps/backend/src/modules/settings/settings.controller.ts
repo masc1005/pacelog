@@ -40,6 +40,18 @@ export class SettingsController {
     }
   }
 
+  async toggleReminder(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user?.userId || req.userId!;
+      const id = String(req.params.id);
+      const enabled = Boolean(req.body?.enabled);
+      const reminders = await settingsService.toggleReminder(userId, id, enabled);
+      res.json(reminders);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async deleteReminder(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = (req as any).user?.userId || req.userId!;

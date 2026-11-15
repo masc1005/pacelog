@@ -6,6 +6,7 @@ export type SyncOperationType =
   | 'create_session'
   | 'update_session'
   | 'delete_session'
+  | 'create_goal'
   | 'update_settings'
   | 'strength_finish_session';
 

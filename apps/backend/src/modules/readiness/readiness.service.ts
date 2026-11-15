@@ -4,18 +4,17 @@ import {
 } from './readiness.model.js';
 import { SessionModel } from '../sessions/session.model.js';
 import { ProfileModel } from '../profile/profile.model.js';
+import { UserSettingsModel } from '../settings/settings.model.js';
+import { formatDateInTimeZone, resolveValidTimeZone } from '../progress/streak.service.js';
 import type {
   ReadinessStatus,
   TrainingRecommendation,
   UpsertDailyReadinessInput,
 } from '@pacelog/shared';
 
-function getTodayDateKey(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+function getTodayDateKey(timezone?: string): string {
+  const tz = resolveValidTimeZone(timezone);
+  return formatDateInTimeZone(new Date(), tz);
 }
 
 /**
@@ -116,7 +115,11 @@ export class DailyReadinessService {
     today: IDailyReadinessDocument | null;
     history: IDailyReadinessDocument[];
   }> {
-    const targetDate = dateKey || getTodayDateKey();
+    let targetDate = dateKey;
+    if (!targetDate) {
+      const userSettings = await UserSettingsModel.findOne({ userId }).select('timezone').lean();
+      targetDate = getTodayDateKey(userSettings?.timezone);
+    }
 
     const [today, history] = await Promise.all([
       DailyReadinessModel.findOne({ userId, dateKey: targetDate }),
@@ -132,7 +135,11 @@ export class DailyReadinessService {
     userId: string,
     input: UpsertDailyReadinessInput
   ): Promise<IDailyReadinessDocument> {
-    const targetDate = input.dateKey || getTodayDateKey();
+    let targetDate = input.dateKey;
+    if (!targetDate) {
+      const userSettings = await UserSettingsModel.findOne({ userId }).select('timezone').lean();
+      targetDate = getTodayDateKey(userSettings?.timezone);
+    }
     const weightKg = input.weightKg ?? input.bodyWeightKg;
 
     // Consulta carga aguda dos últimos 7 dias para contextualizar recomendação

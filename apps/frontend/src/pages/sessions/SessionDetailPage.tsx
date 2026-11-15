@@ -5,6 +5,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
+import { useSettings } from '../../hooks/useSettings';
 import type { SessionDTO, SportKey } from '@pacelog/shared';
 import { formatDuration } from '../../lib/utils';
 import { Activity, Zap, Sun, Dumbbell, Flame, Pencil, Trash2, ArrowLeft, Sparkles, RefreshCw, Waves, Bike, Shield } from 'lucide-react';
@@ -25,6 +26,7 @@ export const SessionDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
+  const { formatDistance, formatSpeed, formatWeight, formatTime } = useSettings();
   const [session, setSession] = useState<SessionDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -108,6 +110,32 @@ export const SessionDetailPage: React.FC = () => {
   const meta = sportMeta[session.sportKey] || sportMeta.running;
   const Icon = meta.icon;
 
+  const runningDistKm =
+    session.metrics?.distanceKm ??
+    (session.metrics?.distanceMeters ? session.metrics.distanceMeters / 1000 : 0);
+
+  const cyclingDistKm =
+    session.metrics?.distanceKm ??
+    (session.metrics?.distanceMeters ? session.metrics.distanceMeters / 1000 : 0);
+
+  const cyclingSpeedKmh =
+    session.metrics?.averageSpeedKmh ??
+    session.metrics?.avgSpeedKmh ??
+    (cyclingDistKm > 0 && session.durationSeconds > 0
+      ? cyclingDistKm / (session.durationSeconds / 3600)
+      : null);
+
+  const heartRate = session.metrics?.avgHeartRate ?? session.metrics?.averageHeartRate;
+
+  const jiujitsuGiLabel =
+    session.metrics?.giType === 'gi' || session.metrics?.gi === true
+      ? 'Com Kimono (Gi)'
+      : session.metrics?.giType === 'nogi' || session.metrics?.gi === false
+        ? 'Sem Kimono (No-Gi)'
+        : null;
+
+  const jiujitsuSessionType = session.metrics?.trainingType || session.metrics?.sessionType;
+
   return (
     <div className="flex flex-col gap-6 font-sans max-w-2xl mx-auto w-full">
       <div className="flex items-center justify-between border-b border-[#1F2937] pb-4">
@@ -142,7 +170,7 @@ export const SessionDetailPage: React.FC = () => {
             <Badge variant={meta.badge} size="sm">Completo</Badge>
           </div>
           <span className="font-mono text-xs text-[#8F9380]">
-            {new Date(session.startedAt).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })} às {new Date(session.startedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            {new Date(session.startedAt).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })} às {formatTime(session.startedAt)}
           </span>
         </div>
       </Card>
@@ -230,7 +258,7 @@ export const SessionDetailPage: React.FC = () => {
             {session.sportKey === 'running' && <>
               <div className="flex flex-col gap-1 border-l-2 border-[#5CA9E6] pl-3">
                 <span className="font-mono text-[9px] text-[#8F9380] uppercase">Distância</span>
-                <span className="font-display text-xl font-bold text-[#D4E4FA]">{((session.metrics.distanceMeters || 0) / 1000).toFixed(1)} km</span>
+                <span className="font-display text-xl font-bold text-[#D4E4FA]">{formatDistance(runningDistKm, 1)}</span>
               </div>
               <div className="flex flex-col gap-1 border-l-2 border-[#5CA9E6] pl-3">
                 <span className="font-mono text-[9px] text-[#8F9380] uppercase">Pace médio</span>
@@ -244,17 +272,17 @@ export const SessionDetailPage: React.FC = () => {
                   <span className="font-display text-xl font-bold text-[#5CA9E6]">{session.metrics.elevationGainMeters} m</span>
                 </div>
               )}
-              {session.metrics.avgHeartRate !== undefined && (
+              {heartRate !== undefined && (
                 <div className="flex flex-col gap-1 border-l-2 border-[#5CA9E6] pl-3">
                   <span className="font-mono text-[9px] text-[#8F9380] uppercase">FC Média</span>
-                  <span className="font-display text-xl font-bold text-[#5CA9E6]">{session.metrics.avgHeartRate} bpm</span>
+                  <span className="font-display text-xl font-bold text-[#5CA9E6]">{heartRate} bpm</span>
                 </div>
               )}
             </>}
             {session.sportKey === 'swimming' && <>
               <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
                 <span className="font-mono text-[9px] text-[#8F9380] uppercase">Distância</span>
-                <span className="font-display text-xl font-bold text-[#D4E4FA]">{session.metrics.totalDistanceMeters} m</span>
+                <span className="font-display text-xl font-bold text-[#D4E4FA]">{session.metrics.totalDistanceMeters || session.metrics.distanceMeters || 0} m</span>
               </div>
               {session.metrics.poolLengthMeters && (
                 <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
@@ -289,10 +317,10 @@ export const SessionDetailPage: React.FC = () => {
                   </span>
                 </div>
               )}
-              {session.metrics.avgHeartRate != null && (
+              {heartRate != null && (
                 <div className="flex flex-col gap-1 border-l-2 border-[#38BDF8] pl-3">
                   <span className="font-mono text-[9px] text-[#8F9380] uppercase">FC Média</span>
-                  <span className="font-display text-xl font-bold text-[#38BDF8]">{session.metrics.avgHeartRate} bpm</span>
+                  <span className="font-display text-xl font-bold text-[#38BDF8]">{heartRate} bpm</span>
                 </div>
               )}
               {session.metrics.swolf != null && (
@@ -305,12 +333,12 @@ export const SessionDetailPage: React.FC = () => {
             {session.sportKey === 'cycling' && <>
               <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
                 <span className="font-mono text-[9px] text-[#8F9380] uppercase">Distância</span>
-                <span className="font-display text-xl font-bold text-[#D4E4FA]">{((session.metrics.distanceMeters || 0) / 1000).toFixed(1)} km</span>
+                <span className="font-display text-xl font-bold text-[#D4E4FA]">{formatDistance(cyclingDistKm, 1)}</span>
               </div>
               <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
                 <span className="font-mono text-[9px] text-[#8F9380] uppercase">Vel. Média</span>
                 <span className="font-display text-xl font-bold text-[#10B981]">
-                  {session.metrics.averageSpeedKmh != null ? `${session.metrics.averageSpeedKmh.toFixed(1)} km/h` : '--'}
+                  {cyclingSpeedKmh != null ? formatSpeed(cyclingSpeedKmh, 1) : '--'}
                 </span>
               </div>
               {session.metrics.cyclingType && (
@@ -321,7 +349,8 @@ export const SessionDetailPage: React.FC = () => {
                      session.metrics.cyclingType === 'mountain_bike' ? 'Mountain Bike' :
                      session.metrics.cyclingType === 'indoor' ? 'Indoor / Rolo' :
                      session.metrics.cyclingType === 'gravel' ? 'Gravel' :
-                     session.metrics.cyclingType === 'commute' ? 'Deslocamento' : session.metrics.cyclingType}
+                     session.metrics.cyclingType === 'commute' ? 'Deslocamento' :
+                     session.metrics.cyclingType === 'mixed' ? 'Misto' : session.metrics.cyclingType}
                   </span>
                 </div>
               )}
@@ -343,31 +372,32 @@ export const SessionDetailPage: React.FC = () => {
                   <span className="font-display text-xl font-bold text-[#10B981]">{session.metrics.averagePowerWatts} W</span>
                 </div>
               )}
-              {session.metrics.avgHeartRate != null && (
+              {heartRate != null && (
                 <div className="flex flex-col gap-1 border-l-2 border-[#10B981] pl-3">
                   <span className="font-mono text-[9px] text-[#8F9380] uppercase">FC Média</span>
-                  <span className="font-display text-xl font-bold text-[#10B981]">{session.metrics.avgHeartRate} bpm</span>
+                  <span className="font-display text-xl font-bold text-[#10B981]">{heartRate} bpm</span>
                 </div>
               )}
             </>}
             {session.sportKey === 'jiujitsu' && <>
-              {session.metrics.giType && (
+              {jiujitsuGiLabel && (
                 <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3">
                   <span className="font-mono text-[9px] text-[#8F9380] uppercase">Modalidade</span>
                   <span className="font-display text-base font-bold text-[#E11D48] uppercase">
-                    {session.metrics.giType === 'gi' ? 'Com Kimono (Gi)' : 'Sem Kimono (No-Gi)'}
+                    {jiujitsuGiLabel}
                   </span>
                 </div>
               )}
-              {session.metrics.sessionType && (
+              {jiujitsuSessionType && (
                 <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3">
                   <span className="font-mono text-[9px] text-[#8F9380] uppercase">Tipo de Treino</span>
                   <span className="font-display text-base font-bold text-[#D4E4FA] uppercase">
-                    {session.metrics.sessionType === 'class' ? 'Aula Regular' :
-                     session.metrics.sessionType === 'sparring' ? 'Rola / Sparring' :
-                     session.metrics.sessionType === 'drilling' ? 'Drilling' :
-                     session.metrics.sessionType === 'open_mat' ? 'Open Mat' :
-                     session.metrics.sessionType === 'competition' ? 'Competição' : session.metrics.sessionType}
+                    {jiujitsuSessionType === 'class' || jiujitsuSessionType === 'technique' ? 'Técnica / Aula' :
+                     jiujitsuSessionType === 'sparring' ? 'Rola / Sparring' :
+                     jiujitsuSessionType === 'drilling' ? 'Drilling' :
+                     jiujitsuSessionType === 'open_mat' ? 'Open Mat' :
+                     jiujitsuSessionType === 'seminar' ? 'Seminário' :
+                     jiujitsuSessionType === 'competition' ? 'Competição' : jiujitsuSessionType}
                   </span>
                 </div>
               )}
@@ -436,7 +466,7 @@ export const SessionDetailPage: React.FC = () => {
             {session.sportKey === 'strength' && <>
               <div className="flex flex-col gap-1 border-l-2 border-[#A855F7] pl-3">
                 <span className="font-mono text-[9px] text-[#8F9380] uppercase">Volume</span>
-                <span className="font-display text-xl font-bold text-[#D4E4FA]">{session.metrics.totalVolumeKg} kg</span>
+                <span className="font-display text-xl font-bold text-[#D4E4FA]">{formatWeight(session.metrics.totalVolumeKg || 0, 0)}</span>
               </div>
               <div className="flex flex-col gap-1 border-l-2 border-[#A855F7] pl-3">
                 <span className="font-mono text-[9px] text-[#8F9380] uppercase">Séries</span>
@@ -478,6 +508,12 @@ export const SessionDetailPage: React.FC = () => {
                 <span className="font-mono text-[9px] text-[#8F9380] uppercase">Sets</span>
                 <span className="font-display text-xl font-bold text-[#FFB800]">{session.metrics.setsCount}</span>
               </div>
+              {session.metrics.setsWon !== undefined && (
+                <div className="flex flex-col gap-1 border-l-2 border-[#FFB800] pl-3">
+                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Sets Vencidos</span>
+                  <span className="font-display text-xl font-bold text-[#FFB800]">{session.metrics.setsWon}</span>
+                </div>
+              )}
               {session.metrics.successfulReceptions !== undefined && (
                 <div className="flex flex-col gap-1 border-l-2 border-[#FFB800] pl-3">
                   <span className="font-mono text-[9px] text-[#8F9380] uppercase">Recepções</span>

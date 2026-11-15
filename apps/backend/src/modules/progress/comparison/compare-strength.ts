@@ -26,15 +26,31 @@ export function compareStrength(
     
     if (primaryMetric.status === 'changed') {
       const isUp = primaryMetric.relativeChangePercent > 0;
-      evidence.push(`Seu volume aumentou de ${baselineVolume} kg para ${currentVolume} kg.`);
+      evidence.push(`Seu volume ${isUp ? 'aumentou' : 'variou'} de ${baselineVolume} kg para ${currentVolume} kg.`);
       if (isUp) {
-         evidence.push(`Volume maior não significa necessariamente aumento de força, mas indica maior tolerância a carga de treino.`);
+        evidence.push(`Volume maior não significa necessariamente aumento de força, mas indica maior tolerância a carga de treino.`);
       }
     }
   }
 
-  // Secondary: maxWeightKg
-  const extractMaxWeight = (s: ISessionDocument) => (s.metrics as any)?.maxWeightKg ?? null;
+  // Secondary: maxWeightKg (top-level or max across exercises/sets)
+  const extractMaxWeight = (s: ISessionDocument) => {
+    const m = s.metrics as any;
+    if (m?.maxWeightKg && m.maxWeightKg > 0) return Number(m.maxWeightKg);
+    if (Array.isArray(m?.exercises)) {
+      let maxW = 0;
+      for (const ex of m.exercises) {
+        if (Array.isArray(ex?.sets)) {
+          for (const set of ex.sets) {
+            const w = Number(set?.weightKg ?? set?.load ?? 0);
+            if (w > maxW) maxW = w;
+          }
+        }
+      }
+      if (maxW > 0) return maxW;
+    }
+    return null;
+  };
   const currentMaxWeight = calculateSportMetricBaseline(currentSessions, extractMaxWeight) ?? (currentSessions[0] ? extractMaxWeight(currentSessions[0]) : null);
   const baselineMaxWeight = calculateSportMetricBaseline(baselineSessions, extractMaxWeight);
 
@@ -47,8 +63,12 @@ export function compareStrength(
     }
   }
   
-  // Secondary: estimated1RM
-  const extractE1rm = (s: ISessionDocument) => (s.metrics as any)?.estimated1RM ?? null;
+  // Secondary: estimated1RM / estimatedOneRepMax
+  const extractE1rm = (s: ISessionDocument) => {
+    const m = s.metrics as any;
+    const val = m?.estimated1RM ?? m?.estimatedOneRepMax ?? null;
+    return val && val > 0 ? Number(val) : null;
+  };
   const currentE1rm = calculateSportMetricBaseline(currentSessions, extractE1rm) ?? (currentSessions[0] ? extractE1rm(currentSessions[0]) : null);
   const baselineE1rm = calculateSportMetricBaseline(baselineSessions, extractE1rm);
 

@@ -13,6 +13,7 @@ settingsRoutes.patch('/', (req, res, next) => settingsController.updateSettings(
 
 // Lembretes de treino
 settingsRoutes.post('/reminders', (req, res, next) => settingsController.addReminder(req, res, next));
+settingsRoutes.patch('/reminders/:id', (req, res, next) => settingsController.toggleReminder(req, res, next));
 settingsRoutes.delete('/reminders/:id', (req, res, next) => settingsController.deleteReminder(req, res, next));
 
 // Gestão de Esportes e Métricas

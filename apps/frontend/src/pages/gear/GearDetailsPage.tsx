@@ -21,10 +21,12 @@ import {
 import { GearCard } from '../../components/gear/GearCard';
 import { GearUsageBar } from '../../components/gear/GearUsageBar';
 import { Card } from '../../components/ui/Card';
+import { useSettings } from '../../hooks/useSettings';
 
 export const GearDetailsPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { formatDistance } = useSettings();
 
   const [gear, setGear] = useState<Gear | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -251,7 +253,7 @@ export const GearDetailsPage: React.FC = () => {
                               {comp.name}
                             </span>
                             <span className="font-mono text-[10px] text-[#8F9380]">
-                              Instalado em {comp.installedAtKm.toFixed(1)} km da bike
+                              Instalado em {formatDistance(comp.installedAtKm, 1)} da bike
                               {comp.replacements > 0 &&
                                 ` · ${comp.replacements} substituiç${
                                   comp.replacements === 1 ? 'ão' : 'ões'

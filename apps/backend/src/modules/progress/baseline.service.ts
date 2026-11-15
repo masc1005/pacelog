@@ -4,6 +4,7 @@ import type {
   ProgressComparison,
   PeriodDescriptor,
   MetricDirection,
+  WeekStart,
 } from '@pacelog/shared';
 import type { ISessionDocument } from '../sessions/session.model.js';
 
@@ -36,10 +37,36 @@ export type WeeklyLoad = {
 };
 
 /**
- * Calcula a carga sRPE semanal a partir de uma lista de sessões.
- * Organiza por semana ISO (segunda como início).
+ * Calcula o início e o fim da semana para uma data de referência,
+ * respeitando a preferência `weekStart` ('monday' | 'sunday').
  */
-export function calculateWeeklySrpeLoad(sessions: ISessionDocument[]): WeeklyLoad[] {
+export function getWeekBounds(
+  referenceDate: Date,
+  weekStart: WeekStart = 'monday',
+  weekOffset = 0
+): { start: Date; end: Date } {
+  const start = new Date(referenceDate);
+  const jsDay = start.getDay(); // 0=Dom .. 6=Sáb
+  const offsetFromStart = weekStart === 'sunday' ? jsDay : (jsDay + 6) % 7;
+
+  start.setDate(start.getDate() - offsetFromStart + weekOffset * 7);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+
+  return { start, end };
+}
+
+/**
+ * Calcula a carga sRPE semanal a partir de uma lista de sessões.
+ * Respeita `weekStart` ('monday' por padrão ou 'sunday').
+ */
+export function calculateWeeklySrpeLoad(
+  sessions: ISessionDocument[],
+  weekStart: WeekStart = 'monday'
+): WeeklyLoad[] {
   const weekMap = new Map<string, WeeklyLoad>();
 
   for (const session of sessions) {
@@ -47,24 +74,16 @@ export function calculateWeeklySrpeLoad(sessions: ISessionDocument[]): WeeklyLoa
     if (srpe <= 0) continue;
 
     const date = new Date(session.startedAt);
-    // Semana começa na segunda-feira (ISO)
-    const dayOfWeek = (date.getDay() + 6) % 7; // 0=Mon, 6=Sun
-    const monday = new Date(date);
-    monday.setDate(date.getDate() - dayOfWeek);
-    monday.setHours(0, 0, 0, 0);
+    const { start: weekStartDate, end: weekEndDate } = getWeekBounds(date, weekStart, 0);
 
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
-
-    const key = monday.toISOString().split('T')[0];
-    const label = monday.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const key = weekStartDate.toISOString().split('T')[0];
+    const label = weekStartDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
     if (!weekMap.has(key)) {
       weekMap.set(key, {
         weekLabel: label,
-        startDate: monday,
-        endDate: sunday,
+        startDate: weekStartDate,
+        endDate: weekEndDate,
         totalSrpe: 0,
         sessionsCount: 0,
       });

@@ -40,11 +40,24 @@ app.use(
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Permite requisições sem origin (como mobile apps, curl, postman) ou origens confiáveis
-      if (!origin || origin === env.APP_ORIGIN || origin.startsWith('http://localhost:')) {
+      const allowedOrigins = [
+        env.APP_ORIGIN,
+        'http://localhost:5173',
+        'http://localhost:4173',
+        'http://localhost:3000',
+      ].filter(Boolean);
+
+      // Permite requisições sem origin (mobile apps, curl, postman), origens permitidas, ou ambiente dev/test
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        origin.startsWith('http://localhost:') ||
+        origin.endsWith('.pages.dev') ||
+        env.NODE_ENV !== 'production'
+      ) {
         callback(null, true);
       } else {
-        callback(null, true); // Permissivo em dev/staging
+        callback(null, false);
       }
     },
     credentials: true,
@@ -111,13 +124,15 @@ app.get('/api/health', healthHandler);
 app.get('/ping', (_req, res) => res.status(200).send('pong'));
 app.get('/api/ping', (_req, res) => res.status(200).send('pong'));
 
-// Endpoint de teste de captura de exceção para validação de observabilidade (Sentry)
-app.get('/api/test-error', (req) => {
-  if (req.query.type === 'operational') {
-    throw new HttpError(400, 'TEST_OPERATIONAL_ERROR', { field: 'test', reason: 'invalid' });
-  }
-  throw new Error('Test unexpected exception for Sentry validation');
-});
+// Endpoint de teste de captura de exceção para validação de observabilidade (Sentry) — restrito a ambientes não-produção
+if (env.NODE_ENV !== 'production') {
+  app.get('/api/test-error', (req) => {
+    if (req.query.type === 'operational') {
+      throw new HttpError(400, 'TEST_OPERATIONAL_ERROR', { field: 'test', reason: 'invalid' });
+    }
+    throw new Error('Test unexpected exception for Sentry validation');
+  });
+}
 
 // Setup Sentry error handler se disponível
 if (typeof (Sentry as any).setupExpressErrorHandler === 'function') {

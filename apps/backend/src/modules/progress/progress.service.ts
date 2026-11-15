@@ -17,10 +17,11 @@ import type {
   ProgressBySportDTO,
   ProgressLoadDTO,
   ProgressTimelineDTO,
-  ConfidenceLevel,
   PeriodDescriptor,
+  WeekStart,
 } from '@pacelog/shared';
 import {
+  getWeekBounds,
   calculateWeeklySrpeLoad,
   calculateFourWeekBaseline,
   calculateSportMetricBaseline,
@@ -31,7 +32,11 @@ import {
   buildLoadStatusMessage,
   LOAD_DISCLAIMER,
 } from './baseline.service.js';
-import { calculateActiveStreak } from './streak.service.js';
+import {
+  calculateActiveStreak,
+  formatDateInTimeZone,
+  resolveValidTimeZone,
+} from './streak.service.js';
 import { UserSettingsModel } from '../settings/settings.model.js';
 import { computePrimaryMetric, SPORT_MUSCLE_IMPACT } from '../sessions/sport.rules.js';
 import {
@@ -43,8 +48,9 @@ import {
   compareStrength,
   compareCycling,
   compareJiuJitsu,
+  compareSwimming,
 } from './comparison/index.js';
-import type { ProgressComparisonDTO, SportProgress, ProgressStatus } from '@pacelog/shared';
+import type { ProgressComparisonDTO, SportProgress } from '@pacelog/shared';
 
 // ==========================================
 // HELPERS DE PERÍODO
@@ -219,6 +225,7 @@ export class ProgressService {
       score: reasons.length,
     };
   }
+
   async getWeightHistory(userId: string, periodDays = 42): Promise<{
     points: Array<{ dateKey: string; weightKg: number }>;
     currentWeightKg: number | null;
@@ -249,6 +256,7 @@ export class ProgressService {
           : 0,
     };
   }
+
   /**
    * GET /api/progress/comparison
    * Novo endpoint para o dashboard V2: ranking de evolução, eficiência e comparativos relativos.
@@ -258,7 +266,7 @@ export class ProgressService {
     const periodStart = new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000);
     const baselineStart = new Date(now.getTime() - periodDays * 2 * 24 * 60 * 60 * 1000);
 
-    const [currentSessions, baselineSessions] = await Promise.all([
+    const [currentSessions, baselineSessions, userSettings] = await Promise.all([
       SessionModel.find({
         userId,
         startedAt: { $gte: periodStart },
@@ -269,11 +277,14 @@ export class ProgressService {
         startedAt: { $gte: baselineStart, $lt: periodStart },
         status: 'completed',
       }).sort({ startedAt: 1 }).exec(),
+      UserSettingsModel.findOne({ userId }).select('timezone').lean(),
     ]);
 
-    // Calcular stats de consistência (assume 1 sessão por dia como meta)
-    const currentDays = new Set(currentSessions.map(s => new Date(s.startedAt).toISOString().split('T')[0])).size;
-    const baselineDays = new Set(baselineSessions.map(s => new Date(s.startedAt).toISOString().split('T')[0])).size;
+    const tz = resolveValidTimeZone(userSettings?.timezone);
+
+    // Calcular stats de consistência (no fuso horário do atleta)
+    const currentDays = new Set(currentSessions.map(s => formatDateInTimeZone(new Date(s.startedAt), tz))).size;
+    const baselineDays = new Set(baselineSessions.map(s => formatDateInTimeZone(new Date(s.startedAt), tz))).size;
 
     const overall = {
       currentSessions: currentSessions.length,
@@ -318,6 +329,7 @@ export class ProgressService {
       else if (sportKey === 'strength') compResult = compareStrength(effectiveCurrent as any, effectiveBaseline as any);
       else if (sportKey === 'cycling') compResult = compareCycling(effectiveCurrent as any, effectiveBaseline as any);
       else if (sportKey === 'jiujitsu') compResult = compareJiuJitsu(effectiveCurrent as any, effectiveBaseline as any);
+      else if (sportKey === 'swimming') compResult = compareSwimming(effectiveCurrent as any, effectiveBaseline as any);
 
       if (compResult.primaryMetric) {
         sportsList.push({
@@ -382,10 +394,17 @@ export class ProgressService {
     const baselineSrpe = baselineSessions.reduce((acc, s) => acc + ((s as any).load?.srpe ?? s.sessionalLoad ?? 0), 0);
     const varTotal = baselineSrpe > 0 ? Math.round(((currentSrpe - baselineSrpe) / baselineSrpe) * 1000) / 10 : null;
 
-    const distributionBySport = sportsList.map(s => ({
-      sportKey: s.sportKey,
-      srpe: s.loadContext.currentSrpe ?? 0,
-      sharePercent: currentSrpe > 0 ? Math.round(((s.loadContext.currentSrpe ?? 0) / currentSrpe) * 1000) / 10 : 0,
+    // Distribuição real por esporte sobre todas as sessões atuais (independente de compResult.primaryMetric)
+    const sportLoadMap = new Map<SportKey, number>();
+    for (const s of currentSessions) {
+      const srpe = (s as any).load?.srpe ?? s.sessionalLoad ?? 0;
+      sportLoadMap.set(s.sportKey, (sportLoadMap.get(s.sportKey) ?? 0) + srpe);
+    }
+
+    const distributionBySport = Array.from(sportLoadMap.entries()).map(([sportKey, srpe]) => ({
+      sportKey,
+      srpe,
+      sharePercent: currentSrpe > 0 ? Math.round((srpe / currentSrpe) * 1000) / 10 : 0,
     }));
 
     const overallConfidence = calcComparisonConfidence(currentSessions.length, periodDays);
@@ -413,8 +432,8 @@ export class ProgressService {
   /**
    * GET /api/progress/summary
    * Visão consolidada do período com carga, sessões e distribuição por esporte.
-   * Suporta periodDays (dias deslizantes) ou weekOffset (0 = semana atual Seg-Dom, -1 = semana anterior, etc.)
-   * Linguagem descritiva — sem termos médicos.
+   * Suporta periodDays (dias deslizantes) ou weekOffset (0 = semana atual, -1 = semana anterior, etc.)
+   * respeitando o `weekStart` configurado pelo usuário ('monday' ou 'sunday').
    */
   async getSummary(
     userId: string,
@@ -423,6 +442,9 @@ export class ProgressService {
     const isWeekOffset = typeof options === 'object' && options?.weekOffset !== undefined;
     const weekOffset = isWeekOffset ? Number(options.weekOffset) : 0;
     const periodDays = typeof options === 'number' ? options : (options?.periodDays ?? 7);
+
+    const userSettings = await UserSettingsModel.findOne({ userId }).select('weekStart').lean();
+    const weekStart: WeekStart = userSettings?.weekStart === 'sunday' ? 'sunday' : 'monday';
 
     const now = new Date();
     let periodStart: Date;
@@ -434,29 +456,19 @@ export class ProgressService {
     let windowLabel: string;
 
     if (isWeekOffset) {
-      // Semana ISO (Segunda a Domingo)
-      const dayOfWeek = (now.getDay() + 6) % 7; // 0=Mon, 6=Sun
-      const monday = new Date(now);
-      monday.setDate(now.getDate() - dayOfWeek + weekOffset * 7);
-      monday.setHours(0, 0, 0, 0);
-
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      sunday.setHours(23, 59, 59, 999);
-
-      periodStart = monday;
-      periodEnd = sunday;
+      const bounds = getWeekBounds(now, weekStart, weekOffset);
+      periodStart = bounds.start;
+      periodEnd = bounds.end;
       periodKey = weekOffset === 0 ? 'current_week' : `week_${weekOffset}`;
 
-      const startStr = monday.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-      const endStr = sunday.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      const startStr = periodStart.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      const endStr = periodEnd.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
       periodLabel = `${startStr} – ${endStr}`;
 
-      // Baseline: semana anterior imediata (Segunda a Domingo)
-      baselineStart = new Date(monday);
-      baselineStart.setDate(monday.getDate() - 7);
-      baselineStart.setHours(0, 0, 0, 0);
-      baselineEnd = new Date(monday.getTime() - 1); // Domingo anterior 23:59:59.999
+      // Baseline: semana anterior imediata
+      const prevBounds = getWeekBounds(now, weekStart, weekOffset - 1);
+      baselineStart = prevBounds.start;
+      baselineEnd = prevBounds.end;
 
       windowLabel = weekOffset === 0 ? 'semana passada' : 'semana anterior';
     } else {
@@ -502,7 +514,7 @@ export class ProgressService {
       }, 0);
     } else {
       // Baseline de 4 semanas para períodos livres/móveis
-      const weeklyLoads = calculateWeeklySrpeLoad(baselineSessions as any[]);
+      const weeklyLoads = calculateWeeklySrpeLoad(baselineSessions as any[], weekStart);
       baselineSrpe = calculateFourWeekBaseline(weeklyLoads) ?? 0;
     }
 
@@ -586,7 +598,8 @@ export class ProgressService {
       bySport,
       distribution,
       explanations,
-    };
+      sessionsCount: currentSessions.length,
+    } as ProgressSummaryDTO;
   }
 
   /**
@@ -628,7 +641,7 @@ export class ProgressService {
       : null;
 
     let comparison = null;
-    if (primaryMetric && baselineSessions.length >= 3) {
+    if (primaryMetric && baselineSessions.length >= 1) {
       const baselineValue = calculateSportMetricBaseline(
         baselineSessions as any,
         (s: any) => {
@@ -699,13 +712,18 @@ export class ProgressService {
     const now = new Date();
     const eightWeeksAgo = new Date(now.getTime() - 56 * 24 * 60 * 60 * 1000);
 
-    const sessions = await SessionModel.find({
-      userId,
-      status: 'completed',
-      startedAt: { $gte: eightWeeksAgo },
-    }).sort({ startedAt: 1 }).exec();
+    const [sessions, userSettings] = await Promise.all([
+      SessionModel.find({
+        userId,
+        status: 'completed',
+        startedAt: { $gte: eightWeeksAgo },
+      }).sort({ startedAt: 1 }).exec(),
+      UserSettingsModel.findOne({ userId }).select('weekStart').lean(),
+    ]);
 
-    const weekly = calculateWeeklySrpeLoad(sessions as any[]);
+    const weekStart: WeekStart = userSettings?.weekStart === 'sunday' ? 'sunday' : 'monday';
+
+    const weekly = calculateWeeklySrpeLoad(sessions as any[], weekStart);
     const last4 = weekly.slice(-4);
     const current = weekly[weekly.length - 1];
     const fourWeekAvg = calculateFourWeekBaseline(last4.slice(0, -1)) ?? 0;
@@ -746,16 +764,20 @@ export class ProgressService {
     const now = new Date();
     const start = new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000);
 
-    const sessions = await SessionModel.find({
-      userId,
-      status: 'completed',
-      startedAt: { $gte: start },
-    }).sort({ startedAt: 1 }).exec();
+    const [sessions, userSettings] = await Promise.all([
+      SessionModel.find({
+        userId,
+        status: 'completed',
+        startedAt: { $gte: start },
+      }).sort({ startedAt: 1 }).exec(),
+      UserSettingsModel.findOne({ userId }).select('timezone').lean(),
+    ]);
 
+    const tz = resolveValidTimeZone(userSettings?.timezone);
     const dayMap = new Map<string, { srpe: number; count: number; sports: Set<SportKey> }>();
 
     for (const s of sessions) {
-      const day = new Date(s.startedAt).toISOString().split('T')[0];
+      const day = formatDateInTimeZone(new Date(s.startedAt), tz);
       if (!dayMap.has(day)) {
         dayMap.set(day, { srpe: 0, count: 0, sports: new Set() });
       }
@@ -793,6 +815,7 @@ export class ProgressService {
 
     const sessionsLast28d = await SessionModel.find({
       userId,
+      status: 'completed',
       startedAt: { $gte: twentyEightDaysAgo },
     }).sort({ startedAt: -1 }).exec();
 
@@ -845,24 +868,25 @@ export class ProgressService {
       disclaimer: LOAD_DISCLAIMER,
     };
 
-    // Streak de dias consecutivos ativos (respeitando o fuso horário do atleta)
+    // Streak de dias consecutivos ativos (respeitando o fuso horário e streakGraceDays do atleta)
     const [recentSessions, userSettings] = await Promise.all([
-      SessionModel.find({ userId })
+      SessionModel.find({ userId, status: 'completed' })
         .sort({ startedAt: -1 })
         .limit(60)
         .select('startedAt')
         .lean(),
-      UserSettingsModel.findOne({ userId }).select('timezone').lean(),
+      UserSettingsModel.findOne({ userId }).select('timezone streakGraceDays').lean(),
     ]);
     const totalActiveDaysStreak = calculateActiveStreak(
       recentSessions.map((s) => s.startedAt),
       new Date(),
-      userSettings?.timezone
+      userSettings?.timezone,
+      userSettings?.streakGraceDays ?? 0
     );
 
     // Distribuição por esporte (7 dias)
     const sportsAgg = await SessionModel.aggregate([
-      { $match: { userId, startedAt: { $gte: sevenDaysAgo } } },
+      { $match: { userId, status: 'completed', startedAt: { $gte: sevenDaysAgo } } },
       {
         $group: {
           _id: '$sportKey',
@@ -907,6 +931,7 @@ export class ProgressService {
     const sessions = await SessionModel.find({
       userId,
       sportKey,
+      status: 'completed',
       startedAt: { $gte: startDate },
     }).sort({ startedAt: 1 }).exec();
 
@@ -938,16 +963,22 @@ export class ProgressService {
         item.duration += session.durationSeconds || 0;
         item.count += 1;
 
-        if (sportKey === 'running' && session.metrics?.distanceMeters) {
-          item.volume += session.metrics.distanceMeters / 1000;
+        if (sportKey === 'running' && (session.metrics?.distanceMeters || session.metrics?.distanceKm)) {
+          item.volume += session.metrics.distanceKm ?? (session.metrics.distanceMeters / 1000);
         } else if (sportKey === 'strength' && session.metrics?.totalVolumeKg) {
           item.volume += session.metrics.totalVolumeKg;
         } else if (sportKey === 'boxing' && session.metrics?.roundsCount) {
           item.volume += session.metrics.roundsCount;
-        } else if (sportKey === 'cycling' && session.metrics?.distanceKm) {
-          item.volume += session.metrics.distanceKm;
+        } else if (sportKey === 'cycling' && (session.metrics?.distanceKm || session.metrics?.distanceMeters)) {
+          item.volume += session.metrics.distanceKm ?? (session.metrics.distanceMeters / 1000);
         } else if (sportKey === 'jiujitsu' && session.metrics?.roundsCount) {
           item.volume += session.metrics.roundsCount;
+        } else if (sportKey === 'swimming' && (session.metrics?.totalDistanceMeters || session.metrics?.distanceMeters)) {
+          item.volume += (session.metrics.totalDistanceMeters || session.metrics.distanceMeters) / 1000;
+        } else if (sportKey === 'futevolei' && session.metrics?.setsCount) {
+          item.volume += session.metrics.setsCount;
+        } else if (sportKey === 'football') {
+          item.volume += Math.round((session.durationSeconds || 0) / 60);
         }
       }
     }
@@ -965,7 +996,7 @@ export class ProgressService {
     if (sportKey === 'running') {
       const paces = sessions.map((s) => s.metrics?.paceSecondsPerKm).filter((p): p is number => Boolean(p && p > 0));
       sportSpecificHighlights.bestPaceSecondsPerKm = paces.length > 0 ? Math.min(...paces) : null;
-      sportSpecificHighlights.totalDistanceKm = Math.round(sessions.reduce((acc, s) => acc + (s.metrics?.distanceMeters || 0) / 1000, 0) * 10) / 10;
+      sportSpecificHighlights.totalDistanceKm = Math.round(sessions.reduce((acc, s) => acc + (s.metrics?.distanceKm ?? ((s.metrics?.distanceMeters || 0) / 1000)), 0) * 10) / 10;
     } else if (sportKey === 'strength') {
       const volumes = sessions.map((s) => s.metrics?.totalVolumeKg).filter((v): v is number => Boolean(v && v > 0));
       sportSpecificHighlights.maxVolumeSingleSessionKg = volumes.length > 0 ? Math.max(...volumes) : null;
@@ -976,67 +1007,186 @@ export class ProgressService {
     } else if (sportKey === 'cycling') {
       const speeds = sessions.map((s) => s.metrics?.averageSpeedKmh).filter((v): v is number => Boolean(v && v > 0));
       sportSpecificHighlights.bestSpeedKmh = speeds.length > 0 ? Math.max(...speeds) : null;
-      sportSpecificHighlights.totalDistanceKm = Math.round(sessions.reduce((acc, s) => acc + (s.metrics?.distanceKm || 0), 0) * 10) / 10;
+      sportSpecificHighlights.totalDistanceKm = Math.round(sessions.reduce((acc, s) => acc + (s.metrics?.distanceKm ?? ((s.metrics?.distanceMeters || 0) / 1000)), 0) * 10) / 10;
     } else if (sportKey === 'jiujitsu') {
       sportSpecificHighlights.totalRounds = sessions.reduce((acc, s) => acc + (s.metrics?.roundsCount || 0), 0);
       sportSpecificHighlights.totalSubmissionsLanded = sessions.reduce((acc, s) => acc + (s.metrics?.submissionsLanded || 0), 0);
+    } else if (sportKey === 'swimming') {
+      const paces = sessions.map((s) => s.metrics?.paceSecondsPer100m).filter((p): p is number => Boolean(p && p > 0));
+      sportSpecificHighlights.bestPaceSecondsPer100m = paces.length > 0 ? Math.min(...paces) : null;
+      sportSpecificHighlights.totalDistanceMeters = Math.round(sessions.reduce((acc, s) => acc + (s.metrics?.totalDistanceMeters || s.metrics?.distanceMeters || 0), 0));
+    } else if (sportKey === 'futevolei') {
+      sportSpecificHighlights.totalSets = sessions.reduce((acc, s) => acc + (s.metrics?.setsCount || 0), 0);
+      sportSpecificHighlights.totalSetsWon = sessions.reduce((acc, s) => acc + (s.metrics?.setsWon || 0), 0);
+    } else if (sportKey === 'football') {
+      sportSpecificHighlights.totalGoals = sessions.reduce((acc, s) => acc + (s.metrics?.goals || 0), 0);
+      sportSpecificHighlights.totalAssists = sessions.reduce((acc, s) => acc + (s.metrics?.assists || 0), 0);
     }
 
     return { sportKey, totalSessions, totalDurationSeconds, totalSessionalLoad, weeklyTrend, sportSpecificHighlights };
   }
 
   /**
-   * @legacy Recordes pessoais — mantido.
+   * @legacy Recordes pessoais — retorna apenas o melhor recorde verdadeiro por métrica/esporte.
    */
   async getPersonalRecords(userId: string): Promise<PersonalRecordItem[]> {
-    const sessions = await SessionModel.find({ userId }).sort({ startedAt: -1 }).exec();
+    const sessions = await SessionModel.find({ userId, status: 'completed' }).sort({ startedAt: -1 }).exec();
 
-    const prs: PersonalRecordItem[] = [];
-    let longestRunDistanceMeters = 0;
-    let fastestRunPace = 99999;
-    let maxStrengthVolumeKg = 0;
-    let maxBoxingRounds = 0;
-    let maxFootballGoals = 0;
+    const prMap = new Map<string, { numValue: number; isLowerBetter?: boolean; item: PersonalRecordItem }>();
+
+    const upsertPr = (key: string, numValue: number, item: PersonalRecordItem, isLowerBetter = false) => {
+      const existing = prMap.get(key);
+      if (
+        !existing ||
+        (isLowerBetter ? numValue < existing.numValue : numValue > existing.numValue)
+      ) {
+        prMap.set(key, { numValue, isLowerBetter, item });
+      }
+    };
 
     for (const session of sessions) {
       const sport = session.sportKey;
+      const sessionId = (session._id as any).toString();
+      const m = session.metrics || {};
 
-      if (sport === 'running' && session.metrics?.distanceMeters) {
-        if (session.metrics.distanceMeters > longestRunDistanceMeters) {
-          longestRunDistanceMeters = session.metrics.distanceMeters;
-          prs.push({ id: `pr-run-dist-${session._id}`, sportKey: 'running', metricLabel: 'Maior Distância em Corrida', value: `${(session.metrics.distanceMeters / 1000).toFixed(1)} km`, unit: 'km', achievedAt: session.startedAt, sessionId: (session._id as any).toString() });
+      if (sport === 'running') {
+        const distMeters = m.distanceMeters || (m.distanceKm ? m.distanceKm * 1000 : 0);
+        if (distMeters > 0) {
+          upsertPr('run-dist', distMeters, {
+            id: `pr-run-dist-${sessionId}`,
+            sportKey: 'running',
+            metricLabel: 'Maior Distância em Corrida',
+            value: `${(distMeters / 1000).toFixed(1)} km`,
+            unit: 'km',
+            achievedAt: session.startedAt,
+            sessionId,
+          });
         }
-        if (session.metrics.paceSecondsPerKm && session.metrics.paceSecondsPerKm < fastestRunPace && session.metrics.distanceMeters >= 3000) {
-          fastestRunPace = session.metrics.paceSecondsPerKm;
-          const mins = Math.floor(fastestRunPace / 60);
-          const secs = fastestRunPace % 60;
-          prs.push({ id: `pr-run-pace-${session._id}`, sportKey: 'running', metricLabel: 'Melhor Ritmo (Pace)', value: `${mins}:${secs.toString().padStart(2, '0')} /km`, unit: 'min/km', achievedAt: session.startedAt, sessionId: (session._id as any).toString() });
+        if (m.paceSecondsPerKm && m.paceSecondsPerKm > 0 && distMeters >= 3000) {
+          const mins = Math.floor(m.paceSecondsPerKm / 60);
+          const secs = Math.round(m.paceSecondsPerKm % 60);
+          upsertPr(
+            'run-pace',
+            m.paceSecondsPerKm,
+            {
+              id: `pr-run-pace-${sessionId}`,
+              sportKey: 'running',
+              metricLabel: 'Melhor Ritmo (Pace)',
+              value: `${mins}:${secs.toString().padStart(2, '0')} /km`,
+              unit: 'min/km',
+              achievedAt: session.startedAt,
+              sessionId,
+            },
+            true
+          );
         }
       }
 
-      if (sport === 'strength' && session.metrics?.totalVolumeKg) {
-        if (session.metrics.totalVolumeKg > maxStrengthVolumeKg) {
-          maxStrengthVolumeKg = session.metrics.totalVolumeKg;
-          prs.push({ id: `pr-str-vol-${session._id}`, sportKey: 'strength', metricLabel: 'Maior Volume de Carga (Tonelagem)', value: `${Math.round(maxStrengthVolumeKg)} kg`, unit: 'kg', achievedAt: session.startedAt, sessionId: (session._id as any).toString() });
+      if (sport === 'cycling') {
+        const distKm = m.distanceKm ?? (m.distanceMeters ? m.distanceMeters / 1000 : 0);
+        if (distKm > 0) {
+          upsertPr('cyc-dist', distKm, {
+            id: `pr-cyc-dist-${sessionId}`,
+            sportKey: 'cycling',
+            metricLabel: 'Maior Pedal (Distância)',
+            value: `${Number(distKm).toFixed(1)} km`,
+            unit: 'km',
+            achievedAt: session.startedAt,
+            sessionId,
+          });
+        }
+        if (m.averageSpeedKmh && m.averageSpeedKmh > 0) {
+          upsertPr('cyc-speed', m.averageSpeedKmh, {
+            id: `pr-cyc-speed-${sessionId}`,
+            sportKey: 'cycling',
+            metricLabel: 'Maior Velocidade Média',
+            value: `${Number(m.averageSpeedKmh).toFixed(1)} km/h`,
+            unit: 'km/h',
+            achievedAt: session.startedAt,
+            sessionId,
+          });
         }
       }
 
-      if (sport === 'boxing' && session.metrics?.roundsCount) {
-        if (session.metrics.roundsCount > maxBoxingRounds) {
-          maxBoxingRounds = session.metrics.roundsCount;
-          prs.push({ id: `pr-box-rounds-${session._id}`, sportKey: 'boxing', metricLabel: 'Maior Volume de Rounds', value: `${maxBoxingRounds} rounds`, unit: 'rounds', achievedAt: session.startedAt, sessionId: (session._id as any).toString() });
+      if (sport === 'swimming') {
+        const distMeters = m.totalDistanceMeters || m.distanceMeters || 0;
+        if (distMeters > 0) {
+          upsertPr('swim-dist', distMeters, {
+            id: `pr-swim-dist-${sessionId}`,
+            sportKey: 'swimming',
+            metricLabel: 'Maior Distância na Natação',
+            value: `${Math.round(distMeters)} m`,
+            unit: 'm',
+            achievedAt: session.startedAt,
+            sessionId,
+          });
         }
       }
 
-      if (sport === 'football' && session.metrics?.goals !== undefined) {
-        if (session.metrics.goals > maxFootballGoals) {
-          maxFootballGoals = session.metrics.goals;
-          prs.push({ id: `pr-foot-goals-${session._id}`, sportKey: 'football', metricLabel: 'Mais Gols em uma Partida', value: `${maxFootballGoals} gols`, unit: 'gols', achievedAt: session.startedAt, sessionId: (session._id as any).toString() });
-        }
+      if (sport === 'strength' && m.totalVolumeKg && m.totalVolumeKg > 0) {
+        upsertPr('str-vol', m.totalVolumeKg, {
+          id: `pr-str-vol-${sessionId}`,
+          sportKey: 'strength',
+          metricLabel: 'Maior Volume de Carga (Tonelagem)',
+          value: `${Math.round(m.totalVolumeKg)} kg`,
+          unit: 'kg',
+          achievedAt: session.startedAt,
+          sessionId,
+        });
+      }
+
+      if (sport === 'boxing' && m.roundsCount && m.roundsCount > 0) {
+        upsertPr('box-rounds', m.roundsCount, {
+          id: `pr-box-rounds-${sessionId}`,
+          sportKey: 'boxing',
+          metricLabel: 'Maior Volume de Rounds',
+          value: `${m.roundsCount} rounds`,
+          unit: 'rounds',
+          achievedAt: session.startedAt,
+          sessionId,
+        });
+      }
+
+      if (sport === 'jiujitsu' && m.roundsCount && m.roundsCount > 0) {
+        upsertPr('bjj-rounds', m.roundsCount, {
+          id: `pr-bjj-rounds-${sessionId}`,
+          sportKey: 'jiujitsu',
+          metricLabel: 'Maior Volume de Rolas',
+          value: `${m.roundsCount} rolas`,
+          unit: 'rolas',
+          achievedAt: session.startedAt,
+          sessionId,
+        });
+      }
+
+      if (sport === 'football' && m.goals !== undefined && m.goals > 0) {
+        upsertPr('foot-goals', m.goals, {
+          id: `pr-foot-goals-${sessionId}`,
+          sportKey: 'football',
+          metricLabel: 'Mais Gols em uma Partida',
+          value: `${m.goals} gols`,
+          unit: 'gols',
+          achievedAt: session.startedAt,
+          sessionId,
+        });
+      }
+
+      if (sport === 'futevolei' && m.setsWon !== undefined && m.setsWon > 0) {
+        upsertPr('futv-sets', m.setsWon, {
+          id: `pr-futv-sets-${sessionId}`,
+          sportKey: 'futevolei',
+          metricLabel: 'Mais Sets Vencidos',
+          value: `${m.setsWon} sets`,
+          unit: 'sets',
+          achievedAt: session.startedAt,
+          sessionId,
+        });
       }
     }
 
-    return prs;
+    return Array.from(prMap.values())
+      .map((entry) => entry.item)
+      .sort((a, b) => new Date(b.achievedAt).getTime() - new Date(a.achievedAt).getTime());
   }
 }
 

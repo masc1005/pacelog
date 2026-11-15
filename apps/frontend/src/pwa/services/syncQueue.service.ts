@@ -11,6 +11,7 @@ import {
   dbDeleteQueueItem,
   dbGetQueueItem,
 } from './indexedDb.service';
+import { API_BASE_URL } from '../../lib/api';
 
 // ──────────────────────────────────────────────────────
 // Configuração de backoff
@@ -24,11 +25,42 @@ function backoffDelay(attempts: number): number {
 }
 
 // ──────────────────────────────────────────────────────
-// Trava de processamento (coordenação entre abas)
-// Usamos um BroadcastChannel simples: apenas a aba que
-// ganhou a "eleição" processa a fila.
+// Coordenação entre abas e componentes
 // ──────────────────────────────────────────────────────
 let isProcessingLocked = false;
+export const SYNC_QUEUE_UPDATED_EVENT = 'pacelog:sync-queue-updated';
+
+const broadcastChannel =
+  typeof BroadcastChannel !== 'undefined'
+    ? new BroadcastChannel('pacelog_sync_queue')
+    : null;
+
+function notifyQueueUpdated(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(SYNC_QUEUE_UPDATED_EVENT));
+  }
+  try {
+    broadcastChannel?.postMessage({ type: SYNC_QUEUE_UPDATED_EVENT });
+  } catch {
+    // Silencioso se BroadcastChannel não estiver disponível
+  }
+}
+
+if (broadcastChannel && typeof window !== 'undefined') {
+  broadcastChannel.onmessage = (event) => {
+    if (event.data?.type === SYNC_QUEUE_UPDATED_EVENT) {
+      window.dispatchEvent(new CustomEvent(SYNC_QUEUE_UPDATED_EVENT));
+    }
+  };
+}
+
+function resolveEndpointUrl(apiEndpoint: string): string {
+  if (apiEndpoint.startsWith('http://') || apiEndpoint.startsWith('https://')) {
+    return apiEndpoint;
+  }
+  const normalized = apiEndpoint.startsWith('/') ? apiEndpoint : `/${apiEndpoint}`;
+  return `${API_BASE_URL}${normalized}`;
+}
 
 // ──────────────────────────────────────────────────────
 // Enqueue
@@ -64,6 +96,7 @@ export async function enqueueOperation(
   };
 
   await dbPutQueueItem(item);
+  notifyQueueUpdated();
   return item;
 }
 
@@ -120,34 +153,35 @@ export async function processQueue(
         await dbPutQueueItem({ ...latestItem, status: 'syncing' });
 
         try {
-          const response = await fetch(item.apiEndpoint, {
-            method: item.method,
+          const url = resolveEndpointUrl(latestItem.apiEndpoint);
+          const response = await fetch(url, {
+            method: latestItem.method,
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify(item.payload),
+            body: latestItem.method === 'DELETE' ? undefined : JSON.stringify(latestItem.payload),
           });
 
           if (response.ok || response.status === 204) {
             // Sucesso — remover da fila
-            await dbDeleteQueueItem(item.id);
+            await dbDeleteQueueItem(latestItem.id);
             result.synced++;
           } else if (response.status === 409) {
             // Conflito — detectar e notificar
             const data = await response.json().catch(() => ({}));
             const remoteUpdatedAt = data?.data?.updatedAt ?? data?.updatedAt ?? new Date().toISOString();
             const remoteData = data?.data ?? data ?? {};
-            result.conflicts.push(item);
-            await dbPutQueueItem({ ...item, status: 'pending', lastError: 'CONFLICT' });
-            onConflict?.(item, remoteUpdatedAt, remoteData);
+            result.conflicts.push(latestItem);
+            await dbPutQueueItem({ ...latestItem, status: 'pending', lastError: 'CONFLICT' });
+            onConflict?.(latestItem, remoteUpdatedAt, remoteData);
           } else if (response.status >= 400 && response.status < 500) {
             // Falha de validação/negócio — não retentar automaticamente
             const data = await response.json().catch(() => ({}));
             await dbPutQueueItem({
-              ...item,
+              ...latestItem,
               status: 'failed',
               lastError: data?.error ?? `HTTP ${response.status}`,
               lastAttemptAt: new Date().toISOString(),
-              attempts: item.attempts + 1,
+              attempts: (latestItem.attempts ?? 0) + 1,
             });
             result.failed++;
           } else {
@@ -187,6 +221,7 @@ export async function processQueue(
     }
   } finally {
     isProcessingLocked = false;
+    notifyQueueUpdated();
   }
 
   return result;
@@ -195,6 +230,7 @@ export async function processQueue(
 /** Remove item permanentemente da fila (dismiss de falhas pelo usuário) */
 export async function dismissQueueItem(itemId: string): Promise<void> {
   await dbDeleteQueueItem(itemId);
+  notifyQueueUpdated();
 }
 
 /** Obtém todos os itens da fila de um usuário (para exibição no indicador) */

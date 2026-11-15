@@ -5,6 +5,7 @@ import { GoogleGenAI } from '@google/genai';
 import type { AIInsightDTO } from '@pacelog/shared';
 import { SessionModel } from '../sessions/session.model.js';
 import { LOAD_DISCLAIMER } from '../progress/baseline.service.js';
+import { HttpError } from '../../utils/httpError.js';
 import { z } from 'zod';
 
 export const aiProgressInsightSchema = z.object({
@@ -162,7 +163,7 @@ export class InsightService {
 
     const currentSession = await SessionModel.findOne({ _id: sessionId, userId });
     if (!currentSession) {
-      throw new Error('Sessão não encontrada');
+      throw new HttpError(404, 'SESSION_NOT_FOUND', { sessionId });
     }
 
     const previousSession = await SessionModel.findOne({
@@ -228,8 +229,10 @@ export class InsightService {
     const { ActiveStrengthSessionModel } = await import('../strength/strength-session.model.js');
 
     const current = await ActiveStrengthSessionModel.findOne({ _id: sessionId, userId });
-    if (!current) throw new Error('Sessão de força não encontrada');
-    if (current.status !== 'completed') throw new Error('A sessão ainda não foi finalizada');
+    if (!current) throw new HttpError(404, 'SESSION_NOT_FOUND', { sessionId });
+    if (current.status !== 'completed') {
+      throw new HttpError(400, 'SESSION_NOT_COMPLETED', { sessionId, status: current.status });
+    }
 
     const previous = await this.findPreviousMatchingStrengthSession(userId, current);
 
@@ -251,7 +254,7 @@ export class InsightService {
   /**
    * Extrai grupos musculares únicos e um rótulo legível para a sessão de musculação.
    */
-  private getMuscleGroupsFromSession(session: any): { groups: string[]; label: string } {
+  public getMuscleGroupsFromSession(session: any): { groups: string[]; label: string } {
     const labelMap: Record<string, string> = {
       peito: 'Peito',
       costas: 'Costas',

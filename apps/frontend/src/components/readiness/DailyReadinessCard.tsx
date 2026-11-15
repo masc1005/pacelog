@@ -15,6 +15,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { readinessApi } from '../../services/readiness.api';
 import { useToast } from '../../contexts/ToastContext';
+import { useSettings } from '../../hooks/useSettings';
 import type {
   DailyReadinessDTO,
   ReadinessStatus,
@@ -70,6 +71,7 @@ interface DailyReadinessCardProps {
 
 export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact = false }) => {
   const { success, error: toastError } = useToast();
+  const { formatWeight } = useSettings();
   const [todayEntry, setTodayEntry] = useState<DailyReadinessDTO | null>(null);
   const [history, setHistory] = useState<DailyReadinessDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -307,7 +309,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
               </span>
               <span className="font-display text-lg font-bold text-[#D4E4FA] mt-1">
                 {todayEntry.bodyWeightKg
-                  ? `${todayEntry.bodyWeightKg} kg`
+                  ? formatWeight(todayEntry.bodyWeightKg, 1)
                   : `Foco ${todayEntry.focusLevel}/5`}
               </span>
             </div>

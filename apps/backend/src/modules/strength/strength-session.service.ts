@@ -678,7 +678,8 @@ export class StrengthSessionService {
 
   async syncToMainSessions(
     session: IActiveStrengthSessionDocument,
-    customRpe?: number
+    customRpe?: number,
+    skipAlerts = false
   ): Promise<void> {
     try {
       const { SessionModel } = await import('../sessions/session.model.js');
@@ -693,13 +694,18 @@ export class StrengthSessionService {
       const mappedExercises = (session.exercises || []).map((e) => ({
         exerciseName: e.exerciseNameSnapshot,
         targetMuscleGroup: e.primaryMuscleGroup,
-        sets: (e.sets || []).map((s) => ({
-          setNumber: s.setNumber,
-          reps: s.reps ?? 0,
-          weightKg: s.load ?? 0,
-          rpe: s.rpe,
-          isWarmup: s.type === 'warmup',
-        })),
+        sets: (e.sets || [])
+          .filter((s) => s.status === 'completed')
+          .map((s) => ({
+            setNumber: s.setNumber,
+            reps: s.reps ?? 0,
+            weightKg:
+              s.loadUnit === 'lb'
+                ? Math.round((s.load ?? 0) * 0.45359237 * 100) / 100
+                : (s.load ?? 0),
+            rpe: s.rpe,
+            isWarmup: s.type === 'warmup',
+          })),
       }));
 
       await SessionModel.findOneAndUpdate(
@@ -729,16 +735,18 @@ export class StrengthSessionService {
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
 
-      // Dispara alertas assíncronos (Metas, ACWR)
-      setImmediate(async () => {
-        try {
-          await notificationService.checkAndDispatchGoalAlerts(session.userId);
-          const overview = await progressService.getOverview(session.userId);
-          await notificationService.checkAndDispatchAcwrAlerts(session.userId, overview.acwr);
-        } catch (err) {
-          console.error('[StrengthSessionService] Error dispatching alerts:', err);
-        }
-      });
+      if (!skipAlerts) {
+        // Dispara alertas assíncronos (Metas, ACWR)
+        setImmediate(async () => {
+          try {
+            await notificationService.checkAndDispatchGoalAlerts(session.userId);
+            const overview = await progressService.getOverview(session.userId);
+            await notificationService.checkAndDispatchAcwrAlerts(session.userId, overview.acwr);
+          } catch (err) {
+            console.error('[StrengthSessionService] Error dispatching alerts:', err);
+          }
+        });
+      }
     } catch (err) {
       console.error('[StrengthSessionService] Erro ao sincronizar para SessionModel:', err);
     }
@@ -782,13 +790,24 @@ export const strengthSessionService = new StrengthSessionService();
 
 /**
  * Garante que todas as sessões de musculação com status 'completed'
- * existentes em ActiveStrengthSessionModel estejam sincronizadas em SessionModel.
+ * existentes em ActiveStrengthSessionModel que ainda não estejam em SessionModel
+ * sejam sincronizadas na inicialização (sem re-disparar alertas históricos).
  */
 export async function syncCompletedStrengthSessions(): Promise<void> {
   try {
-    const completedSessions = await ActiveStrengthSessionModel.find({ status: 'completed' });
-    for (const session of completedSessions) {
-      await strengthSessionService.syncToMainSessions(session);
+    const { SessionModel } = await import('../sessions/session.model.js');
+    const existingDocs = await SessionModel.find({ sportKey: 'strength' })
+      .select('_id')
+      .lean();
+    const existingIds = existingDocs.map((d) => d._id);
+
+    const unsyncedSessions = await ActiveStrengthSessionModel.find({
+      status: 'completed',
+      ...(existingIds.length > 0 ? { _id: { $nin: existingIds } } : {}),
+    });
+
+    for (const session of unsyncedSessions) {
+      await strengthSessionService.syncToMainSessions(session, undefined, true);
     }
   } catch (err) {
     console.error('[StrengthSessionService] Erro ao sincronizar sessões de musculação na inicialização:', err);

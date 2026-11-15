@@ -14,8 +14,13 @@ export function compareFootball(
   const evidence: string[] = [];
   const secondaryMetrics: ProgressMetric[] = [];
 
-  // Primary: Minutes Played
-  const extractMinutes = (s: ISessionDocument) => (s.metrics as any)?.minutesPlayed ?? null;
+  // Primary: Minutes Played (supports explicit minutesPlayed or session/metrics durationSeconds)
+  const extractMinutes = (s: ISessionDocument) => {
+    const m = s.metrics as any;
+    if (m?.minutesPlayed && m.minutesPlayed > 0) return Number(m.minutesPlayed);
+    const durSec = Number(s.durationSeconds || m?.durationSeconds || 0);
+    return durSec > 0 ? Math.round(durSec / 60) : null;
+  };
   const currentMinutes = calculateSportMetricBaseline(currentSessions, extractMinutes) ?? (currentSessions[0] ? extractMinutes(currentSessions[0]) : null);
   const baselineMinutes = calculateSportMetricBaseline(baselineSessions, extractMinutes);
 
@@ -32,11 +37,14 @@ export function compareFootball(
   }
 
   // Secondary: Goals
-  const extractGoals = (s: ISessionDocument) => (s.metrics as any)?.goals ?? null;
+  const extractGoals = (s: ISessionDocument) => {
+    const g = (s.metrics as any)?.goals;
+    return g !== undefined && g !== null ? Number(g) : null;
+  };
   const currentGoals = calculateSportMetricBaseline(currentSessions, extractGoals) ?? (currentSessions[0] ? extractGoals(currentSessions[0]) : null);
   const baselineGoals = calculateSportMetricBaseline(baselineSessions, extractGoals);
 
-  if (currentGoals && baselineGoals) {
+  if (currentGoals !== null && baselineGoals !== null && (currentGoals > 0 || baselineGoals > 0)) {
     const goalsMetric = compareMetric('goals', 'Gols', 'gols', 'higher_is_better', currentGoals, baselineGoals);
     secondaryMetrics.push(goalsMetric);
 

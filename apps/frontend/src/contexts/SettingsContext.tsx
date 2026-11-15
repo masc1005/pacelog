@@ -36,6 +36,8 @@ interface SettingsContextType {
   formatDistance: (km: number, digits?: number) => string;
   formatWeight: (kg: number, digits?: number) => string;
   formatSpeed: (kmh: number, digits?: number) => string;
+  formatPace: (secondsPerKm: number) => string;
+  formatTime: (dateOrIso: Date | string) => string;
 }
 
 const defaultSettings: UserSettingsDTO = {
@@ -122,53 +124,46 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [user, loadSettings, loadUserSports]);
 
-  // Atualização de configurações com aplicação otimista
+  // Atualiza configurações (com suporte a fila offline)
   const updateSettings = async (partial: Partial<UserSettingsDTO>): Promise<UserSettingsDTO> => {
-    // 1. Atualização otimista
-    const updatedLocally: UserSettingsDTO = { ...settings, ...partial };
-    setSettings(updatedLocally);
-    localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(updatedLocally));
+    const optimistic = { ...settings, ...partial, updatedAt: new Date().toISOString() };
+    setSettings(optimistic);
+    localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(optimistic));
 
     try {
-      const data = await apiClient<UserSettingsDTO>('/api/settings', {
+      const updated = await apiClient<UserSettingsDTO>('/api/settings', {
         method: 'PATCH',
         body: JSON.stringify(partial),
       });
-      setSettings(data);
-      localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(data));
-      addToast('Preferências salvas com sucesso', 'success');
-      return data;
+      setSettings(updated);
+      localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(updated));
+      return updated;
     } catch (error) {
-      const isNetworkError = error instanceof ApiError && error.status === 0;
-      if (isNetworkError && user) {
-        // Enfileirar para sincronização posterior
-        const clientUuid = crypto.randomUUID();
-        await enqueueOperation(
-          'update_settings',
-          partial as Record<string, unknown>,
-          {
-            userId: user.id,
-            clientUuid,
-            entityTable: 'settings',
-            apiEndpoint: '/api/settings',
-            method: 'PATCH',
-          }
-        );
-        addToast('Preferências salvas offline. Sincronizando quando a conexão voltar.', 'info');
-        return updatedLocally;
+      if (error instanceof ApiError && error.status === 0 && user) {
+        await enqueueOperation('update_settings', partial as Record<string, unknown>, {
+          userId: user.id,
+          clientUuid: crypto.randomUUID(),
+          entityTable: 'settings',
+          apiEndpoint: '/api/settings',
+          method: 'PATCH',
+        });
+        addToast('Configurações salvas localmente. Sincronizando quando online.', 'info');
+        return optimistic;
       }
-      addToast('Erro ao salvar preferências no servidor', 'error');
+      addToast('Erro ao salvar configurações', 'error');
       throw error;
     }
   };
 
-  const addReminder = async (reminder: Omit<TrainingReminder, 'id'>) => {
+  // Lembretes de treino
+  const addReminder = async (reminder: Omit<TrainingReminder, 'id'>): Promise<void> => {
     try {
-      const reminders = await apiClient<TrainingReminder[]>('/api/settings/reminders', {
+      const updated = await apiClient<UserSettingsDTO>('/api/settings/reminders', {
         method: 'POST',
         body: JSON.stringify(reminder),
       });
-      setSettings((prev) => ({ ...prev, trainingReminders: reminders }));
+      setSettings(updated);
+      localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(updated));
       addToast('Lembrete de treino adicionado', 'success');
     } catch (error) {
       addToast('Erro ao adicionar lembrete', 'error');
@@ -176,12 +171,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const deleteReminder = async (reminderId: string) => {
+  const deleteReminder = async (reminderId: string): Promise<void> => {
     try {
-      const reminders = await apiClient<TrainingReminder[]>(`/api/settings/reminders/${reminderId}`, {
+      const updated = await apiClient<UserSettingsDTO>(`/api/settings/reminders/${reminderId}`, {
         method: 'DELETE',
       });
-      setSettings((prev) => ({ ...prev, trainingReminders: reminders }));
+      setSettings(updated);
+      localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(updated));
       addToast('Lembrete removido', 'info');
     } catch (error) {
       addToast('Erro ao remover lembrete', 'error');
@@ -189,19 +185,45 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const toggleReminder = async (reminderId: string, enabled: boolean) => {
-    const updated = settings.trainingReminders.map((r) =>
+  const toggleReminder = async (reminderId: string, enabled: boolean): Promise<void> => {
+    const previousSettings = settings;
+    const updatedReminders = settings.trainingReminders.map((r) =>
       r.id === reminderId ? { ...r, enabled } : r
     );
-    setSettings((prev) => ({ ...prev, trainingReminders: updated }));
+    const optimistic = { ...settings, trainingReminders: updatedReminders };
+    setSettings(optimistic);
+    localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(optimistic));
 
     try {
-      await updateSettings({ trainingReminders: updated } as any);
-    } catch {
-      // rollback se falhar
+      const updated = await apiClient<UserSettingsDTO>(`/api/settings/reminders/${reminderId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ enabled }),
+      });
+      setSettings(updated);
+      localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(updated));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 0 && user) {
+        await enqueueOperation(
+          'update_settings',
+          { enabled },
+          {
+            userId: user.id,
+            clientUuid: crypto.randomUUID(),
+            entityTable: 'settings',
+            apiEndpoint: `/api/settings/reminders/${reminderId}`,
+            method: 'PATCH',
+          }
+        );
+        return;
+      }
+      setSettings(previousSettings);
+      localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(previousSettings));
+      addToast('Erro ao atualizar lembrete', 'error');
+      throw error;
     }
   };
 
+  // Esportes Customizados e Configuração de Métricas
   const createCustomSport = async (input: {
     displayName: string;
     icon?: string;
@@ -224,7 +246,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const updateSport = async (
     sportKey: string,
-    input: { isActive?: boolean; metricsConfig?: SportMetricConfig[] }
+    input: { isActive?: boolean; defaultGearId?: string | null; metricsConfig?: SportMetricConfig[] }
   ): Promise<UserSportDTO> => {
     try {
       const sport = await apiClient<UserSportDTO>(`/api/settings/sports/${sportKey}`, {
@@ -256,7 +278,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Funções Utilitárias de Conversão para Exibição
   const formatDistance = (km: number, digits: number = 2): string => {
-    if (km == null || isNaN(km)) return '0 km';
+    if (km == null || isNaN(km)) return settings.distanceUnit === 'mi' ? '0 mi' : '0 km';
     if (settings.distanceUnit === 'mi') {
       const miles = km * 0.621371;
       return `${miles.toFixed(digits)} mi`;
@@ -265,7 +287,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const formatWeight = (kg: number, digits: number = 1): string => {
-    if (kg == null || isNaN(kg)) return '0 kg';
+    if (kg == null || isNaN(kg)) return settings.weightUnit === 'lb' ? '0 lb' : '0 kg';
     if (settings.weightUnit === 'lb') {
       const lbs = kg * 2.20462;
       return `${lbs.toFixed(digits)} lb`;
@@ -274,12 +296,33 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const formatSpeed = (kmh: number, digits: number = 1): string => {
-    if (kmh == null || isNaN(kmh)) return '0 km/h';
+    if (kmh == null || isNaN(kmh)) return settings.distanceUnit === 'mi' ? '0 mph' : '0 km/h';
     if (settings.distanceUnit === 'mi') {
       const mph = kmh * 0.621371;
       return `${mph.toFixed(digits)} mph`;
     }
     return `${kmh.toFixed(digits)} km/h`;
+  };
+
+  const formatPace = (secondsPerKm: number): string => {
+    if (!secondsPerKm || isNaN(secondsPerKm) || secondsPerKm <= 0) {
+      return settings.distanceUnit === 'mi' ? '--:-- /mi' : '--:-- /km';
+    }
+    const sec = settings.distanceUnit === 'mi' ? secondsPerKm * 1.60934 : secondsPerKm;
+    const m = Math.floor(sec / 60);
+    const s = Math.round(sec % 60);
+    const unitLabel = settings.distanceUnit === 'mi' ? '/mi' : '/km';
+    return `${m}:${String(s).padStart(2, '0')} ${unitLabel}`;
+  };
+
+  const formatTime = (dateOrIso: Date | string): string => {
+    const date = dateOrIso instanceof Date ? dateOrIso : new Date(dateOrIso);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: settings.timeFormat === '12h',
+    });
   };
 
   return (
@@ -299,6 +342,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         formatDistance,
         formatWeight,
         formatSpeed,
+        formatPace,
+        formatTime,
       }}
     >
       {children}

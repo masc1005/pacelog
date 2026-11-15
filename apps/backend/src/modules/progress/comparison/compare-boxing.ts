@@ -14,34 +14,40 @@ export function compareBoxing(
   const evidence: string[] = [];
   const secondaryMetrics: ProgressMetric[] = [];
 
-  // Primary: roundCompletionRate
-  const extractCompletion = (s: ISessionDocument) => (s.metrics as any)?.roundCompletionRate ?? null;
-  const currentCompletion = calculateSportMetricBaseline(currentSessions, extractCompletion) ?? (currentSessions[0] ? extractCompletion(currentSessions[0]) : null);
-  const baselineCompletion = calculateSportMetricBaseline(baselineSessions, extractCompletion);
-
-  let primaryMetric: ProgressMetric | null = null;
-
-  if (currentCompletion && baselineCompletion) {
-    primaryMetric = compareMetric('roundCompletionRate', 'Conclusão de rounds', '%', 'higher_is_better', currentCompletion, baselineCompletion);
-    
-    if (primaryMetric.status === 'improved') {
-      evidence.push(`Sua taxa de conclusão de rounds subiu de ${baselineCompletion}% para ${currentCompletion}%.`);
-    } else if (primaryMetric.status === 'declined') {
-      evidence.push(`Sua taxa de conclusão de rounds caiu de ${baselineCompletion}% para ${currentCompletion}%.`);
-    }
-  }
-
-  // Secondary: roundsCount (from root or metrics)
-  const extractRounds = (s: ISessionDocument) => (s.metrics as any)?.roundsCount ?? null;
+  // Primary: roundsCount
+  const extractRounds = (s: ISessionDocument) => {
+    const m = s.metrics as any;
+    return m?.roundsCount && m.roundsCount > 0 ? Number(m.roundsCount) : null;
+  };
   const currentRounds = calculateSportMetricBaseline(currentSessions, extractRounds) ?? (currentSessions[0] ? extractRounds(currentSessions[0]) : null);
   const baselineRounds = calculateSportMetricBaseline(baselineSessions, extractRounds);
 
-  if (currentRounds && baselineRounds) {
-    const roundsMetric = compareMetric('roundsCount', 'Rounds concluídos', 'rounds', 'neutral', currentRounds, baselineRounds);
-    secondaryMetrics.push(roundsMetric);
+  let primaryMetric: ProgressMetric | null = null;
 
-    if (roundsMetric.status === 'changed') {
-      evidence.push(`Você passou de ${baselineRounds} para ${currentRounds} rounds concluídos por sessão.`);
+  if (currentRounds && baselineRounds) {
+    primaryMetric = compareMetric('roundsCount', 'Rounds concluídos', 'rounds', 'higher_is_better', currentRounds, baselineRounds);
+    
+    if (primaryMetric.status === 'improved') {
+      evidence.push(`Você aumentou sua média de ${baselineRounds} para ${currentRounds} rounds por sessão.`);
+    } else if (primaryMetric.status === 'declined') {
+      evidence.push(`Sua média de rounds reduziu de ${baselineRounds} para ${currentRounds} por sessão.`);
+    }
+  }
+
+  // Secondary: punchesThrownEstimate
+  const extractPunches = (s: ISessionDocument) => {
+    const m = s.metrics as any;
+    return m?.punchesThrownEstimate && m.punchesThrownEstimate > 0 ? Number(m.punchesThrownEstimate) : null;
+  };
+  const currentPunches = calculateSportMetricBaseline(currentSessions, extractPunches) ?? (currentSessions[0] ? extractPunches(currentSessions[0]) : null);
+  const baselinePunches = calculateSportMetricBaseline(baselineSessions, extractPunches);
+
+  if (currentPunches && baselinePunches) {
+    const punchesMetric = compareMetric('punchesThrownEstimate', 'Volume de golpes', 'golpes', 'higher_is_better', currentPunches, baselinePunches);
+    secondaryMetrics.push(punchesMetric);
+
+    if (punchesMetric.status === 'improved') {
+      evidence.push(`Seu volume estimado de golpes subiu de ${Math.round(baselinePunches)} para ${Math.round(currentPunches)} por treino.`);
     }
   }
 

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { strengthApi } from '../../../services/strength.api';
 import { apiClient } from '../../../lib/api';
 import { useToast } from '../../../contexts/ToastContext';
+import { useSettings } from '../../../hooks/useSettings';
 import { formatDuration } from '../hooks/useSessionTimer';
 import { StrengthInsightCard } from '../components/StrengthInsightCard';
 import { Button } from '../../../components/ui/Button';
@@ -15,6 +16,7 @@ export const StrengthSessionDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
+  const { formatWeight, formatTime } = useSettings();
   const [session, setSession] = useState<CompletedStrengthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -195,10 +197,7 @@ export const StrengthSessionDetailsPage: React.FC = () => {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  })} às ${new Date(session.startedAt).toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })}`;
+  })} às ${formatTime(session.startedAt)}`;
 
   return (
     <div className="flex flex-col max-w-2xl mx-auto w-full p-4 sm:p-0 gap-6 pb-24">
@@ -355,10 +354,7 @@ export const StrengthSessionDetailsPage: React.FC = () => {
             <>
               <span className="text-[#1F2937]">/</span>
               <span>
-                {session.totalVolumeKg.toLocaleString('pt-BR', {
-                  maximumFractionDigits: 0,
-                })}{' '}
-                kg
+                {formatWeight(session.totalVolumeKg, 0)}
               </span>
             </>
           )}

@@ -8,6 +8,7 @@ import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { useToast } from '../../../contexts/ToastContext';
+import { useSettings } from '../../../hooks/useSettings';
 import { AIWorkoutBuilderCard } from '../components/AIWorkoutBuilderCard';
 import { StrengthInsightCard } from '../components/StrengthInsightCard';
 import { MuscleFatigueTelemetry } from '../../../components/progress/MuscleFatigueTelemetry';
@@ -38,6 +39,7 @@ export const StrengthHomePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { success, error: toastError } = useToast();
+  const { formatWeight, formatTime } = useSettings();
   const { session, isLoading } = useActiveStrengthSession();
   const [customStartedAt, setCustomStartedAt] = useState<string>(() =>
     toLocalInputDateTime(new Date())
@@ -451,10 +453,7 @@ export const StrengthHomePage: React.FC = () => {
                       month: '2-digit',
                     })}{' '}
                     •{' '}
-                    {new Date(item.startedAt).toLocaleTimeString('pt-BR', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {formatTime(item.startedAt)}
                   </span>
                   <span className="font-mono text-[10px] text-[#8F9380] mt-0.5">
                     {item.exercises.length} exerc. • {item.completedSets} séries
@@ -464,7 +463,7 @@ export const StrengthHomePage: React.FC = () => {
                   <div className="text-right leading-tight">
                     <span className="font-mono text-xs font-bold text-[#D4E4FA] block">
                       {item.totalVolumeKg != null
-                        ? `${Math.round(item.totalVolumeKg).toLocaleString('pt-BR')} kg`
+                        ? formatWeight(item.totalVolumeKg, 0)
                         : '—'}
                     </span>
                     <span className="font-mono text-[10px] text-[#8F9380]">

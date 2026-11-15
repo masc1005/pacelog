@@ -10,59 +10,80 @@ type SessionState = {
 
 const RECOVERY_KEY = 'pacelog_strength_session_id';
 
+// Estado compartilhado em nível de módulo para sincronizar múltiplos consumidores
+// (ex.: ActiveStrengthSessionPage e ActiveStrengthFloatingBar no MainLayout)
+let sharedState: SessionState = {
+  session: null,
+  isLoading: true,
+  error: null,
+};
+let hasFetchedInitial = false;
+let fetchPromise: Promise<void> | null = null;
+const listeners = new Set<(state: SessionState) => void>();
+
+function notifyListeners() {
+  for (const listener of listeners) {
+    listener(sharedState);
+  }
+}
+
+function updateSharedState(next: SessionState) {
+  sharedState = next;
+  notifyListeners();
+}
+
 /**
  * Hook principal de gerenciamento da sessão ativa de musculação.
  * - Recupera sessão ao montar (verificando backend)
  * - Persiste id localmente para recuperação após reload
- * - Mantém estado local sincronizado com as respostas do backend
+ * - Compartilha estado reativo entre todas as instâncias montadas
  */
 export function useActiveStrengthSession() {
-  const [state, setState] = useState<SessionState>({
-    session: null,
-    isLoading: true,
-    error: null,
-  });
-
+  const [state, setState] = useState<SessionState>(sharedState);
   const isMounted = useRef(true);
 
   useEffect(() => {
     isMounted.current = true;
+    const listener = (nextState: SessionState) => {
+      if (isMounted.current) {
+        setState(nextState);
+      }
+    };
+    listeners.add(listener);
+    // Sincroniza caso tenha mudado antes do efeito rodar
+    setState(sharedState);
+
     return () => {
       isMounted.current = false;
+      listeners.delete(listener);
     };
   }, []);
 
-  // Carrega sessão ativa do backend na montagem do hook
+  // Carrega sessão ativa do backend na primeira montagem
   useEffect(() => {
-    let cancelled = false;
+    if (hasFetchedInitial || fetchPromise) return;
 
-    async function loadActiveSession() {
+    fetchPromise = (async () => {
       try {
         const session = await strengthApi.getActiveSession();
-        if (!cancelled && isMounted.current) {
-          setState({ session, isLoading: false, error: null });
-          if (session) {
-            localStorage.setItem(RECOVERY_KEY, session.id);
-          } else {
-            localStorage.removeItem(RECOVERY_KEY);
-          }
+        hasFetchedInitial = true;
+        if (session) {
+          localStorage.setItem(RECOVERY_KEY, session.id);
+        } else {
+          localStorage.removeItem(RECOVERY_KEY);
         }
-      } catch (err) {
-        if (!cancelled && isMounted.current) {
-          setState((prev) => ({
-            ...prev,
-            isLoading: false,
-            error: 'Não foi possível verificar a sessão ativa.',
-          }));
-        }
+        updateSharedState({ session, isLoading: false, error: null });
+      } catch {
+        hasFetchedInitial = true;
+        updateSharedState({
+          ...sharedState,
+          isLoading: false,
+          error: 'Não foi possível verificar a sessão ativa.',
+        });
+      } finally {
+        fetchPromise = null;
       }
-    }
-
-    loadActiveSession();
-
-    return () => {
-      cancelled = true;
-    };
+    })();
   }, []);
 
   const setSession = useCallback(
@@ -72,23 +93,20 @@ export function useActiveStrengthSession() {
         | null
         | ((prev: ActiveStrengthSession | null) => ActiveStrengthSession | null)
     ) => {
-      if (!isMounted.current) return;
-      setState((prevState) => {
-        const newSession =
-          typeof updater === 'function' ? updater(prevState.session) : updater;
-        if (newSession) {
-          localStorage.setItem(RECOVERY_KEY, newSession.id);
-        } else {
-          localStorage.removeItem(RECOVERY_KEY);
-        }
-        return { session: newSession, isLoading: false, error: null };
-      });
+      const newSession =
+        typeof updater === 'function' ? updater(sharedState.session) : updater;
+      if (newSession) {
+        localStorage.setItem(RECOVERY_KEY, newSession.id);
+      } else {
+        localStorage.removeItem(RECOVERY_KEY);
+      }
+      updateSharedState({ session: newSession, isLoading: false, error: null });
     },
     []
   );
 
   const clearError = useCallback(() => {
-    setState((prev) => ({ ...prev, error: null }));
+    updateSharedState({ ...sharedState, error: null });
   }, []);
 
   return {

@@ -1,5 +1,6 @@
 import { GoalModel, type IGoalDocument } from './goal.model.js';
 import { SessionModel } from '../sessions/session.model.js';
+import { UserSettingsModel } from '../settings/settings.model.js';
 import {
   resolveGoalTimeWindow,
   calculateGoalProgress,
@@ -46,6 +47,7 @@ export class GoalService {
     if (direction === 'decrease' && startValue === undefined) {
       const recentSession = await SessionModel.findOne({
         userId,
+        status: 'completed',
         sportKey: input.sportKey || 'running',
         'metrics.paceSecondsPerKm': { $gt: 0 },
       })
@@ -99,9 +101,12 @@ export class GoalService {
     if (query.scope) filter.scope = query.scope;
     if (query.period) filter.period = query.period;
 
-    const goals = await GoalModel.find(scopedFilter(userId, filter))
-      .sort({ createdAt: -1 })
-      .exec();
+    const [goals, userSettings] = await Promise.all([
+      GoalModel.find(scopedFilter(userId, filter))
+        .sort({ createdAt: -1 })
+        .exec(),
+      UserSettingsModel.findOne({ userId }).lean().exec(),
+    ]);
 
     if (goals.length === 0) return [];
 
@@ -113,12 +118,14 @@ export class GoalService {
 
     const allSessions = await SessionModel.find({
       userId,
+      status: 'completed',
       startedAt: { $gte: earliestDate },
     })
       .lean<SessionDataForGoal[]>()
       .exec();
 
     const now = new Date();
+    const timezone = userSettings?.timezone;
 
     return goals.map((goal) => {
       const windowStart = resolveGoalTimeWindow(goal.period, goal.startDate);
@@ -129,7 +136,7 @@ export class GoalService {
         return true;
       });
 
-      const progress = calculateGoalProgress(goal, goalSessions);
+      const progress = calculateGoalProgress(goal, goalSessions, timezone);
 
       // Auto-expiração ou auto-conclusão persistida
       if (goal.deadline && new Date(goal.deadline) < now && !progress.isAchieved && goal.status === 'active') {
@@ -231,6 +238,7 @@ export class GoalService {
     const windowStart = resolveGoalTimeWindow(goal.period, goal.startDate);
     const sessionMatch: Record<string, any> = {
       userId,
+      status: 'completed',
       startedAt: { $gte: windowStart },
     };
 
@@ -242,8 +250,11 @@ export class GoalService {
       sessionMatch.sportKey = goal.sportKey;
     }
 
-    const sessions = await SessionModel.find(sessionMatch).lean<SessionDataForGoal[]>().exec();
-    const progress = calculateGoalProgress(goal, sessions);
+    const [sessions, userSettings] = await Promise.all([
+      SessionModel.find(sessionMatch).lean<SessionDataForGoal[]>().exec(),
+      UserSettingsModel.findOne({ userId }).lean().exec(),
+    ]);
+    const progress = calculateGoalProgress(goal, sessions, userSettings?.timezone);
 
     if (progress.isAchieved && goal.status === 'active') {
       GoalModel.updateOne({ _id: goal._id }, { $set: { status: 'completed', completedAt: new Date() } }).exec();
