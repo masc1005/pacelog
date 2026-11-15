@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from './Card';
-import { Badge } from './Badge';
-import { Sparkles, BrainCircuit, Activity, TrendingUp, RotateCw } from 'lucide-react';
+import { Sparkles, BrainCircuit, TrendingUp, RotateCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { apiClient } from '../../lib/api';
 import { SPORT_LABELS } from '../../lib/utils';
 import type { AIInsightDTO } from '@pacelog/shared';
@@ -21,11 +20,74 @@ type AIProgressData = {
   }>;
 };
 
+function parseProgressInsight(content: string): AIProgressData | null {
+  const source = content.trim();
+  if (!source) return null;
+
+  const jsonSource = source
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim();
+
+  if (jsonSource.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(jsonSource) as Partial<AIProgressData>;
+      const headline =
+        typeof parsed.headline === 'string' && parsed.headline.trim()
+          ? parsed.headline.trim()
+          : typeof parsed.summary === 'string' && parsed.summary.trim()
+            ? parsed.summary.trim()
+            : '';
+
+      if (headline) {
+        return {
+          headline,
+          summary: typeof parsed.summary === 'string' ? parsed.summary.trim() : headline,
+          hasEvolution: parsed.hasEvolution,
+          topProgress: Array.isArray(parsed.topProgress) ? parsed.topProgress : [],
+        };
+      }
+    } catch {
+      // Conteúdo truncado: usa a extração tolerante abaixo.
+    }
+  }
+
+  const headlineMatch = jsonSource.match(/"headline"\s*:\s*"([\s\S]*?)(?:"\s*[,}]|$)/i);
+  const summaryMatch = jsonSource.match(/"summary"\s*:\s*"([\s\S]*?)(?:"\s*[,}]|$)/i);
+
+  const extractedHeadline = headlineMatch?.[1]?.replace(/\\"/g, '"').trim();
+  const extractedSummary = summaryMatch?.[1]?.replace(/\\"/g, '"').trim();
+
+  if (extractedHeadline || extractedSummary) {
+    return {
+      headline: extractedHeadline || extractedSummary || '',
+      summary: extractedSummary || extractedHeadline || '',
+      topProgress: [],
+    };
+  }
+
+  const fallbackText = jsonSource
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/^\{\s*"headline"\s*:\s*"/i, '')
+    .replace(/"\s*,?\s*"[^"]*"\s*:\s*[\s\S]*\}?$/i, '')
+    .replace(/[{}\"]/g, '')
+    .trim();
+
+  if (!fallbackText) return null;
+
+  return {
+    headline: fallbackText,
+    summary: fallbackText,
+    topProgress: [],
+  };
+}
+
 export const AIProgressInsight: React.FC = () => {
   const [data, setData] = useState<AIProgressData | null>(null);
   const [modelUsed, setModelUsed] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const loadInsight = async (force = false) => {
     try {
@@ -38,10 +100,12 @@ export const AIProgressInsight: React.FC = () => {
       const insight = await apiClient<AIInsightDTO>(endpoint);
       if (insight) {
         setModelUsed(insight.modelUsed);
-        console.info(`[Gemini AI] Daily Progress Insight — model executed: ${insight.modelUsed ?? 'cache / deterministic'}`);
+        console.info(
+          `[Gemini AI] Daily Progress Insight — model executed: ${insight.modelUsed ?? 'cache / deterministic'}`
+        );
       }
       if (insight && insight.content) {
-        const parsed = JSON.parse(insight.content);
+        const parsed = parseProgressInsight(insight.content);
         setData(parsed);
       }
     } catch (error) {
@@ -58,13 +122,14 @@ export const AIProgressInsight: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Card variant="watch" className="p-5 flex items-center justify-center min-h-[160px] bg-[#051424]">
-        <div className="flex flex-col items-center gap-3">
-          <BrainCircuit className="h-6 w-6 text-[#5CA9E6] animate-pulse" />
-          <span className="font-mono text-[10px] text-[#5CA9E6] uppercase tracking-widest animate-pulse">
-            Analisando evolução...
-          </span>
-        </div>
+      <Card
+        variant="watch"
+        className="px-3.5 py-2.5 flex items-center gap-2.5 bg-[#0D1C2D] border-[#1F2937] rounded-xl"
+      >
+        <BrainCircuit className="h-4 w-4 text-[#5CA9E6] animate-pulse shrink-0" />
+        <span className="font-mono text-[10px] text-[#5CA9E6] uppercase tracking-widest animate-pulse">
+          Analisando evolução...
+        </span>
       </Card>
     );
   }
@@ -72,95 +137,95 @@ export const AIProgressInsight: React.FC = () => {
   if (!data) return null;
 
   return (
-    <Card variant="watch" className="relative overflow-hidden group">
-      {/* Background Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0D1C2D] to-[#051424] pointer-events-none" />
-      <div className="absolute top-0 right-0 w-32 h-32 bg-[#5CA9E6] opacity-5 rounded-bl-full pointer-events-none blur-2xl" />
+    <Card
+      variant="watch"
+      className="relative overflow-hidden bg-[#0D1C2D] border-[#5CA9E6]/30 rounded-xl p-0"
+    >
+      {/* Banner recolhível de 1 linha */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        onClick={() => setIsExpanded((prev) => !prev)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsExpanded((prev) => !prev);
+          }
+        }}
+        className="flex items-center gap-2.5 px-3.5 py-2.5 cursor-pointer hover:bg-[#161C24]/60 transition-colors"
+      >
+        <Sparkles className="h-4 w-4 shrink-0 text-[#5CA9E6]" />
+        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#5CA9E6] shrink-0">
+          IA
+        </span>
+        <p className="font-sans text-xs text-[#D4E4FA] truncate flex-1 min-w-0">
+          {data.headline}
+        </p>
 
-      <div className="relative p-5 sm:p-6 flex flex-col gap-5">
-        <div className="flex flex-col sm:flex-row gap-5 items-start">
-          {/* Icon & Badge Area */}
-          <div className="shrink-0 flex flex-col gap-2">
-            <div className="w-10 h-10 rounded-full bg-[#161C24] border border-[#5CA9E6]/30 flex items-center justify-center text-[#5CA9E6] shadow-[0_0_15px_rgba(92,169,230,0.15)]">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <Badge variant="cyan" size="sm" className="text-nowrap font-mono text-[9px] uppercase tracking-widest mt-1 justify-center border-none bg-[#5CA9E6]/10 text-[#5CA9E6]">
-              IA EVOLUÇÃO
-            </Badge>
-          </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            loadInsight(true);
+          }}
+          disabled={isRefreshing}
+          title="Recalcular análise"
+          aria-label="Recalcular análise"
+          className="p-1 text-[#8F9380] hover:text-[#5CA9E6] disabled:opacity-50 transition-colors shrink-0"
+        >
+          <RotateCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </button>
 
-          {/* Content Area */}
-          <div className="flex flex-col gap-2 w-full">
-            <h3 className="font-display text-xl font-bold text-[#D4E4FA] tracking-wide">
-              {data.headline}
-            </h3>
-            <p className="font-sans text-sm text-[#C5C8B4] leading-relaxed">
+        <span className="text-[#8F9380] shrink-0">
+          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </span>
+      </div>
+
+      {/* Detalhes expandidos */}
+      {isExpanded && (
+        <div className="px-3.5 pb-3.5 pt-2 border-t border-[#1F2937] flex flex-col gap-3">
+          {data.summary && (
+            <p className="font-sans text-xs text-[#C5C8B4] leading-relaxed">
               {data.summary}
             </p>
-          </div>
-        </div>
+          )}
 
-        {/* Top Progress Grid */}
-        {data.topProgress && data.topProgress.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2 border-t border-[#1F2937] pt-4">
-            {data.topProgress.map((item, idx) => (
-              <div key={idx} className="flex gap-3 items-start bg-[#0D1C2D]/50 border border-[#1F2937] p-3 rounded-[4px]">
-                <div className="w-8 h-8 rounded-full bg-[#161C24] flex items-center justify-center shrink-0 border border-[#1F2937]">
-                  <TrendingUp className="w-4 h-4 text-[#D4F684]" />
-                </div>
-                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-widest truncate">
-                      {SPORT_LABELS[item.sportKey] || item.sportKey} • {item.metric}
-                    </span>
-                    {item.variation && (
-                      <span className="font-mono text-[10px] font-bold text-[#D4F684] bg-[#D4F684]/15 border border-[#D4F684]/30 px-2 py-0.5 rounded shrink-0">
-                        {item.variation}
+          {data.topProgress && data.topProgress.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {data.topProgress.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex gap-2.5 items-start bg-[#161C24] border border-[#1F2937] p-2.5 rounded-[4px]"
+                >
+                  <TrendingUp className="w-3.5 h-3.5 text-[#D4F684] mt-0.5 shrink-0" />
+                  <div className="flex flex-col gap-1 flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-[10px] text-[#8F9380] uppercase truncate">
+                        {SPORT_LABELS[item.sportKey] || item.sportKey} • {item.metric}
                       </span>
-                    )}
-                  </div>
-                  <span className="text-xs font-medium text-[#D4E4FA] leading-relaxed">
-                    {item.description}
-                  </span>
-                  {(item.previousValue || item.currentValue || item.loadNote) && (
-                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[#1F2937]/50 font-mono text-[9px] text-[#8F9380]">
-                      {item.previousValue && item.currentValue && (
-                        <span>
-                          {item.previousValue} → <strong className="text-[#D4E4FA]">{item.currentValue}</strong>
-                        </span>
-                      )}
-                      {item.loadNote && (
-                        <span className="text-[#8F9380] italic">
-                          ({item.loadNote})
+                      {item.variation && (
+                        <span className="font-mono text-[10px] font-bold text-[#D4F684] shrink-0">
+                          {item.variation}
                         </span>
                       )}
                     </div>
-                  )}
+                    <span className="text-xs text-[#D4E4FA] leading-snug">
+                      {item.description}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
 
-        <div className="flex items-center justify-between border-t border-[#1F2937] pt-3 mt-1">
-          <div className="flex items-center gap-1.5 text-[#8F9380]">
-            <Activity className="h-3.5 w-3.5" />
-            <span className="font-mono text-[10px] uppercase tracking-wider">
-              Motor Gemini IA{modelUsed ? ` • ${modelUsed}` : ''}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => loadInsight(true)}
-            disabled={isRefreshing}
-            className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[#5CA9E6] hover:text-[#D4E4FA] disabled:opacity-50 transition-colors cursor-pointer"
-            title="Recalcular análise com dados recentes"
-          >
-            <RotateCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>{isRefreshing ? 'Recalculando...' : 'Recalcular'}</span>
-          </button>
+          {modelUsed && (
+            <div className="font-mono text-[9px] text-[#8F9380] uppercase tracking-wider">
+              Motor Gemini IA • {modelUsed}
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </Card>
   );
 };

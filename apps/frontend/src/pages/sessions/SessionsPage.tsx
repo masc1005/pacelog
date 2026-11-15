@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { apiClient } from '../../lib/api';
-import type { SessionDTO, SportKey } from '@pacelog/shared';
-import { Activity, Zap, Sun, Dumbbell, Flame, Search, Waves, Bike, Shield } from 'lucide-react';
+import { SPORT_KEYS, type SessionDTO, type SportKey } from '@pacelog/shared';
+import { Activity, Zap, Sun, Dumbbell, Flame, Search, Waves, Bike, Shield, X } from 'lucide-react';
 import { formatDuration } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 
-const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badge: 'cyan'|'amber'|'crimson'|'purple'|'green'|'blue' }> = {
+const sportMeta: Record<SportKey, { name: string; color: string; icon: React.ElementType; badge: 'cyan' | 'amber' | 'crimson' | 'purple' | 'green' | 'blue' }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity, badge: 'cyan' },
   football: { name: 'Futebol', color: '#D4F684', icon: Flame, badge: 'green' },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun, badge: 'amber' },
@@ -18,10 +18,95 @@ const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badg
   cycling: { name: 'Ciclismo', color: '#10B981', icon: Bike, badge: 'green' },
 };
 
+function startOfIsoWeek(date: Date): Date {
+  const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = (copy.getDay() + 6) % 7; // 0 = segunda
+  copy.setDate(copy.getDate() - day);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function getSessionGroupLabel(dateInput: Date | string, now: Date): string {
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return 'Outros';
+
+  const currentWeekStart = startOfIsoWeek(now);
+  const lastWeekStart = new Date(currentWeekStart);
+  lastWeekStart.setDate(currentWeekStart.getDate() - 7);
+
+  const sessionWeekStart = startOfIsoWeek(date);
+  if (sessionWeekStart.getTime() === currentWeekStart.getTime()) {
+    return 'Esta semana';
+  }
+  if (sessionWeekStart.getTime() === lastWeekStart.getTime()) {
+    return 'Semana passada';
+  }
+
+  return date.toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function getPrimaryMetrics(session: SessionDTO): [string, string] {
+  const duration = formatDuration(session.durationSeconds);
+  const load = `${Math.round(session.sessionalLoad || 0)} AU`;
+
+  switch (session.sportKey) {
+    case 'running': {
+      const km = ((session.metrics?.distanceMeters || 0) / 1000).toFixed(1);
+      return [`${km} km`, duration];
+    }
+    case 'cycling': {
+      const primary = session.metrics?.distanceKm
+        ? `${Number(session.metrics.distanceKm).toFixed(1)} km`
+        : session.metrics?.averageSpeedKmh
+          ? `${Number(session.metrics.averageSpeedKmh).toFixed(1)} km/h`
+          : load;
+      return [primary, duration];
+    }
+    case 'swimming': {
+      return [`${session.metrics?.totalDistanceMeters || 0} m`, duration];
+    }
+    case 'strength': {
+      const primary = session.metrics?.totalVolumeKg
+        ? `${Math.round(session.metrics.totalVolumeKg).toLocaleString('pt-BR')} kg`
+        : `${session.metrics?.totalSets || 0} séries`;
+      return [primary, duration];
+    }
+    case 'jiujitsu': {
+      const primary = session.metrics?.roundsCount
+        ? `${session.metrics.roundsCount} rolas`
+        : session.metrics?.gi === false
+          ? 'No-Gi'
+          : 'Gi';
+      return [primary, duration];
+    }
+    case 'boxing': {
+      return [`${session.metrics?.roundsCount || 0} rds`, duration];
+    }
+    case 'futevolei': {
+      const primary = session.metrics?.setsCount ? `${session.metrics.setsCount} sets` : load;
+      return [primary, duration];
+    }
+    default:
+      return [duration, load];
+  }
+}
+
+function getRpeBadgeVariant(rpe: number): 'sage' | 'amber' | 'orange' | 'crimson' {
+  if (rpe >= 9) return 'crimson';
+  if (rpe >= 7) return 'orange';
+  if (rpe >= 5) return 'amber';
+  return 'sage';
+}
+
 export const SessionsPage: React.FC = () => {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<SessionDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSport, setSelectedSport] = useState<SportKey | 'all'>('all');
 
   useEffect(() => {
     async function loadSessions() {
@@ -37,20 +122,116 @@ export const SessionsPage: React.FC = () => {
     loadSessions();
   }, []);
 
+  const filteredSessions = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return sessions.filter((session) => {
+      if (selectedSport !== 'all' && session.sportKey !== selectedSport) {
+        return false;
+      }
+      if (!query) return true;
+      const meta = sportMeta[session.sportKey] || sportMeta.running;
+      const dateStr = new Date(session.startedAt).toLocaleDateString('pt-BR');
+      const notes = (session.notes || '').toLowerCase();
+      return (
+        meta.name.toLowerCase().includes(query) ||
+        session.sportKey.toLowerCase().includes(query) ||
+        dateStr.includes(query) ||
+        notes.includes(query)
+      );
+    });
+  }, [sessions, selectedSport, searchQuery]);
+
+  const groupedSessions = useMemo(() => {
+    const now = new Date();
+    const groups: Array<{ label: string; items: SessionDTO[] }> = [];
+    const indexByLabel = new Map<string, number>();
+
+    for (const session of filteredSessions) {
+      const label = getSessionGroupLabel(session.startedAt, now);
+      const existingIdx = indexByLabel.get(label);
+      if (existingIdx !== undefined) {
+        groups[existingIdx].items.push(session);
+      } else {
+        indexByLabel.set(label, groups.length);
+        groups.push({ label, items: [session] });
+      }
+    }
+
+    return groups;
+  }, [filteredSessions]);
+
   return (
-    <div className="flex flex-col gap-6 font-sans max-w-4xl mx-auto w-full">
-      <div className="flex items-center justify-between border-b border-[#1F2937] pb-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-[#D4E4FA] uppercase tracking-wide">
+    <div className="flex flex-col gap-4 font-sans max-w-4xl mx-auto w-full pb-24">
+      {/* Header compacto */}
+      <div className="flex items-center justify-between border-b border-[#1F2937] pb-3">
+        <div className="flex items-baseline gap-2.5">
+          <h1 className="font-display text-xl sm:text-2xl font-bold text-[#D4E4FA] uppercase tracking-wide">
             Diário de Treinos
           </h1>
-          <p className="font-mono text-xs text-[#8F9380] mt-1 uppercase">
-            Histórico completo de telemetria
-          </p>
+          {!isLoading && (
+            <span className="font-mono text-[10px] text-[#8F9380] uppercase">
+              {filteredSessions.length} {filteredSessions.length === 1 ? 'sessão' : 'sessões'}
+            </span>
+          )}
         </div>
-        <div className="bg-[#161C24] p-2 rounded-full border border-[#1F2937]">
-          <Search className="h-5 w-5 text-[#C5C8B4]" />
+      </div>
+
+      {/* Linha única horizontal: busca + pílulas de esporte com scroll suave */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5">
+        <div className="relative flex items-center shrink-0 w-36 sm:w-44">
+          <Search className="h-3.5 w-3.5 text-[#8F9380] absolute left-2.5 pointer-events-none" />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar..."
+            aria-label="Buscar sessões"
+            className="w-full h-8 pl-8 pr-6 rounded-full bg-[#0D1C2D] border border-[#1F2937] focus:border-[#D4F684] text-xs font-mono text-[#D4E4FA] placeholder:text-[#8F9380] outline-none transition-colors"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              aria-label="Limpar busca"
+              className="absolute right-2 text-[#8F9380] hover:text-[#D4E4FA]"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
         </div>
+
+        <button
+          type="button"
+          onClick={() => setSelectedSport('all')}
+          className={`shrink-0 h-8 px-3 rounded-full font-mono text-[11px] uppercase font-bold border transition-all cursor-pointer ${
+            selectedSport === 'all'
+              ? 'bg-[#D4F684] text-[#051424] border-[#D4F684]'
+              : 'bg-[#0D1C2D] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
+          }`}
+        >
+          Todos
+        </button>
+
+        {SPORT_KEYS.map((key) => {
+          const meta = sportMeta[key];
+          const Icon = meta.icon;
+          const active = selectedSport === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSelectedSport(active ? 'all' : key)}
+              className={`shrink-0 h-8 inline-flex items-center gap-1.5 px-3 rounded-full font-mono text-[11px] uppercase font-bold border transition-all cursor-pointer ${
+                active
+                  ? 'bg-[#161C24] text-[#D4E4FA] border-[#D4F684]'
+                  : 'bg-[#0D1C2D] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
+              }`}
+            >
+              <Icon className="h-3 w-3" style={{ color: active ? meta.color : undefined }} />
+              <span>{meta.name}</span>
+            </button>
+          );
+        })}
       </div>
 
       {isLoading ? (
@@ -58,60 +239,110 @@ export const SessionsPage: React.FC = () => {
           <div className="font-mono text-xs text-[#8F9380] animate-pulse">Carregando histórico...</div>
         </div>
       ) : sessions.length === 0 ? (
-        <Card className="p-12 flex flex-col items-center justify-center gap-3 border-dashed border-[#454839]">
+        <Card className="p-10 flex flex-col items-center justify-center gap-3 border-dashed border-[#454839]">
           <Activity className="h-8 w-8 text-[#8F9380]" />
           <span className="font-mono text-sm text-[#C5C8B4] uppercase">Nenhum treino registrado</span>
         </Card>
+      ) : filteredSessions.length === 0 ? (
+        <Card className="p-8 flex flex-col items-center justify-center gap-2 border-dashed border-[#1F2937] bg-[#0D1C2D]">
+          <span className="font-mono text-xs text-[#C5C8B4] uppercase">
+            Nenhuma sessão encontrada para o filtro
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery('');
+              setSelectedSport('all');
+            }}
+            className="font-mono text-[11px] text-[#D4F684] uppercase hover:underline"
+          >
+            Limpar filtros
+          </button>
+        </Card>
       ) : (
-        <div className="flex flex-col gap-3">
-          {sessions.map(session => {
-            const meta = sportMeta[session.sportKey] || sportMeta.running;
-            const Icon = meta.icon;
-            
-            return (
-              <Card 
-                key={session.id} 
-                variant="watch" 
-                className="p-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-[#161C24] hover:bg-[#1a232d] transition-colors cursor-pointer border-[#1F2937] hover:border-[#454839]"
-                onClick={() => navigate(session.sportKey === 'strength' ? `/strength/sessions/${session.id}` : `/sessions/${session.id}`)}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 flex items-center justify-center rounded-[2px] bg-[#051424] border border-[#1F2937]">
-                    <Icon className="h-6 w-6" style={{ color: meta.color }} />
-                  </div>
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                      <span className="font-display text-lg font-bold text-[#D4E4FA] uppercase">{meta.name}</span>
-                      <Badge variant={meta.badge} size="sm">
-                        {new Date(session.startedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} • {new Date(session.startedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                      </Badge>
-                    </div>
-                    <span className="font-mono text-[10px] text-[#8F9380] uppercase mt-1">
-                      DURAÇÃO: {formatDuration(session.durationSeconds)} | CARGA sRPE: {session.sessionalLoad}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-6 border-t sm:border-t-0 sm:border-l border-[#1F2937] pt-3 sm:pt-0 sm:pl-6 w-full sm:w-auto">
-                  <div className="flex flex-col items-center">
-                    <span className="font-mono text-[9px] text-[#8F9380] uppercase">RPE</span>
-                    <span className="font-display text-xl font-bold text-[#FF6B35]">{session.rpe}</span>
-                  </div>
-                  <div className="flex flex-col items-center flex-1 sm:flex-auto">
-                    <span className="font-mono text-[9px] text-[#8F9380] uppercase">Destaque</span>
-                    <span className="font-display text-sm font-bold text-[#D4E4FA]">
-                      {session.sportKey === 'running' ? `${(session.metrics?.distanceMeters || 0)/1000} km` : 
-                       session.sportKey === 'cycling' ? (session.metrics?.averageSpeedKmh ? `${session.metrics.averageSpeedKmh} km/h` : `${session.metrics?.distanceKm || 0} km`) :
-                       session.sportKey === 'jiujitsu' ? (session.metrics?.roundsCount ? `${session.metrics.roundsCount} rolas` : (session.metrics?.gi === false ? 'No-Gi' : 'Gi')) :
-                       session.sportKey === 'boxing' ? `${session.metrics?.roundsCount || 0} rds` : 
-                       session.sportKey === 'swimming' ? `${session.metrics?.totalDistanceMeters || 0} m` : 
-                       session.sportKey === 'strength' ? (session.metrics?.totalVolumeKg ? `${Math.round(session.metrics.totalVolumeKg)} kg` : `${session.metrics?.totalSets || 0} sets`) : '100%'}
-                    </span>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+        <div className="flex flex-col gap-5">
+          {groupedSessions.map((group) => (
+            <section key={group.label} className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 px-0.5">
+                <h2 className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#8F9380] shrink-0">
+                  {group.label}
+                </h2>
+                <div className="flex-1 h-px bg-[#1F2937]/70" />
+                <span className="font-mono text-[10px] text-[#4A5568]">
+                  {group.items.length}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                {group.items.map((session) => {
+                  const meta = sportMeta[session.sportKey] || sportMeta.running;
+                  const Icon = meta.icon;
+                  const [primaryMetric, secondaryMetric] = getPrimaryMetrics(session);
+                  const dateLabel = new Date(session.startedAt).toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                  });
+                  const timeLabel = new Date(session.startedAt).toLocaleTimeString('pt-BR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  });
+
+                  return (
+                    <Card
+                      key={session.id}
+                      variant="simple"
+                      className="px-3 py-2.5 flex items-center justify-between gap-3 bg-[#0D1C2D] hover:bg-[#161C24] transition-colors cursor-pointer border-[#1F2937] hover:border-[#454839] rounded-[4px]"
+                      onClick={() =>
+                        navigate(
+                          session.sportKey === 'strength'
+                            ? `/strength/sessions/${session.id}`
+                            : `/sessions/${session.id}`
+                        )
+                      }
+                    >
+                      {/* Esquerda: Ícone + Nome / Data */}
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div
+                          className="w-8 h-8 flex items-center justify-center rounded-[4px] bg-[#051424] border border-[#1F2937] shrink-0"
+                          style={{ borderColor: `${meta.color}30` }}
+                        >
+                          <Icon className="h-4 w-4" style={{ color: meta.color }} />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-display text-sm font-bold text-[#D4E4FA] uppercase truncate leading-tight">
+                            {meta.name}
+                          </span>
+                          <span className="font-mono text-[10px] text-[#8F9380] leading-tight mt-0.5">
+                            {dateLabel} • {timeLabel}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Direita: 2 métricas principais + Badge de RPE */}
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <div className="flex flex-col items-end leading-tight">
+                          <span className="font-mono text-xs font-bold text-[#D4E4FA]">
+                            {primaryMetric}
+                          </span>
+                          <span className="font-mono text-[10px] text-[#8F9380] mt-0.5">
+                            {secondaryMetric}
+                          </span>
+                        </div>
+
+                        <Badge
+                          variant={getRpeBadgeVariant(session.rpe)}
+                          size="sm"
+                          className="px-1.5 py-0.5 text-[10px] tracking-normal shrink-0"
+                        >
+                          RPE {session.rpe}
+                        </Badge>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       )}
     </div>

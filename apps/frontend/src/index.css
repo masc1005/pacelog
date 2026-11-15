@@ -235,3 +235,13 @@ select.input-precision {
   background-size: 100% 4px;
   pointer-events: none;
 }
+
+/* Hide scrollbars for horizontal chip strips */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

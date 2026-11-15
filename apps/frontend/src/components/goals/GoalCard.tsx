@@ -20,7 +20,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
-const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
+const sportMeta: Record<SportKey, { name: string; color: string; icon: React.ElementType }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity },
   football: { name: 'Futebol', color: '#D4F684', icon: Flame },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun },
@@ -46,7 +46,6 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
   const isPaused = goal.status === 'paused';
   const isExpired = goal.status === 'expired';
 
-  // Formatação de Pace (se for average_pace_seconds_per_km)
   const formatValue = (val: number) => {
     if (goal.metricType === 'average_pace_seconds_per_km') {
       const min = Math.floor(val / 60);
@@ -56,115 +55,60 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
     return val;
   };
 
-  // SVG mini-circle progress calculations
-  const circumference = 2 * Math.PI * 24;
-  const strokeDashoffset = circumference - (progressPercent / 100) * circumference;
-
   return (
     <Card
-      variant="watch"
-      className="p-5 flex flex-col gap-4 bg-[#0D1C2D] border-[#1F2937] hover:border-[#5CA9E6]/50 cursor-pointer transition-all duration-200 group relative overflow-hidden"
+      variant="simple"
+      className="p-3.5 flex flex-col gap-2 bg-[#0D1C2D] border-[#1F2937] hover:border-[#5CA9E6]/50 cursor-pointer transition-all duration-200 rounded-[4px]"
       onClick={() => navigate(`/goals/${goal.id}`)}
     >
-      {/* Glow corner indicator */}
-      <div
-        className="absolute top-0 right-0 w-24 h-24 blur-2xl opacity-10 pointer-events-none rounded-full"
-        style={{ backgroundColor: color }}
-      />
-
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-[4px] bg-[#161C24] flex items-center justify-center border transition-colors group-hover:border-[#5CA9E6]/40"
-            style={{ borderColor: `${color}40` }}
-          >
-            <Icon className="h-5 w-5" style={{ color }} />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-display font-bold text-sm text-[#D4E4FA] line-clamp-1 group-hover:text-white transition-colors">
-              {goal.title}
-            </span>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">
-                {meta ? meta.name : 'Geral (Todos)'}
-              </span>
-              {goal.period && (
-                <>
-                  <span className="text-[#454839] text-xs">•</span>
-                  <span className="font-mono text-[10px] text-[#8F9380] uppercase">
-                    {goal.period === 'weekly' ? 'Semanal' : goal.period === 'monthly' ? 'Mensal' : 'Custom'}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Badge de Status */}
-        {isCompleted ? (
-          <Badge variant="sage" size="sm" className="flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3" /> CONCLUÍDA
-          </Badge>
-        ) : isPaused ? (
-          <Badge variant="neutral" size="sm" className="flex items-center gap-1">
-            <PauseCircle className="w-3 h-3" /> PAUSADA
-          </Badge>
-        ) : isExpired ? (
-          <Badge variant="crimson" size="sm" className="flex items-center gap-1">
-            <AlertCircle className="w-3 h-3" /> EXPIRADA
-          </Badge>
-        ) : (
-          <Badge variant="cyan" size="sm">
-            EM ANDAMENTO
-          </Badge>
-        )}
-      </div>
-
-      {/* Medição Central */}
-      <div className="flex items-center justify-between gap-4 pt-1">
-        {/* SVG Mini Progress Dial */}
-        <div className="relative w-14 h-14 shrink-0 flex items-center justify-center">
-          <svg className="w-full h-full transform -rotate-90" viewBox="0 0 60 60">
-            <circle cx="30" cy="30" r="24" stroke="#161C24" strokeWidth="4" fill="none" />
-            <circle
-              cx="30"
-              cy="30"
-              r="24"
-              stroke={color}
-              strokeWidth="4"
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              style={{ transition: 'stroke-dashoffset 0.8s ease-in-out' }}
-            />
-          </svg>
-          <span className="absolute font-mono text-[11px] font-bold text-[#D4E4FA]">
-            {progressPercent}%
+      {/* Linha superior discreta: modalidade / período + status */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Icon className="h-3.5 w-3.5 shrink-0" style={{ color }} />
+          <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider truncate">
+            {meta ? meta.name : 'Geral'}
+            {goal.period
+              ? ` • ${goal.period === 'weekly' ? 'Semanal' : goal.period === 'monthly' ? 'Mensal' : 'Custom'}`
+              : ''}
           </span>
         </div>
 
-        {/* Valores */}
-        <div className="flex flex-col flex-1 min-w-0">
-          <div className="flex items-baseline justify-between">
-            <span className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider">
-              Progresso
+        <div className="flex items-center gap-1.5 shrink-0">
+          {goal.daysRemaining !== undefined && goal.daysRemaining > 0 && !isCompleted && (
+            <span className="font-mono text-[10px] text-[#38BDF8] flex items-center gap-0.5">
+              <Clock className="w-2.5 h-2.5" />
+              {goal.daysRemaining}d
             </span>
-            {goal.daysRemaining !== undefined && goal.daysRemaining > 0 && !isCompleted && (
-              <span className="font-mono text-[10px] text-[#38BDF8] flex items-center gap-1">
-                <Clock className="w-3 h-3" /> {goal.daysRemaining}d restantes
-              </span>
-            )}
-          </div>
-          <div className="flex items-baseline gap-1.5 mt-0.5">
-            <span className="font-display text-xl font-bold text-[#D4E4FA]">
-              {formatValue(goal.currentValue)}
-            </span>
-            <span className="font-mono text-xs text-[#8F9380]">
-              / {formatValue(goal.targetValue)} {goal.unit}
-            </span>
-          </div>
+          )}
+          {isCompleted ? (
+            <Badge variant="sage" size="sm" className="px-1.5 py-0 text-[9px]">
+              <CheckCircle2 className="w-2.5 h-2.5" /> Concluída
+            </Badge>
+          ) : isPaused ? (
+            <Badge variant="neutral" size="sm" className="px-1.5 py-0 text-[9px]">
+              <PauseCircle className="w-2.5 h-2.5" /> Pausada
+            </Badge>
+          ) : isExpired ? (
+            <Badge variant="crimson" size="sm" className="px-1.5 py-0 text-[9px]">
+              <AlertCircle className="w-2.5 h-2.5" /> Expirada
+            </Badge>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Título, meta-alvo e percentual alinhados na mesma linha */}
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="font-display font-bold text-sm text-[#D4E4FA] truncate flex-1 min-w-0">
+          {goal.title}
+        </span>
+
+        <div className="flex items-baseline gap-2 shrink-0">
+          <span className="font-mono text-xs text-[#C5C8B4]">
+            {formatValue(goal.currentValue)}/{formatValue(goal.targetValue)} {goal.unit}
+          </span>
+          <span className="font-mono text-xs font-bold" style={{ color }}>
+            {progressPercent}%
+          </span>
         </div>
       </div>
 

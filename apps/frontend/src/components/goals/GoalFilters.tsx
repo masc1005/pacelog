@@ -12,7 +12,7 @@ import {
   Layers,
 } from 'lucide-react';
 
-const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
+const sportMeta: Record<SportKey, { name: string; color: string; icon: React.ElementType }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity },
   football: { name: 'Futebol', color: '#D4F684', icon: Flame },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun },
@@ -47,15 +47,15 @@ export const GoalFilters: React.FC<GoalFiltersProps> = ({
 }) => {
   const statusTabs: Array<{ id: GoalStatusFilter; label: string; count: number }> = [
     { id: 'all', label: 'Todas', count: counts.all },
-    { id: 'active', label: 'Em Andamento', count: counts.active },
+    { id: 'active', label: 'Ativas', count: counts.active },
     { id: 'paused', label: 'Pausadas', count: counts.paused },
     { id: 'completed', label: 'Concluídas', count: counts.completed },
   ];
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Abas de Status */}
-      <div className="flex items-center gap-2 border-b border-[#1F2937] overflow-x-auto no-scrollbar pb-1">
+    <div className="flex flex-col gap-2">
+      {/* Pílulas enxutas de Status com contador discreto */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5">
         {statusTabs.map((tab) => {
           const isSelected = statusFilter === tab.id;
           return (
@@ -63,18 +63,16 @@ export const GoalFilters: React.FC<GoalFiltersProps> = ({
               key={tab.id}
               type="button"
               onClick={() => onStatusChange(tab.id)}
-              className={`flex items-center gap-2 py-2 px-3.5 font-mono text-xs uppercase font-bold tracking-wider rounded-t-[4px] border-b-2 transition-all text-nowrap ${
+              className={`shrink-0 inline-flex items-center gap-1.5 h-7 px-3 rounded-full font-mono text-[11px] uppercase font-bold border transition-all cursor-pointer ${
                 isSelected
-                  ? 'border-[#D4F684] text-[#D4F684] bg-[#D4F684]/5'
-                  : 'border-transparent text-[#8F9380] hover:text-[#D4E4FA] hover:bg-white/5'
+                  ? 'bg-[#D4F684] text-[#051424] border-[#D4F684]'
+                  : 'bg-[#0D1C2D] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
               }`}
             >
               <span>{tab.label}</span>
               <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                  isSelected
-                    ? 'bg-[#D4F684] text-[#051424]'
-                    : 'bg-[#161C24] text-[#8F9380]'
+                className={`text-[10px] font-normal ${
+                  isSelected ? 'text-[#051424]/75' : 'text-[#8F9380]/75'
                 }`}
               >
                 {tab.count}
@@ -84,19 +82,19 @@ export const GoalFilters: React.FC<GoalFiltersProps> = ({
         })}
       </div>
 
-      {/* Pílulas de Modalidade Esportiva */}
-      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+      {/* Pílulas enxutas de Modalidade */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5">
         <button
           type="button"
           onClick={() => onSportChange('all')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] font-mono text-xs uppercase font-bold transition-all border text-nowrap ${
+          className={`shrink-0 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full font-mono text-[11px] uppercase font-bold border transition-all cursor-pointer ${
             sportFilter === 'all'
-              ? 'bg-[#D4F684] text-[#051424] border-[#D4F684] shadow-[0_0_12px_rgba(212,246,132,0.25)]'
-              : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:border-[#454839] hover:text-[#D4E4FA]'
+              ? 'bg-[#161C24] text-[#D4E4FA] border-[#D4F684]'
+              : 'bg-[#0D1C2D] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
           }`}
         >
-          <Layers className="w-3.5 h-3.5" />
-          <span>Todas as Modalidades</span>
+          <Layers className="w-3 h-3" />
+          <span>Todas</span>
         </button>
 
         {SPORT_KEYS.map((key) => {
@@ -108,15 +106,15 @@ export const GoalFilters: React.FC<GoalFiltersProps> = ({
             <button
               key={key}
               type="button"
-              onClick={() => onSportChange(key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] font-mono text-xs uppercase font-bold transition-all border text-nowrap ${
+              onClick={() => onSportChange(isSelected ? 'all' : key)}
+              className={`shrink-0 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full font-mono text-[11px] uppercase font-bold border transition-all cursor-pointer ${
                 isSelected
-                  ? 'bg-[#161C24] text-[#D4E4FA] border-[#D4F684] shadow-[0_0_12px_rgba(212,246,132,0.15)]'
-                  : 'bg-[#161C24] text-[#8F9380] border-[#1F2937] hover:border-[#454839] hover:text-[#D4E4FA]'
+                  ? 'bg-[#161C24] text-[#D4E4FA] border-[#D4F684]'
+                  : 'bg-[#0D1C2D] text-[#8F9380] border-[#1F2937] hover:text-[#D4E4FA] hover:border-[#454839]'
               }`}
             >
               <Icon
-                className="w-3.5 h-3.5"
+                className="w-3 h-3"
                 style={{ color: isSelected ? meta.color : undefined }}
               />
               <span>{meta.name}</span>
