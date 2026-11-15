@@ -1,54 +1,33 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 import {
-  LOAD_UNITS,
   SET_STATUSES,
   STRENGTH_SET_TYPES,
-  ACTIVE_SESSION_STATUSES,
+  LOAD_UNITS,
   STRENGTH_SESSION_STATUSES,
+  type StrengthSessionStatus,
+  type SetStatus,
+  type StrengthSetType,
+  type LoadUnit,
 } from '@pacelog/shared';
-
-// ==========================================
-// SÉRIE
-// ==========================================
 
 export interface IStrengthSetDocument {
   id: string;
   setNumber: number;
-  status: (typeof SET_STATUSES)[number];
-  type: (typeof STRENGTH_SET_TYPES)[number];
+  status: SetStatus;
+  type: StrengthSetType;
+
   reps?: number;
   load?: number;
-  loadUnit: (typeof LOAD_UNITS)[number];
+  loadUnit: LoadUnit;
+
   durationSeconds?: number;
   restSeconds?: number;
   rir?: number;
   rpe?: number;
+
   notes?: string;
   completedAt?: Date;
 }
-
-const strengthSetSchema = new Schema<IStrengthSetDocument>(
-  {
-    id: { type: String, required: true },
-    setNumber: { type: Number, required: true, min: 1 },
-    status: { type: String, enum: SET_STATUSES, default: 'planned' },
-    type: { type: String, enum: STRENGTH_SET_TYPES, default: 'working' },
-    reps: { type: Number, min: 1 },
-    load: { type: Number, min: 0 },
-    loadUnit: { type: String, enum: LOAD_UNITS, default: 'kg' },
-    durationSeconds: { type: Number, min: 0 },
-    restSeconds: { type: Number, min: 0 },
-    rir: { type: Number, min: 0, max: 20 },
-    rpe: { type: Number, min: 1, max: 10 },
-    notes: { type: String, maxlength: 500 },
-    completedAt: { type: Date },
-  },
-  { _id: false }
-);
-
-// ==========================================
-// EXERCÍCIO DENTRO DA SESSÃO
-// ==========================================
 
 export interface IStrengthExerciseEntryDocument {
   id: string;
@@ -61,33 +40,46 @@ export interface IStrengthExerciseEntryDocument {
   sets: IStrengthSetDocument[];
 }
 
+const strengthSetSchema = new Schema<IStrengthSetDocument>(
+  {
+    id: { type: String, required: true },
+    setNumber: { type: Number, required: true },
+    status: { type: String, enum: SET_STATUSES, required: true, default: 'planned' },
+    type: { type: String, enum: STRENGTH_SET_TYPES, required: true, default: 'working' },
+
+    reps: { type: Number, min: 1 },
+    load: { type: Number, min: 0 },
+    loadUnit: { type: String, enum: LOAD_UNITS, required: true, default: 'kg' },
+
+    durationSeconds: { type: Number, min: 1 },
+    restSeconds: { type: Number, min: 0 },
+    rir: { type: Number, min: 0, max: 20 },
+    rpe: { type: Number, min: 1, max: 10 },
+
+    notes: { type: String, maxlength: 500 },
+    completedAt: { type: Date },
+  },
+  { _id: false }
+);
+
 const strengthExerciseEntrySchema = new Schema<IStrengthExerciseEntryDocument>(
   {
     id: { type: String, required: true },
-    exerciseKey: { type: String, required: true },
+    exerciseKey: { type: String, required: true, index: true },
     exerciseNameSnapshot: { type: String, required: true, maxlength: 200 },
     primaryMuscleGroup: { type: String, maxlength: 100 },
     equipment: { type: String, maxlength: 100 },
-    order: { type: Number, required: true, default: 0 },
+    order: { type: Number, required: true, min: 0 },
     notes: { type: String, maxlength: 500 },
     sets: { type: [strengthSetSchema], default: [] },
   },
   { _id: false }
 );
 
-// ==========================================
-// SESSÃO ATIVA DE MUSCULAÇÃO
-// ==========================================
-
-/**
- * Representa um documento de sessão de musculação no MongoDB.
- * O nome "Active" é histórico — a coleção única armazena todos os status
- * do ciclo de vida: active, paused, finishing, completed, cancelled, abandoned.
- */
 export interface IActiveStrengthSessionDocument extends Document {
   userId: string;
   sportKey: 'strength';
-  status: (typeof STRENGTH_SESSION_STATUSES)[number];
+  status: StrengthSessionStatus;
 
   startedAt: Date;
   pausedAt?: Date;
@@ -110,6 +102,7 @@ export interface IActiveStrengthSessionDocument extends Document {
   totalReps?: number;
   totalVolumeKg?: number | null;
   estimatedOneRepMax?: number;
+  rpe?: number;
 
   createdAt: Date;
   updatedAt: Date;
@@ -136,7 +129,7 @@ const activeStrengthSessionSchema = new Schema<IActiveStrengthSessionDocument>(
     clientVersion: { type: Number, default: 0 },
     processedOperationIds: { type: [String], default: [] },
 
-    // Preenchidos na finalização
+    // Preenchidos na finalização ou edição
     finishedAt: { type: Date },
     durationSeconds: { type: Number, min: 0 },
     totalSets: { type: Number, min: 0 },
@@ -144,6 +137,7 @@ const activeStrengthSessionSchema = new Schema<IActiveStrengthSessionDocument>(
     totalReps: { type: Number, min: 0 },
     totalVolumeKg: { type: Number, default: null },
     estimatedOneRepMax: { type: Number },
+    rpe: { type: Number, min: 1, max: 10 },
   },
   {
     timestamps: true,

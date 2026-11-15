@@ -22,6 +22,9 @@ export const StrengthSessionDetailsPage: React.FC = () => {
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [editStartedAt, setEditStartedAt] = useState('');
   const [isSavingDate, setIsSavingDate] = useState(false);
+  const [isEditingDuration, setIsEditingDuration] = useState(false);
+  const [editDurationMinutes, setEditDurationMinutes] = useState(0);
+  const [isSavingDuration, setIsSavingDuration] = useState(false);
 
   // Estado para salvar como ficha
   const [showSaveRoutineModal, setShowSaveRoutineModal] = useState(false);
@@ -52,6 +55,32 @@ export const StrengthSessionDetailsPage: React.FC = () => {
       toastError('Erro ao excluir sessão.');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleSaveDuration = async () => {
+    if (!id || editDurationMinutes <= 0) return;
+    setIsSavingDuration(true);
+    try {
+      const updated = await strengthApi.patchSession(id, {
+        durationMinutes: editDurationMinutes,
+      });
+      setSession((prev) =>
+        prev
+          ? {
+              ...prev,
+              durationSeconds: (updated as CompletedStrengthSession).durationSeconds ?? prev.durationSeconds,
+              finishedAt: (updated as any).finishedAt ?? prev.finishedAt,
+              rpe: (updated as any).rpe ?? prev.rpe,
+            }
+          : null
+      );
+      setIsEditingDuration(false);
+      success("Duração atualizada com sucesso! Carga recalculada.");
+    } catch (err: any) {
+      toastError(err?.message || "Erro ao atualizar duração.");
+    } finally {
+      setIsSavingDuration(false);
     }
   };
 
@@ -272,7 +301,52 @@ export const StrengthSessionDetailsPage: React.FC = () => {
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-[#8F9380] uppercase tracking-widest">
-          <span>{formatDuration(session.durationSeconds)}</span>
+          {!isEditingDuration ? (
+            <span className="inline-flex items-center gap-1.5 text-[#D4E4FA] font-bold">
+              <span>{formatDuration(session.durationSeconds)}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditDurationMinutes(Math.max(1, Math.round(session.durationSeconds / 60)));
+                  setIsEditingDuration(true);
+                }}
+                className="text-[#8F9380] hover:text-[#D4F684] p-0.5 rounded transition-colors"
+                title="Editar duração"
+                aria-label="Editar duração do treino"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 bg-[#161C24] p-1 rounded border border-[#D4F684]/40 normal-case">
+              <input
+                id="edit-session-duration-input"
+                type="number"
+                min={1}
+                max={1440}
+                value={editDurationMinutes}
+                onChange={(e) => setEditDurationMinutes(Number(e.target.value))}
+                className="w-16 bg-[#0D1C2D] border border-[#1F2937] text-[#D4E4FA] font-mono text-xs rounded px-1.5 py-0.5 outline-none focus:border-[#D4F684]"
+                autoFocus
+              />
+              <span className="text-[#8F9380] text-[10px]">min</span>
+              <button
+                type="button"
+                disabled={isSavingDuration}
+                onClick={handleSaveDuration}
+                className="px-2 py-0.5 bg-[#D4F684] text-[#0A0D14] font-mono text-[10px] font-bold rounded uppercase hover:bg-[#bce65c] disabled:opacity-50"
+              >
+                {isSavingDuration ? "..." : "Salvar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditingDuration(false)}
+                className="px-1.5 py-0.5 text-[#8F9380] hover:text-[#D4E4FA] font-mono text-[10px] rounded"
+              >
+                Cancelar
+              </button>
+            </span>
+          )}
           <span className="text-[#1F2937]">/</span>
           <span>{session.exercises.length} exercícios</span>
           <span className="text-[#1F2937]">/</span>
@@ -285,6 +359,14 @@ export const StrengthSessionDetailsPage: React.FC = () => {
                   maximumFractionDigits: 0,
                 })}{' '}
                 kg
+              </span>
+            </>
+          )}
+          {session.rpe != null && (
+            <>
+              <span className="text-[#1F2937]">/</span>
+              <span className="text-[#A855F7] font-semibold">
+                Carga: {Math.round(session.rpe * (session.durationSeconds / 60))} UA
               </span>
             </>
           )}

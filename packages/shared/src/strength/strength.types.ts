@@ -75,6 +75,7 @@ export type ActiveStrengthSession = {
    * Incrementado a cada mutação para detecção de conflito.
    */
   clientVersion: number;
+  rpe?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -102,6 +103,7 @@ export type CompletedStrengthSession = {
   totalVolumeKg?: number | null;
   /** 1RM estimado mais alto da sessão */
   estimatedOneRepMax?: number;
+  rpe?: number;
 
   notes?: string;
   createdAt: string;

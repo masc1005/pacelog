@@ -3,11 +3,12 @@ import type { CompletedStrengthSession } from '@pacelog/shared';
 import { formatDuration } from '../hooks/useSessionTimer';
 import { strengthApi } from '../../../services/strength.api';
 import { useToast } from '../../../contexts/ToastContext';
-import { Bookmark, Check } from 'lucide-react';
+import { Bookmark, Check, Clock } from 'lucide-react';
+import { detectForgottenTimer } from '../utils/strengthOptimistic.utils';
 
 interface SessionSummaryProps {
   session: CompletedStrengthSession;
-  onSave: () => void;
+  onSave: (customDurationMinutes?: number) => void;
   onEdit: () => void;
   isSaving?: boolean;
 }
@@ -23,6 +24,14 @@ export const SessionSummary: React.FC<SessionSummaryProps> = ({
   const [routineName, setRoutineName] = useState('');
   const [isCreatingRoutine, setIsCreatingRoutine] = useState(false);
   const [routineSaved, setRoutineSaved] = useState(false);
+  const [durationMinutes, setDurationMinutes] = useState<number>(() =>
+    Math.max(1, Math.round(session.durationSeconds / 60))
+  );
+
+  const forgottenCheck = React.useMemo(() => {
+    const refTime = session.finishedAt ? new Date(session.finishedAt).getTime() : Date.now();
+    return detectForgottenTimer(session, refTime) || detectForgottenTimer(session, Date.now());
+  }, [session]);
 
   const startTime = new Date(session.startedAt).toLocaleTimeString('pt-BR', {
     hour: '2-digit',
@@ -112,10 +121,37 @@ export const SessionSummary: React.FC<SessionSummaryProps> = ({
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <SummaryStat
-          label="Duração"
-          value={formatDuration(session.durationSeconds)}
-        />
+        <div className="flex flex-col p-4 bg-[#0D1C2D] border border-[#1F2937] rounded-[4px] col-span-2 sm:col-span-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-[#8F9380]">Duração</span>
+            <span className="font-mono text-[10px] text-[#A855F7]">
+              {formatDuration(durationMinutes * 60)}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              id="summary-duration-input"
+              type="number"
+              min={1}
+              max={1440}
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(Math.max(1, Math.min(1440, Number(e.target.value) || 1)))}
+              className="w-20 bg-[#161C24] border border-[#1F2937] focus:border-[#D4F684] text-[#D4E4FA] font-display text-lg font-bold rounded px-2 py-0.5 outline-none"
+              aria-label="Duração em minutos"
+            />
+            <span className="font-mono text-xs text-[#8F9380]">min</span>
+          </div>
+          {forgottenCheck && durationMinutes !== forgottenCheck.durationUntilLastSetMinutes && (
+            <button
+              type="button"
+              onClick={() => setDurationMinutes(forgottenCheck.durationUntilLastSetMinutes)}
+              className="mt-2 text-left font-mono text-[10px] text-[#FFB800] bg-[#FFB800]/10 border border-[#FFB800]/30 hover:bg-[#FFB800]/20 p-1.5 rounded transition-colors flex items-center gap-1.5 leading-tight"
+            >
+              <Clock className="h-3 w-3 shrink-0 text-[#FFB800]" />
+              <span>Esqueceu o timer aberto? Usar tempo até a última série ({forgottenCheck.durationUntilLastSetMinutes} min)</span>
+            </button>
+          )}
+        </div>
         <SummaryStat
           label="Exercícios"
           value={String(session.exercises.length)}
@@ -175,7 +211,7 @@ export const SessionSummary: React.FC<SessionSummaryProps> = ({
         <button
           id="btn-save-session"
           className="flex items-center justify-center gap-2 py-4 px-4 bg-[#D4F684] text-[#0A0D14] hover:bg-[#bce65c] font-mono text-sm uppercase font-bold tracking-widest rounded-[2px] transition-colors shadow-[0_0_20px_rgba(212,246,132,0.2)] hover:shadow-[0_0_30px_rgba(212,246,132,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={onSave}
+          onClick={() => onSave(durationMinutes)}
           disabled={isSaving}
         >
           {isSaving ? 'Salvando…' : 'Salvar sessão'}

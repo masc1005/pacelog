@@ -163,3 +163,63 @@ export function patchSessionStatusLocally(
     updatedAt: now,
   };
 }
+
+/**
+ * Encontra o timestamp da última série concluída na sessão.
+ */
+export function getLastCompletedSetTime(session: {
+  exercises?: Array<{ sets?: Array<{ status?: string; completedAt?: string | Date | null }> }>;
+}): Date | null {
+  let latest: Date | null = null;
+  for (const ex of session.exercises || []) {
+    for (const set of ex.sets || []) {
+      if (set.status === "completed" && set.completedAt) {
+        const d = new Date(set.completedAt);
+        if (!isNaN(d.getTime())) {
+          if (!latest || d.getTime() > latest.getTime()) {
+            latest = d;
+          }
+        }
+      }
+    }
+  }
+  return latest;
+}
+
+/**
+ * Detecta se o atleta provavelmente esqueceu o timer ligado após a última série.
+ * Critério: diferença >= 15 minutos entre a última série e o momento de referência (término ou agora).
+ */
+export function detectForgottenTimer(
+  session: {
+    startedAt: string | Date;
+    finishedAt?: string | Date | null;
+    exercises?: Array<{ sets?: Array<{ status?: string; completedAt?: string | Date | null }> }>;
+  },
+  referenceTimeMs: number = Date.now()
+): {
+  forgotten: boolean;
+  durationUntilLastSetMinutes: number;
+  diffMinutes: number;
+} | null {
+  const lastSet = getLastCompletedSetTime(session);
+  if (!lastSet) return null;
+
+  const diffMs = referenceTimeMs - lastSet.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+
+  if (diffMinutes >= 15) {
+    const startedMs = new Date(session.startedAt).getTime();
+    const durationUntilLastSetMinutes = Math.max(
+      1,
+      Math.round((lastSet.getTime() - startedMs) / 60000)
+    );
+    return {
+      forgotten: true,
+      durationUntilLastSetMinutes,
+      diffMinutes,
+    };
+  }
+
+  return null;
+}

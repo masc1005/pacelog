@@ -67,6 +67,7 @@ export const activeStrengthSessionSchema = z.object({
   notes: z.string().max(1000).optional(),
 
   clientVersion: z.number().int().nonnegative().default(0),
+  rpe: z.number().min(1).max(10).optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -187,6 +188,8 @@ export const finishSessionInputSchema = z.object({
   rpe: z.number().int().min(1).max(10).optional(),
   notes: z.string().max(1000).optional(),
   finishedAt: z.string().datetime().optional(),
+  durationMinutes: z.number().positive().max(1440).optional(),
+  durationSeconds: z.number().positive().max(86400).optional(),
 });
 export type FinishSessionInput = z.infer<typeof finishSessionInputSchema>;
 
@@ -200,5 +203,9 @@ export const patchSessionInputSchema = z.object({
   notes: z.string().max(1000).optional(),
   clientVersion: z.number().int().nonnegative().optional(),
   startedAt: z.string().datetime().optional(),
+  finishedAt: z.string().datetime().optional(),
+  rpe: z.number().int().min(1).max(10).optional(),
+  durationMinutes: z.number().positive().max(1440).optional(),
+  durationSeconds: z.number().positive().max(86400).optional(),
 });
 export type PatchSessionInput = z.infer<typeof patchSessionInputSchema>;

@@ -60,7 +60,18 @@ export const StrengthSessionReviewPage: React.FC = () => {
     navigate('/strength/active');
   }
 
-  async function handleSave() {
+  async function handleSave(durationMinutes?: number) {
+    if (session && durationMinutes && durationMinutes !== Math.round(session.durationSeconds / 60)) {
+      setIsSaving(true);
+      try {
+        await strengthApi.patchSession(session.id, {
+          durationMinutes,
+        });
+      } catch (err) {
+        console.error("Erro ao atualizar duração customizada:", err);
+      }
+    }
+
     if (saveAsRoutine && session) {
       setIsSaving(true);
       try {

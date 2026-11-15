@@ -13,6 +13,8 @@ import { strengthApi } from '../../../services/strength.api';
 import { RpeSelector } from '../../../components/ui/RpeSelector';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toLocalInputDateTime } from '../../../lib/utils';
+import { Clock } from 'lucide-react';
+import { detectForgottenTimer } from '../utils/strengthOptimistic.utils';
 import type { Exercise, StrengthSet, GeneratedStrengthWorkoutDTO } from '@pacelog/shared';
 
 export const ActiveStrengthSessionPage: React.FC = () => {
@@ -32,6 +34,7 @@ export const ActiveStrengthSessionPage: React.FC = () => {
   const [finishRpe, setFinishRpe] = useState<number>(7);
   const [finishNotes, setFinishNotes] = useState<string>('');
   const [finishStartedAt, setFinishStartedAt] = useState<string>('');
+  const [finishDurationMinutes, setFinishDurationMinutes] = useState<number>(1);
   const [isFinishing, setIsFinishing] = useState(false);
 
   const handleMutationError = useCallback((err: Error) => {
@@ -50,6 +53,11 @@ export const ActiveStrengthSessionPage: React.FC = () => {
     () => Math.max(1, Math.round(elapsedSeconds / 60)),
     [elapsedSeconds]
   );
+
+  const forgottenTimerCheck = useMemo(() => {
+    if (!session) return null;
+    return detectForgottenTimer(session, Date.now());
+  }, [session]);
 
   const completedSetsCount = useMemo(() => {
     if (!session?.exercises) return 0;
@@ -168,6 +176,7 @@ export const ActiveStrengthSessionPage: React.FC = () => {
     if (session) {
       setFinishStartedAt(toLocalInputDateTime(session.startedAt));
     }
+    setFinishDurationMinutes(durationMinutes);
 
     setShowFinishModal(true);
   }
@@ -185,6 +194,7 @@ export const ActiveStrengthSessionPage: React.FC = () => {
 
       const completed = await strengthApi.finishSession(session.id, {
         rpe: finishRpe,
+        durationMinutes: finishDurationMinutes,
         notes: finishNotes.trim() || undefined,
       });
       navigate('/strength/review', {
@@ -364,11 +374,45 @@ export const ActiveStrengthSessionPage: React.FC = () => {
               />
             </div>
 
+            {/* Duração do Treino (editável) */}
+            <div className="flex flex-col gap-1.5 p-3 bg-[#161C24] border border-[#1F2937] rounded-lg">
+              <div className="flex items-center justify-between">
+                <label htmlFor="finish-duration" className="font-mono text-[10px] text-[#8F9380] uppercase tracking-widest">
+                  Duração do Treino
+                </label>
+                <span className="font-mono text-[10px] text-[#A855F7]">
+                  {formatDuration(finishDurationMinutes * 60)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="finish-duration"
+                  type="number"
+                  min={1}
+                  max={1440}
+                  value={finishDurationMinutes}
+                  onChange={(e) => setFinishDurationMinutes(Math.max(1, Math.min(1440, Number(e.target.value) || 1)))}
+                  className="w-24 bg-[#0D1C2D] border border-[#1F2937] focus:border-[#D4F684] text-[#D4E4FA] font-mono text-sm font-bold rounded px-2.5 py-1.5 outline-none"
+                />
+                <span className="font-mono text-xs text-[#8F9380]">minutos</span>
+              </div>
+              {forgottenTimerCheck && finishDurationMinutes !== forgottenTimerCheck.durationUntilLastSetMinutes && (
+                <button
+                  type="button"
+                  onClick={() => setFinishDurationMinutes(forgottenTimerCheck.durationUntilLastSetMinutes)}
+                  className="mt-1 text-left font-mono text-[11px] text-[#FFB800] bg-[#FFB800]/10 border border-[#FFB800]/30 hover:bg-[#FFB800]/20 p-2 rounded transition-colors flex items-center gap-1.5 leading-tight"
+                >
+                  <Clock className="h-3.5 w-3.5 shrink-0 text-[#FFB800]" />
+                  <span>Esqueceu o timer aberto? Usar tempo até a última série ({forgottenTimerCheck.durationUntilLastSetMinutes} min)</span>
+                </button>
+              )}
+            </div>
+
             {/* Percepção Subjetiva de Esforço (RPE) & Notas */}
             <RpeSelector
               rpe={finishRpe}
               onChangeRpe={setFinishRpe}
-              durationMinutes={durationMinutes}
+              durationMinutes={finishDurationMinutes}
               notes={finishNotes}
               onChangeNotes={setFinishNotes}
               notesPlaceholder="Como sentiu o treino? Dor articular, bom pump, ajuste de carga..."

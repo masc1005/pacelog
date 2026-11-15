@@ -7,6 +7,8 @@ import {
   removeExerciseLocally,
   patchExerciseLocally,
   patchSessionStatusLocally,
+  getLastCompletedSetTime,
+  detectForgottenTimer,
 } from './strengthOptimistic.utils';
 import type { ActiveStrengthSession, StrengthExerciseEntry, StrengthSet } from '@pacelog/shared';
 
@@ -151,5 +153,70 @@ describe('Strength Optimistic State Utilities', () => {
     const resumed = patchSessionStatusLocally(paused, 'active');
     expect(resumed.status).toBe('active');
     expect(resumed.pausedAt).toBeUndefined();
+  });
+  describe("Timer Forgetfulness & Last Set Detection", () => {
+    it("getLastCompletedSetTime deve encontrar o timestamp da série concluída mais recente", () => {
+      const session = {
+        startedAt: "2026-08-31T10:00:00.000Z",
+        exercises: [
+          {
+            sets: [
+              { status: "completed", completedAt: "2026-08-31T10:15:00.000Z" },
+              { status: "planned" },
+            ],
+          },
+          {
+            sets: [
+              { status: "completed", completedAt: "2026-08-31T10:45:00.000Z" },
+              { status: "completed", completedAt: "2026-08-31T10:30:00.000Z" },
+            ],
+          },
+        ],
+      };
+
+      const lastTime = getLastCompletedSetTime(session);
+      expect(lastTime?.toISOString()).toBe("2026-08-31T10:45:00.000Z");
+    });
+
+    it("detectForgottenTimer deve detectar esquecimento quando decorridos >= 15 minutos", () => {
+      const session = {
+        startedAt: "2026-08-31T10:00:00.000Z",
+        exercises: [
+          {
+            sets: [
+              { status: "completed", completedAt: "2026-08-31T10:45:00.000Z" },
+            ],
+          },
+        ],
+      };
+
+      // 10:45 + 30 min = 11:15 (> 15 min)
+      const refTimeMs = new Date("2026-08-31T11:15:00.000Z").getTime();
+      const result = detectForgottenTimer(session, refTimeMs);
+
+      expect(result).not.toBeNull();
+      expect(result?.forgotten).toBe(true);
+      expect(result?.diffMinutes).toBe(30);
+      expect(result?.durationUntilLastSetMinutes).toBe(45); // 10:00 até 10:45 = 45 min
+    });
+
+    it("detectForgottenTimer deve retornar null se a última série foi há menos de 15 minutos", () => {
+      const session = {
+        startedAt: "2026-08-31T10:00:00.000Z",
+        exercises: [
+          {
+            sets: [
+              { status: "completed", completedAt: "2026-08-31T10:45:00.000Z" },
+            ],
+          },
+        ],
+      };
+
+      // 10:45 + 10 min = 10:55 (< 15 min)
+      const refTimeMs = new Date("2026-08-31T10:55:00.000Z").getTime();
+      const result = detectForgottenTimer(session, refTimeMs);
+
+      expect(result).toBeNull();
+    });
   });
 });

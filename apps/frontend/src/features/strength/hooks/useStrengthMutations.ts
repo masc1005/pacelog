@@ -18,6 +18,7 @@ import type {
   CompleteSetInput,
   EditSetInput,
   FinishSessionInput,
+  PatchSessionInput,
   StrengthExerciseEntry,
   StrengthSet,
 } from '@pacelog/shared';
@@ -289,6 +290,25 @@ export function useStrengthMutations(
     [sessionId, userId]
   );
 
+  const patchSession = useCallback(
+    async (input: PatchSessionInput) => {
+      if (!sessionId) return;
+      const previous = sessionRef.current;
+      try {
+        const updated = await strengthApi.patchSession(sessionId, input);
+        if (updated && "exercises" in updated) {
+          onUpdate(updated as ActiveStrengthSession);
+        }
+        return updated;
+      } catch (err) {
+        if (previous) onUpdate(previous);
+        onError?.(err instanceof Error ? err : new Error(String(err)));
+        throw err;
+      }
+    },
+    [sessionId, onUpdate, onError]
+  );
+
   const cancel = useCallback(async () => {
     if (!sessionId) return;
     const previous = sessionRef.current;
@@ -311,6 +331,7 @@ export function useStrengthMutations(
     editSet,
     removeSet,
     finish,
+    patchSession,
     cancel,
   };
 }

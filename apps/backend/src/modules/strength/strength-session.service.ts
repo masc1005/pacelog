@@ -3,6 +3,7 @@ import { ActiveStrengthSessionModel } from './strength-session.model.js';
 import { StrengthRoutineModel, type IStrengthRoutineDocument } from './strength-routine.model.js';
 import { strengthSessionRepository } from './strength-session.repository.js';
 import { computeFinalMetrics } from './strength-session.metrics.js';
+import { cache } from '../../config/cache.js';
 import { HttpError } from '../../utils/httpError.js';
 import {
   StrengthSessionNotActiveError,
@@ -521,7 +522,27 @@ export class StrengthSessionService {
     const session = await repo.findByIdOrFail(userId, sessionId);
 
     if (session.status === 'completed') {
-      await this.syncToMainSessions(session, input.rpe);
+      let updated = false;
+      if (input.durationSeconds != null && input.durationSeconds > 0) {
+        session.durationSeconds = Math.round(input.durationSeconds);
+        updated = true;
+      } else if (input.durationMinutes != null && input.durationMinutes > 0) {
+        session.durationSeconds = Math.round(input.durationMinutes * 60);
+        updated = true;
+      }
+      if (input.rpe != null) {
+        session.rpe = input.rpe;
+        updated = true;
+      }
+      if (input.notes != null) {
+        session.notes = input.notes;
+        updated = true;
+      }
+      if (updated) {
+        await session.save();
+      }
+      await this.syncToMainSessions(session, session.rpe ?? input.rpe);
+      await this.invalidateUserCache(userId);
       return session; // Idempotente
     }
 
@@ -542,7 +563,13 @@ export class StrengthSessionService {
 
     session.status = 'completed';
     session.finishedAt = finishedAt;
-    session.durationSeconds = metrics.durationSeconds;
+    if (input.durationSeconds != null && input.durationSeconds > 0) {
+      session.durationSeconds = Math.round(input.durationSeconds);
+    } else if (input.durationMinutes != null && input.durationMinutes > 0) {
+      session.durationSeconds = Math.round(input.durationMinutes * 60);
+    } else {
+      session.durationSeconds = metrics.durationSeconds;
+    }
     session.totalPausedSeconds = metrics.totalPausedSeconds;
     session.totalSets = metrics.totalSets;
     session.completedSets = metrics.completedSets;
@@ -552,13 +579,15 @@ export class StrengthSessionService {
       session.estimatedOneRepMax = metrics.estimatedOneRepMax;
     }
     if (input.notes != null) session.notes = input.notes;
+    session.rpe = input.rpe ?? this.calculateAverageRpe(session) ?? 6;
     session.lastActivityAt = new Date();
 
     const savedSession = await session.save();
 
     // Sincroniza com a coleção principal (SessionModel) para aparecer no Diário (/sessions),
     // Dashboard (/), Progresso (ACWR), Metas e Alertas.
-    await this.syncToMainSessions(savedSession, input.rpe);
+    await this.syncToMainSessions(savedSession, session.rpe);
+    await this.invalidateUserCache(userId);
 
     return savedSession;
   }
@@ -610,6 +639,20 @@ export class StrengthSessionService {
     }
 
     if (input.notes != null) session.notes = input.notes;
+    if (input.rpe != null) session.rpe = input.rpe;
+
+    if (input.durationSeconds != null && input.durationSeconds > 0) {
+      session.durationSeconds = Math.round(input.durationSeconds);
+      if (session.status === 'completed' && session.startedAt) {
+        session.finishedAt = new Date(session.startedAt.getTime() + session.durationSeconds * 1000);
+      }
+    } else if (input.durationMinutes != null && input.durationMinutes > 0) {
+      session.durationSeconds = Math.round(input.durationMinutes * 60);
+      if (session.status === 'completed' && session.startedAt) {
+        session.finishedAt = new Date(session.startedAt.getTime() + session.durationSeconds * 1000);
+      }
+    }
+
     if (input.startedAt != null) {
       session.startedAt = new Date(input.startedAt);
       if (session.status === 'completed' && session.durationSeconds) {
@@ -620,9 +663,10 @@ export class StrengthSessionService {
 
     const saved = await session.save();
 
-    // Se já foi finalizada, sincroniza com SessionModel para atualizar o histórico
+    // Se já foi finalizada, sincroniza com SessionModel para atualizar o histórico e recalcular sRPE
     if (saved.status === 'completed') {
-      await this.syncToMainSessions(saved);
+      await this.syncToMainSessions(saved, saved.rpe ?? input.rpe);
+      await this.invalidateUserCache(userId);
     }
 
     return saved;
@@ -642,7 +686,7 @@ export class StrengthSessionService {
       const { notificationService } = await import('../notifications/notification.service.js');
       const { progressService } = await import('../progress/progress.service.js');
 
-      const rpe = customRpe ?? this.calculateAverageRpe(session) ?? 6;
+      const rpe = customRpe ?? session.rpe ?? this.calculateAverageRpe(session) ?? 6;
       const durationSeconds = session.durationSeconds || 60;
       const loadPayload = buildSessionLoad(rpe, durationSeconds, 'completed');
 
@@ -665,7 +709,7 @@ export class StrengthSessionService {
             userId: session.userId,
             sportKey: 'strength',
             startedAt: session.startedAt,
-            endedAt: session.finishedAt || session.startedAt,
+            endedAt: session.finishedAt || new Date(session.startedAt.getTime() + durationSeconds * 1000),
             durationSeconds,
             rpe,
             sessionalLoad: loadPayload.sessionalLoad ?? 0,
@@ -721,6 +765,15 @@ export class StrengthSessionService {
   private assertIsEditable(session: IActiveStrengthSessionDocument): void {
     if (!['active', 'paused', 'finishing'].includes(session.status)) {
       throw new StrengthSessionNotActiveError(session.status);
+    }
+  }
+
+  private async invalidateUserCache(userId: string): Promise<void> {
+    try {
+      const keys = await cache.keys(`*${userId}*`);
+      await Promise.all(keys.map((k) => cache.del(k)));
+    } catch (err) {
+      console.warn('[StrengthSessionService] Erro ao invalidar cache do usuário:', err);
     }
   }
 }
