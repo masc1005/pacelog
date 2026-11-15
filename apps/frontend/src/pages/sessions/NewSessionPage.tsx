@@ -6,7 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { SPORT_KEYS, type SportKey, type SessionDTO } from '@pacelog/shared';
 import { apiClient, ApiError } from '../../lib/api';
-import { Activity, Zap, Sun, Dumbbell, Flame, CheckCircle, ChevronRight, ChevronLeft, ChevronDown, Waves, Bike, Shield } from 'lucide-react';
+import { Activity, Zap, Sun, Flame, CheckCircle, ChevronRight, ChevronLeft, ChevronDown, Waves, Bike, Shield } from 'lucide-react';
 import { GearPicker } from '../../components/gear/GearPicker';
 import { toLocalInputDateTime } from '../../lib/utils';
 import { RpeSelector } from '../../components/ui/RpeSelector';
@@ -15,13 +15,18 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useSettings } from '../../hooks/useSettings';
 
-const sportMeta: Record<SportKey, { name: string; color: string; icon: any }> = {
+type NonStrengthSportKey = Exclude<SportKey, 'strength'>;
+
+const NEW_SESSION_SPORT_KEYS = SPORT_KEYS.filter(
+  (key): key is NonStrengthSportKey => key !== 'strength'
+);
+
+const sportMeta: Record<NonStrengthSportKey, { name: string; color: string; icon: any }> = {
   running: { name: 'Corrida', color: '#5CA9E6', icon: Activity },
   football: { name: 'Futebol', color: '#D4F684', icon: Flame },
   futevolei: { name: 'Futevôlei', color: '#FFB800', icon: Sun },
   boxing: { name: 'Boxe', color: '#FF6B35', icon: Zap },
   jiujitsu: { name: 'Jiu-Jitsu', color: '#E11D48', icon: Shield },
-  strength: { name: 'Musculação', color: '#A855F7', icon: Dumbbell },
   swimming: { name: 'Natação', color: '#38BDF8', icon: Waves },
   cycling: { name: 'Ciclismo', color: '#10B981', icon: Bike },
 };
@@ -39,7 +44,9 @@ export const NewSessionPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form State
-  const [sportKey, setSportKey] = useState<SportKey>(stateKey || 'running');
+  const [sportKey, setSportKey] = useState<NonStrengthSportKey>(
+    stateKey && stateKey !== 'strength' ? stateKey : 'running'
+  );
   const [startedAt, setStartedAt] = useState<string>(() => toLocalInputDateTime(new Date()));
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
   const [rpe, setRpe] = useState<number>(5);
@@ -49,8 +56,12 @@ export const NewSessionPage: React.FC = () => {
   const [metrics, setMetrics] = useState<Record<string, any>>({});
   const defaultGearId = userSports.find((sport) => sport.sportKey === sportKey)?.defaultGearId;
 
-  // Setup metric defaults when sportKey is pre-selected from sheet
+  // Redireciona diretamente caso chegue com sportKey === 'strength' e prepara defaults dos demais esportes
   useEffect(() => {
+    if (stateKey === 'strength') {
+      navigate('/strength', { replace: true });
+      return;
+    }
     if (stateKey) {
       if (stateKey === 'running') setMetrics({ distanceKm: 5, paceMin: 5, paceSec: 30 });
       if (stateKey === 'cycling') setMetrics({ cyclingType: 'road', distanceKm: 25, elevationGainMeters: 150 });
@@ -62,18 +73,12 @@ export const NewSessionPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateKey, navigate]);
 
+  if (stateKey === 'strength') {
+    return null;
+  }
+
   const handleNext = () => {
     if (step === 1 && sportKey) {
-      if (sportKey === 'strength') {
-        navigate('/strength', {
-          state: {
-            startedAt: new Date(startedAt).toISOString(),
-            autoStart: true,
-          },
-        });
-        return;
-      }
-
       // Setup initial metrics defaults
       if (sportKey === 'running' && !metrics.distanceKm) setMetrics({ distanceKm: 5, paceMin: 5, paceSec: 30 });
       if (sportKey === 'cycling' && !metrics.distanceKm) setMetrics({ cyclingType: 'road', distanceKm: 25, elevationGainMeters: 150 });
@@ -203,10 +208,10 @@ export const NewSessionPage: React.FC = () => {
                 <select
                   id="select-sport-key"
                   value={sportKey}
-                  onChange={(e) => setSportKey(e.target.value as SportKey)}
+                  onChange={(e) => setSportKey(e.target.value as NonStrengthSportKey)}
                   className="w-full pl-11 pr-10 py-3 bg-[#161C24] border border-[#1F2937] focus:border-[#D4F684] text-[#D4E4FA] font-mono text-sm rounded-[4px] outline-none transition-colors appearance-none cursor-pointer hover:border-[#454839]"
                 >
-                  {SPORT_KEYS.map((key) => (
+                  {NEW_SESSION_SPORT_KEYS.map((key) => (
                     <option key={key} value={key} className="bg-[#0D1C2D] text-[#D4E4FA] py-2">
                       {sportMeta[key].name}
                     </option>
@@ -229,19 +234,13 @@ export const NewSessionPage: React.FC = () => {
                   value={startedAt}
                   onChange={e => setStartedAt(e.target.value)}
                 />
-                {sportKey !== 'strength' ? (
-                  <Input
-                    label="Duração (minutos)"
-                    type="number"
-                    min={1}
-                    value={durationMinutes}
-                    onChange={e => setDurationMinutes(Number(e.target.value))}
-                  />
-                ) : (
-                  <div className="flex flex-col justify-center px-3 py-2 bg-[#161C24] border border-[#1F2937] rounded-[4px] text-xs font-mono text-[#8F9380]">
-                    <span>Tempo e séries serão calculados durante o treino ou ao finalizar.</span>
-                  </div>
-                )}
+                <Input
+                  label="Duração (minutos)"
+                  type="number"
+                  min={1}
+                  value={durationMinutes}
+                  onChange={e => setDurationMinutes(Number(e.target.value))}
+                />
               </div>
             </div>
           </Card>
@@ -252,9 +251,9 @@ export const NewSessionPage: React.FC = () => {
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4">
           <Card className="p-6 bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-4">
             <div className="flex items-center gap-2 mb-2">
-              {React.createElement(sportMeta[sportKey as SportKey].icon, { className: "h-5 w-5", style: { color: sportMeta[sportKey as SportKey].color } })}
+              {React.createElement(sportMeta[sportKey].icon, { className: "h-5 w-5", style: { color: sportMeta[sportKey].color } })}
               <label className="font-mono text-xs text-[#C5C8B4] uppercase tracking-widest">
-                Métricas Específicas: {sportMeta[sportKey as SportKey].name}
+                Métricas Específicas: {sportMeta[sportKey].name}
               </label>
             </div>
 
@@ -848,7 +847,7 @@ export const NewSessionPage: React.FC = () => {
             disabled={step === 1 && !sportKey}
             rightIcon={<ChevronRight className="h-4 w-4" />}
           >
-            {step === 1 && sportKey === 'strength' ? 'Iniciar Treino' : 'Continuar'}
+            Continuar
           </Button>
         ) : (
           <Button variant="tactile" onClick={handleSubmit} isLoading={isSubmitting} leftIcon={<CheckCircle className="h-4 w-4" />}>

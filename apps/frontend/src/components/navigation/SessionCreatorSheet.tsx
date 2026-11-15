@@ -136,6 +136,10 @@ export const SessionCreatorSheet: React.FC<SessionCreatorSheetProps> = ({
 
   const handleSelectSport = (sportKey: SportKey) => {
     onClose();
+    if (sportKey === 'strength') {
+      navigate('/strength');
+      return;
+    }
     navigate('/sessions/new', { state: { sportKey } });
   };
 

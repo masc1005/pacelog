@@ -21,6 +21,7 @@ import {
   Layers,
   History,
   ChevronRight,
+  ChevronDown,
   Clock,
   ScanLine,
 } from 'lucide-react';
@@ -47,6 +48,7 @@ export const StrengthHomePage: React.FC = () => {
   const [isLoadingRoutines, setIsLoadingRoutines] = useState(true);
   const [recentSessions, setRecentSessions] = useState<CompletedStrengthSession[]>([]);
   const [deletingRoutineId, setDeletingRoutineId] = useState<string | null>(null);
+  const [expandedRoutineId, setExpandedRoutineId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPhysiqueModal, setShowPhysiqueModal] = useState(false);
   const startedRef = useRef(false);
@@ -146,6 +148,7 @@ export const StrengthHomePage: React.FC = () => {
     try {
       await strengthApi.deleteRoutine(routineId);
       setRoutines((prev) => prev.filter((r) => r.id !== routineId));
+      setExpandedRoutineId((prev) => (prev === routineId ? null : prev));
       success(`Ficha "${name}" removida.`);
     } catch (err: any) {
       toastError(err?.message || 'Erro ao excluir ficha.');
@@ -250,8 +253,8 @@ export const StrengthHomePage: React.FC = () => {
         </div>
       </Card>
 
-      {/* 2. Seção de rotinas salvas */}
-      <section className="flex flex-col gap-2.5">
+      {/* 2. Seção de rotinas salvas (Accordion compacto) */}
+      <section className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Bookmark className="h-4 w-4 text-[#A855F7]" />
@@ -265,20 +268,20 @@ export const StrengthHomePage: React.FC = () => {
         </div>
 
         {isLoadingRoutines ? (
-          <Card className="p-4 bg-[#0D1C2D] border-[#1F2937] flex justify-center">
+          <Card className="p-3 bg-[#0D1C2D] border-[#1F2937] flex justify-center">
             <span className="font-mono text-xs text-[#8F9380] animate-pulse">
               Carregando fichas…
             </span>
           </Card>
         ) : routines.length === 0 ? (
-          <Card className="p-4 bg-[#0D1C2D]/60 border-dashed border-[#1F2937] flex items-center gap-3">
-            <Layers className="h-5 w-5 text-[#8F9380] shrink-0" />
+          <Card className="p-3.5 bg-[#0D1C2D]/60 border-dashed border-[#1F2937] flex items-center gap-3">
+            <Layers className="h-4 w-4 text-[#8F9380] shrink-0" />
             <p className="font-mono text-[11px] text-[#8F9380]">
               Nenhuma ficha salva. Gere com IA ou salve um treino concluído como ficha.
             </p>
           </Card>
         ) : (
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-1.5">
             {routines.map((routine) => {
               const totalSets = routine.exercises.reduce(
                 (acc, ex) => acc + (ex.sets?.length || 0),
@@ -286,77 +289,93 @@ export const StrengthHomePage: React.FC = () => {
               );
               const isStartingThis = startingRoutineId === routine.id;
               const isDeletingThis = deletingRoutineId === routine.id;
+              const isExpanded = expandedRoutineId === routine.id;
 
               return (
-                <Card
+                <div
                   key={routine.id}
-                  className="p-3.5 bg-[#0D1C2D] border-[#1F2937] hover:border-[#A855F7]/40 transition-colors flex flex-col gap-2.5"
+                  className="px-3 py-2 rounded-[4px] bg-[#0D1C2D] border border-[#1F2937] hover:border-[#A855F7]/40 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex flex-col min-w-0">
-                      <h3 className="font-display text-sm font-bold text-[#D4E4FA] tracking-wide truncate">
-                        {routine.name}
-                      </h3>
-                      <div className="flex items-center gap-1.5 font-mono text-[10px] text-[#A855F7] uppercase mt-0.5">
-                        <span>{routine.exercises.length} exerc.</span>
-                        <span>•</span>
-                        <span>{totalSets} séries</span>
-                        {routine.lastUsedAt && (
-                          <>
-                            <span>•</span>
-                            <span className="text-[#8F9380]">
-                              {new Date(routine.lastUsedAt).toLocaleDateString('pt-BR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                              })}
-                            </span>
-                          </>
-                        )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedRoutineId((prev) =>
+                          prev === routine.id ? null : routine.id
+                        )
+                      }
+                      aria-expanded={isExpanded}
+                      className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer py-0.5"
+                    >
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 text-[#8F9380] shrink-0 transition-transform duration-150 ${
+                          isExpanded ? 'rotate-0 text-[#A855F7]' : '-rotate-90'
+                        }`}
+                      />
+                      <div className="flex flex-col min-w-0">
+                        <h3 className="font-display text-xs font-bold text-[#D4E4FA] tracking-wide truncate leading-tight">
+                          {routine.name}
+                        </h3>
+                        <div className="flex items-center gap-1.5 font-mono text-[10px] text-[#A855F7] uppercase leading-tight mt-0.5">
+                          <span>{routine.exercises.length} exerc.</span>
+                          <span>•</span>
+                          <span>{totalSets} séries</span>
+                          {routine.lastUsedAt && (
+                            <>
+                              <span>•</span>
+                              <span className="text-[#8F9380]">
+                                {new Date(routine.lastUsedAt).toLocaleDateString('pt-BR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                })}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      isLoading={isStartingThis}
+                      disabled={isStarting || (!!startingRoutineId && !isStartingThis)}
+                      onClick={() => handleStart(routine.id)}
+                      leftIcon={<Play className="h-3 w-3 text-[#D4F684]" />}
+                      className="shrink-0 h-7 px-2.5 text-[11px] border-[#A855F7]/30 hover:border-[#D4F684] text-[#D4E4FA] bg-[#161C24]"
+                    >
+                      Iniciar
+                    </Button>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="mt-2 pt-2 border-t border-[#1F2937] flex flex-col gap-2">
+                      <div className="flex flex-wrap gap-1">
+                        {routine.exercises.map((ex, i) => (
+                          <span
+                            key={i}
+                            className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#161C24] border border-[#1F2937] text-[#C5C8B4]"
+                          >
+                            {ex.exerciseNameSnapshot} ({ex.sets?.length || 1}x)
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          disabled={isDeletingThis || isStartingThis}
+                          onClick={() => handleDeleteRoutine(routine.id, routine.name)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono uppercase text-[#8F9380] hover:text-[#FFB4AB] hover:bg-[#FFB4AB]/10 rounded transition-colors disabled:opacity-50 cursor-pointer"
+                          title="Excluir ficha"
+                          aria-label={`Excluir ficha ${routine.name}`}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span>{isDeletingThis ? 'Excluindo…' : 'Excluir ficha'}</span>
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        isLoading={isStartingThis}
-                        disabled={isStarting || (!!startingRoutineId && !isStartingThis)}
-                        onClick={() => handleStart(routine.id)}
-                        leftIcon={<Play className="h-3 w-3 text-[#D4F684]" />}
-                        className="border-[#A855F7]/30 hover:border-[#D4F684] text-[#D4E4FA] bg-[#161C24]"
-                      >
-                        Iniciar
-                      </Button>
-                      <button
-                        type="button"
-                        disabled={isDeletingThis || isStartingThis}
-                        onClick={() => handleDeleteRoutine(routine.id, routine.name)}
-                        className="p-1.5 text-[#8F9380] hover:text-[#FFB4AB] hover:bg-[#FFB4AB]/10 rounded transition-colors disabled:opacity-50"
-                        title="Excluir ficha"
-                        aria-label={`Excluir ficha ${routine.name}`}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Preview compacto dos exercícios */}
-                  <div className="flex flex-wrap gap-1">
-                    {routine.exercises.slice(0, 4).map((ex, i) => (
-                      <span
-                        key={i}
-                        className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#161C24] border border-[#1F2937] text-[#C5C8B4]"
-                      >
-                        {ex.exerciseNameSnapshot} ({ex.sets?.length || 1}x)
-                      </span>
-                    ))}
-                    {routine.exercises.length > 4 && (
-                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#161C24] text-[#8F9380]">
-                        +{routine.exercises.length - 4}
-                      </span>
-                    )}
-                  </div>
-                </Card>
+                  )}
+                </div>
               );
             })}
           </div>

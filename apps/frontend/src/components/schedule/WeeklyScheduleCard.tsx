@@ -287,9 +287,91 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
 
   if (isLoading) {
     return (
-      <Card className="p-5 bg-[#0D1C2D] border-[#1F2937] animate-pulse">
-        <div className="h-4 w-48 bg-[#1F2937] rounded mb-4" />
-        <div className="grid grid-cols-7 gap-1.5 h-16 bg-[#161C24] rounded" />
+      <Card className={`${compact ? 'p-3.5' : 'p-5'} bg-[#0D1C2D] border-[#1F2937] animate-pulse`}>
+        <div className="h-4 w-40 bg-[#1F2937] rounded mb-3" />
+        <div className={`${compact ? 'h-10' : 'h-16'} bg-[#161C24] rounded`} />
+      </Card>
+    );
+  }
+
+  if (compact) {
+    const todayWorkouts = currentDayPlan.workouts || [];
+
+    return (
+      <Card className="p-3.5 bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-2.5">
+        <div className="flex items-center justify-between border-b border-[#1F2937] pb-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 rounded-[4px] bg-[#D4F684]/10 border border-[#D4F684]/30 flex items-center justify-center text-[#D4F684] shrink-0">
+              <Calendar className="h-3.5 w-3.5" />
+            </div>
+            <h2 className="font-mono text-[11px] font-bold text-[#D4E4FA] uppercase tracking-widest truncate">
+              Cronograma de Hoje
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/schedule')}
+            className="font-mono text-[10px] uppercase tracking-wider text-[#D4F684] hover:underline flex items-center gap-1 shrink-0"
+          >
+            <Settings2 className="h-3 w-3" />
+            Expandir
+          </button>
+        </div>
+
+        {currentDayPlan.isRestDay ? (
+          <div className="flex items-center gap-2 px-2.5 py-2 rounded-[4px] bg-[#161C24] border border-[#1F2937]">
+            <div className="w-7 h-7 rounded flex items-center justify-center bg-[#5CA9E6]/10 border border-[#5CA9E6]/30 shrink-0">
+              <Moon className="h-3.5 w-3.5 text-[#5CA9E6]" />
+            </div>
+            <span className="font-mono text-xs font-bold text-[#C5C8B4]">
+              Dia de Descanso (Off)
+            </span>
+          </div>
+        ) : todayWorkouts.length === 0 ? (
+          <div className="flex items-center justify-between gap-2 px-2.5 py-2 rounded-[4px] bg-[#161C24] border border-dashed border-[#1F2937]">
+            <span className="font-mono text-[11px] text-[#8F9380]">
+              Nenhum treino planejado para hoje.
+            </span>
+            <button
+              type="button"
+              onClick={() => navigate('/schedule')}
+              className="font-mono text-[10px] uppercase font-bold text-[#D4F684] hover:underline shrink-0"
+            >
+              + Planejar
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {todayWorkouts.map((workout) => {
+              const meta = SPORT_META[workout.sportKey] || SPORT_META.strength;
+              const Icon = meta.icon;
+
+              return (
+                <button
+                  key={workout.id}
+                  type="button"
+                  onClick={() => handleStartPlannedWorkout(workout)}
+                  title={`Iniciar ${workout.title || meta.name}`}
+                  className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-[4px] bg-[#161C24] border border-[#1F2937] hover:border-[#D4F684]/50 transition-colors min-w-0 max-w-full text-left"
+                >
+                  <div
+                    className="w-7 h-7 rounded flex items-center justify-center shrink-0"
+                    style={{
+                      backgroundColor: `${meta.color}18`,
+                      border: `1px solid ${meta.color}40`,
+                    }}
+                  >
+                    <Icon className="h-3.5 w-3.5" style={{ color: meta.color }} />
+                  </div>
+                  <span className="font-mono text-xs font-bold text-[#D4E4FA] truncate">
+                    {workout.title || meta.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </Card>
     );
   }
@@ -311,21 +393,10 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
             </span>
           </div>
         </div>
-
-        {compact && (
-          <button
-            type="button"
-            onClick={() => navigate('/schedule')}
-            className="font-mono text-[10px] uppercase tracking-wider text-[#D4F684] hover:underline flex items-center gap-1"
-          >
-            <Settings2 className="h-3.5 w-3.5" />
-            Expandir
-          </button>
-        )}
       </div>
 
       {/* Barra dos 7 dias da semana */}
-      {!compact && <div className="grid grid-cols-7 gap-1.5">
+      <div className="grid grid-cols-7 gap-1.5">
         {WEEKDAYS.map((dayInfo) => {
           const plan = schedule?.days?.find((d) => d.weekday === dayInfo.weekday);
           const workouts = plan?.workouts || [];
@@ -410,14 +481,14 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
             </button>
           );
         })}
-      </div>}
+      </div>
 
       {/* Detalhes do Dia Selecionado */}
-      <div className={`${compact ? 'p-3' : 'p-3.5'} rounded-[4px] bg-[#161C24] border border-[#1F2937] flex flex-col gap-3`}>
+      <div className="p-3.5 rounded-[4px] bg-[#161C24] border border-[#1F2937] flex flex-col gap-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <span className="font-display text-sm font-bold text-[#D4E4FA] uppercase tracking-wide">
-              {compact ? 'Treino de hoje' : selectedWeekdayMeta.full}
+              {selectedWeekdayMeta.full}
             </span>
             {selectedWeekday === todayWeekday && (
               <Badge variant="cyan" size="sm">
