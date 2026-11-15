@@ -16,6 +16,12 @@ export * from './exercises/exercise.enums.js';
 export * from './exercises/exercise.types.js';
 
 // ==========================================
+// MÓDULO DE AVALIAÇÃO FÍSICA POR IA (PHYSIQUE)
+// ==========================================
+export * from './physique/physique.types.js';
+export * from './physique/physique.schemas.js';
+
+// ==========================================
 // MÓDULO DE MÉTRICAS V2 (CARGA E PROGRESSO)
 // ==========================================
 export * from './metrics/load.types.js';
@@ -536,6 +542,7 @@ export const importBackupSchema = z.object({
     sessions: z.array(z.record(z.any())).optional().nullable(),
     goals: z.array(z.record(z.any())).optional().nullable(),
     shoes: z.array(z.record(z.any())).optional().nullable(),
+    physiqueAssessments: z.array(z.record(z.any())).optional().nullable(),
     settings: z.record(z.any()).optional().nullable(),
     profile: z.record(z.any()).optional().nullable(),
     userSports: z.array(z.record(z.any())).optional().nullable(),

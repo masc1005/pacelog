@@ -21,6 +21,7 @@ import { strengthRoutes } from './modules/strength/strength-session.routes.js';
 import { settingsRoutes } from './modules/settings/settings.routes.js';
 import { scheduleRoutes } from './modules/schedule/schedule.routes.js';
 import { readinessRoutes } from './modules/readiness/readiness.routes.js';
+import { physiqueRoutes } from './modules/physique/physique.routes.js';
 
 export const app = express();
 app.set('trust proxy', 1);
@@ -68,7 +69,13 @@ app.use(limiter);
 // Better Auth processa o stream de requisição bruto antes do express.json()
 app.all('/api/auth/*', toNodeHandler(auth));
 
-app.use(express.json({ limit: '5mb' }));
+const defaultJsonParser = express.json({ limit: '5mb' });
+app.use((req, res, next) => {
+  if (req.path === '/api/physique/assess') {
+    return next();
+  }
+  return defaultJsonParser(req, res, next);
+});
 
 // Rotas de Domínio
 app.use('/api/sports', sportRoutes);
@@ -86,6 +93,7 @@ app.use('/api/strength', strengthRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/schedule', scheduleRoutes);
 app.use('/api/readiness', readinessRoutes);
+app.use('/api/physique', physiqueRoutes);
 
 // Health check e Keep-Alive para Render, Railway, Docker e monitoramento
 const healthHandler = (_req: express.Request, res: express.Response) => {

@@ -4,6 +4,11 @@ export interface UserProfile {
   id: string;
   userId: string;
   name: string;
+  bio?: string;
+  currentWeightKg?: number;
+  heightCm?: number;
+  biologicalSex?: 'male' | 'female';
+  birthDate?: string;
   avatarUrl?: string;
   unitSystem: 'metric' | 'imperial';
   timezone: string;
@@ -13,5 +18,6 @@ export interface UserProfile {
   streakEnabled: boolean;
   aiInsightsEnabled: boolean;
   activeSports: SportKey[];
+  primarySportKey?: SportKey;
   onboardingCompletedAt?: string;
 }

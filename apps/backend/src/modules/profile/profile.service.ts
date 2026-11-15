@@ -6,6 +6,7 @@ import { InsightModel } from '../insights/insight.model.js';
 import { Notification as NotificationModel } from '../notifications/notification.model.js';
 import { UserSettingsModel } from '../settings/settings.model.js';
 import { UserSportModel } from '../settings/userSport.model.js';
+import { PhysiqueAssessmentModel } from '../physique/physique.model.js';
 import { scopedFilter } from '../../utils/scopedQuery.js';
 import { HttpError } from '../../utils/httpError.js';
 import type { UpdateProfileInput, UpdateSportsInput, OnboardingInput } from './profile.schemas.js';
@@ -98,6 +99,9 @@ export async function completeOnboarding(
         primarySportKey: payload.primarySportKey,
         weeklySessionGoal: payload.weeklySessionGoal,
         unitSystem: payload.unitSystem,
+        ...(payload.heightCm !== undefined ? { heightCm: payload.heightCm } : {}),
+        ...(payload.biologicalSex !== undefined ? { biologicalSex: payload.biologicalSex } : {}),
+        ...(payload.birthDate !== undefined ? { birthDate: payload.birthDate } : {}),
         onboardingCompletedAt: new Date(),
       },
     },
@@ -117,5 +121,6 @@ export async function deleteAccountAndData(userId: string): Promise<void> {
     NotificationModel.deleteMany({ userId }),
     UserSettingsModel.deleteMany({ userId }),
     UserSportModel.deleteMany({ userId }),
+    PhysiqueAssessmentModel.deleteMany({ userId }),
   ]);
 }

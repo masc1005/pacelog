@@ -45,6 +45,22 @@ describe('Sentry Data Scrubbing & PII Privacy Tests', () => {
     expect(clean.metrics[0].notes).toBe('[REDACTED]');
   });
 
+  it('deve mascarar campo images e base64 de avaliações físicas', () => {
+    const payload = {
+      heightCm: 178,
+      weightKg: 82,
+      goal: 'hypertrophy',
+      images: [
+        { angle: 'front', base64: '/9j/4AAQSkZJRgABAQAAAQABAAD/', mimeType: 'image/jpeg' },
+      ],
+    };
+
+    const clean = scrubSensitiveData(payload);
+
+    expect(clean.heightCm).toBe(178);
+    expect(clean.images).toBe('[REDACTED]');
+  });
+
   it('deve lidar com valores primitivos, nulos ou indefinidos sem quebrar', () => {
     expect(scrubSensitiveData(null)).toBeNull();
     expect(scrubSensitiveData(undefined)).toBeUndefined();

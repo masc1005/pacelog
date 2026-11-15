@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { app } from '../../src/app.js';
 import { SessionModel } from '../../src/modules/sessions/session.model.js';
+import { PhysiqueAssessmentModel } from '../../src/modules/physique/physique.model.js';
 import { auth } from '../../src/config/auth.js';
 
 describe('Export API', () => {
@@ -31,7 +32,10 @@ describe('Export API', () => {
   });
 
   beforeEach(async () => {
-    await SessionModel.deleteMany({});
+    await Promise.all([
+      SessionModel.deleteMany({}),
+      PhysiqueAssessmentModel.deleteMany({}),
+    ]);
   });
 
   it('should export sessions as CSV', async () => {
@@ -72,6 +76,50 @@ describe('Export API', () => {
     expect(res.body).toBeInstanceOf(Array);
     expect(res.body[0].sportKey).toBe('strength');
     expect(res.body[0].metrics.totalVolumeKg).toBe(2000);
+  });
+
+  it('should include physiqueAssessments in full backup JSON', async () => {
+    await PhysiqueAssessmentModel.create({
+      userId,
+      heightCm: 179,
+      weightKg: 78,
+      goal: 'hypertrophy',
+      biologicalSex: 'male',
+      age: 29,
+      result: {
+        imageQualityCheck: { isAssessable: true },
+        spatialCalibration: {
+          detectedReferenceObjects: ['Batente ~210cm'],
+          perspectiveDistortionNote: 'Calibrado',
+          calibrationConfidence: 'high',
+        },
+        anthropometryEstimate: {
+          bmi: 24.3,
+          estimatedBodyFatRange: { min: 13, max: 16 },
+          waistToShoulderVisualRatio: '1:1.45',
+        },
+        physiqueSummary: 'Bom equilíbrio geral',
+        strongPoints: [{ muscleGroup: 'peito', note: 'Densidade adequada' }],
+        weakPoints: [
+          {
+            muscleGroup: 'ombros',
+            priority: 'high',
+            technicalReason: 'Deltoide lateral subdesenvolvido',
+            targetWeeklySets: 16,
+            recommendedExerciseNames: ['Elevação Lateral (Halteres)'],
+          },
+        ],
+        posturalObservations: [],
+        recommendedSplit: 'Upper/Lower',
+      },
+    });
+
+    const res = await request(app).get('/api/export/backup.json');
+    expect(res.status).toBe(200);
+    expect(res.body.physiqueAssessments).toBeInstanceOf(Array);
+    expect(res.body.physiqueAssessments).toHaveLength(1);
+    expect(res.body.physiqueAssessments[0].heightCm).toBe(179);
+    expect(res.body.physiqueAssessments[0].result.physiqueSummary).toBe('Bom equilíbrio geral');
   });
 
   it('should generate weekly report', async () => {

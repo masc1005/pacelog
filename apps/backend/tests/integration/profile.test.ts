@@ -4,6 +4,8 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { app } from '../../src/app.js';
 import { ProfileModel } from '../../src/modules/profile/profile.model.js';
+import { PhysiqueAssessmentModel } from '../../src/modules/physique/physique.model.js';
+import { deleteAccountAndData } from '../../src/modules/profile/profile.service.js';
 import { auth } from '../../src/config/auth.js';
 
 describe('Profile Module & Authorization Integration Tests', () => {
@@ -49,7 +51,10 @@ describe('Profile Module & Authorization Integration Tests', () => {
   });
 
   beforeEach(async () => {
-    await ProfileModel.deleteMany({});
+    await Promise.all([
+      ProfileModel.deleteMany({}),
+      PhysiqueAssessmentModel.deleteMany({}),
+    ]);
     currentAuthUserId = null;
   });
 
@@ -74,12 +79,15 @@ describe('Profile Module & Authorization Integration Tests', () => {
   });
 
   describe('Atualizações de Perfil e Onboarding', () => {
-    it('PUT /api/profile deve atualizar os dados do perfil do usuário autenticado', async () => {
+    it('PUT /api/profile deve atualizar os dados do perfil e contexto biológico do usuário autenticado', async () => {
       currentAuthUserId = 'athlete-abc';
 
       const updatePayload = {
         name: 'Carlos Corredor',
         bio: 'Maratonista sub-3h',
+        heightCm: 181,
+        biologicalSex: 'male',
+        birthDate: '1993-08-22',
         weeklySessionGoal: 6,
         theme: 'dark',
       };
@@ -92,6 +100,15 @@ describe('Profile Module & Authorization Integration Tests', () => {
       expect(res.body.profile.name).toBe('Carlos Corredor');
       expect(res.body.profile.bio).toBe('Maratonista sub-3h');
       expect(res.body.profile.weeklySessionGoal).toBe(6);
+      expect(res.body.profile.heightCm).toBe(181);
+      expect(res.body.profile.biologicalSex).toBe('male');
+      expect(res.body.profile.birthDate).toBe('1993-08-22');
+
+      const resGet = await request(app).get('/api/profile');
+      expect(resGet.status).toBe(200);
+      expect(resGet.body.profile.heightCm).toBe(181);
+      expect(resGet.body.profile.biologicalSex).toBe('male');
+      expect(resGet.body.profile.birthDate).toBe('1993-08-22');
     });
 
     it('PATCH /api/profile/sports deve atualizar esportes ativos e validar esporte principal', async () => {
@@ -130,6 +147,9 @@ describe('Profile Module & Authorization Integration Tests', () => {
         primarySportKey: 'futevolei',
         weeklySessionGoal: 5,
         unitSystem: 'metric',
+        heightCm: 176,
+        biologicalSex: 'female',
+        birthDate: '1997-02-11',
       };
 
       const res = await request(app)
@@ -139,8 +159,52 @@ describe('Profile Module & Authorization Integration Tests', () => {
       expect(res.status).toBe(200);
       expect(res.body.profile.name).toBe('Novo Atleta Pacelog');
       expect(res.body.profile.primarySportKey).toBe('futevolei');
+      expect(res.body.profile.heightCm).toBe(176);
+      expect(res.body.profile.biologicalSex).toBe('female');
+      expect(res.body.profile.birthDate).toBe('1997-02-11');
       expect(res.body.profile.onboardingCompletedAt).toBeDefined();
       expect(new Date(res.body.profile.onboardingCompletedAt)).toBeInstanceOf(Date);
+    });
+
+    it('deleteAccountAndData deve remover também avaliações físicas do usuário', async () => {
+      await ProfileModel.create({ userId: 'del-user', name: 'Delete Me' });
+      await PhysiqueAssessmentModel.create({
+        userId: 'del-user',
+        heightCm: 175,
+        weightKg: 75,
+        goal: 'hypertrophy',
+        result: {
+          imageQualityCheck: { isAssessable: true },
+          spatialCalibration: {
+            detectedReferenceObjects: [],
+            perspectiveDistortionNote: 'OK',
+            calibrationConfidence: 'low',
+          },
+          anthropometryEstimate: {
+            bmi: 24.5,
+            estimatedBodyFatRange: { min: 14, max: 18 },
+            waistToShoulderVisualRatio: '1:1.4',
+          },
+          physiqueSummary: 'Resumo',
+          strongPoints: [],
+          weakPoints: [
+            {
+              muscleGroup: 'ombros',
+              priority: 'high',
+              technicalReason: 'Largura',
+              targetWeeklySets: 14,
+              recommendedExerciseNames: ['Elevação Lateral'],
+            },
+          ],
+          posturalObservations: [],
+          recommendedSplit: 'Upper/Lower',
+        },
+      });
+
+      await deleteAccountAndData('del-user');
+
+      expect(await ProfileModel.findOne({ userId: 'del-user' })).toBeNull();
+      expect(await PhysiqueAssessmentModel.countDocuments({ userId: 'del-user' })).toBe(0);
     });
   });
 

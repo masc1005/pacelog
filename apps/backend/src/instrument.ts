@@ -16,6 +16,8 @@ export const SENSITIVE_KEYS = [
   'gemini_api_key',
   'email',
   'notes',
+  'images',
+  'base64',
 ];
 
 export function scrubSensitiveData(obj: any): any {

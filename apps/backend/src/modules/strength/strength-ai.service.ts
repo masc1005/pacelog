@@ -10,11 +10,33 @@ import { ExerciseModel } from './exercise.model.js';
 import { SYSTEM_EXERCISES } from './exercise.seed.js';
 import { ActiveStrengthSessionModel } from './strength-session.model.js';
 import { DailyReadinessModel } from '../readiness/readiness.model.js';
+import { UserSportModel } from '../settings/userSport.model.js';
+import { WeeklyScheduleModel } from '../schedule/schedule.model.js';
+import { StrengthRoutineModel, type IStrengthRoutineDocument } from './strength-routine.model.js';
 import type {
   GenerateStrengthWorkoutInput,
   GeneratedStrengthWorkoutDTO,
   StrengthRoutineExerciseTemplate,
+  PhysiqueAssessmentResult,
+  PhysiqueAssessmentGoal,
+  GeneratePhysiquePlanInput,
 } from '@pacelog/shared';
+
+const HIGH_IMPACT_LOWER_SPORTS = new Set([
+  'running',
+  'cycling',
+  'futevolei',
+  'football',
+  'boxing',
+  'jiujitsu',
+]);
+
+const LOWER_BODY_MUSCLE_GROUPS = new Set([
+  'quadriceps',
+  'posteriores',
+  'gluteos',
+  'panturrilhas',
+]);
 
 const aiGeneratedWorkoutSchema = z.object({
   name: z.string().min(2).max(80),
@@ -32,6 +54,31 @@ const aiGeneratedWorkoutSchema = z.object({
     )
     .min(1)
     .max(12),
+});
+
+const aiCorrectionRoutinesSchema = z.object({
+  summary: z.string().max(500),
+  routines: z
+    .array(
+      z.object({
+        name: z.string().min(2).max(80),
+        description: z.string().max(300),
+        exercises: z
+          .array(
+            z.object({
+              exerciseKey: z.string().min(1),
+              setsCount: z.number().int().min(1).max(8).default(3),
+              targetReps: z.number().int().min(1).max(50).default(10),
+              restSeconds: z.number().int().min(15).max(300).default(90),
+              notes: z.string().max(200).optional(),
+            })
+          )
+          .min(1)
+          .max(12),
+      })
+    )
+    .min(1)
+    .max(4),
 });
 
 export class StrengthAIService {
@@ -155,7 +202,10 @@ export class StrengthAIService {
       joelhos: ['quadriceps', 'posteriores', 'gluteos'],
       lombar: ['costas', 'posteriores', 'gluteos'],
     };
-    const exerciseOverloadsSoreRegion = (exercise: { primaryMuscleGroup: string; secondaryMuscleGroups?: string[] }) => {
+    const exerciseOverloadsSoreRegion = (exercise: {
+      primaryMuscleGroup: string;
+      secondaryMuscleGroups?: string[];
+    }) => {
       const exerciseGroups = [
         exercise.primaryMuscleGroup,
         ...(exercise.secondaryMuscleGroups ?? []),
@@ -205,9 +255,10 @@ export class StrengthAIService {
           : readinessScore !== undefined && readinessScore < 80
             ? 0.9
             : 1;
-    const readinessContext = latestReadiness || readinessScore !== undefined
-      ? `Score ${readinessScore ?? latestReadiness?.readinessScore}/100 — Recuperação Muscular: ${muscleRecovery ?? latestReadiness?.muscleRecovery}/5. Multiplicador de volume: ${readinessMultiplier}. Regiões protegidas: ${soreRegions.join(', ') || 'nenhuma'}.`
-      : 'Check-in de prontidão não registrado hoje.';
+    const readinessContext =
+      latestReadiness || readinessScore !== undefined
+        ? `Score ${readinessScore ?? latestReadiness?.readinessScore}/100 — Recuperação Muscular: ${muscleRecovery ?? latestReadiness?.muscleRecovery}/5. Multiplicador de volume: ${readinessMultiplier}. Regiões protegidas: ${soreRegions.join(', ') || 'nenhuma'}.`
+        : 'Check-in de prontidão não registrado hoje.';
 
     // 4. Tentar gerar com padrão gemini-3.8-flash e fallback gemini-3.5-flash-lite
     if (this.ai) {
@@ -331,6 +382,555 @@ Retorne APENAS um JSON válido com a estrutura:
       catalogByKey,
       latestCompletedSetsByExercise
     );
+  }
+
+  /**
+   * Gera ou adapta fichas corretivas focadas nos pontos fracos identificados
+   * pela Avaliação Física por IA, respeitando os dias disponíveis de musculação
+   * e a carga multiesportiva semanal (corrida, ciclismo, futevôlei, lutas, etc.).
+   */
+  async generatePhysiqueCorrectionPlan(
+    userId: string,
+    assessment: {
+      goal: PhysiqueAssessmentGoal;
+      result: PhysiqueAssessmentResult;
+    },
+    options: GeneratePhysiquePlanInput = {}
+  ): Promise<{ routines: IStrengthRoutineDocument[]; summary: string }> {
+    const availableStrengthDays = Math.min(
+      6,
+      Math.max(1, Math.round(options.availableStrengthDays ?? 3))
+    );
+    const mode = options.mode === 'adapt_existing' ? 'adapt_existing' : 'create_new';
+
+    const [dbExercises, recentSessions, userSports, weeklySchedule, existingRoutines] =
+      await Promise.all([
+        ExerciseModel.find({
+          isActive: true,
+          $or: [{ isSystem: true }, { ownerId: userId }],
+        }).lean(),
+        ActiveStrengthSessionModel.find({
+          userId,
+          status: 'completed',
+        })
+          .sort({ startedAt: -1 })
+          .limit(12)
+          .lean(),
+        UserSportModel.find({ userId, isActive: true }).lean().catch(() => []),
+        WeeklyScheduleModel.findOne({ userId }).lean().catch(() => null),
+        mode === 'adapt_existing'
+          ? StrengthRoutineModel.find({ userId })
+              .sort({ updatedAt: -1 })
+              .limit(6)
+              .lean()
+              .catch(() => [])
+          : Promise.resolve([]),
+      ]);
+
+    const activeImpactSports = userSports
+      .filter((s) => HIGH_IMPACT_LOWER_SPORTS.has(s.sportKey))
+      .map((s) => s.displayName || s.sportKey);
+
+    let highImpactWeeklySessions = 0;
+    const scheduledSportsSummary: string[] = [];
+    for (const day of weeklySchedule?.days || []) {
+      if (day.isRestDay) continue;
+      for (const workout of day.workouts || []) {
+        scheduledSportsSummary.push(workout.sportKey);
+        if (HIGH_IMPACT_LOWER_SPORTS.has(workout.sportKey)) {
+          highImpactWeeklySessions += 1;
+        }
+      }
+    }
+
+    const limitLowerAndLumbarVolume =
+      highImpactWeeklySessions >= 2 || activeImpactSports.length >= 2;
+
+    const catalog =
+      dbExercises.length > 0
+        ? dbExercises.map((e) => ({
+            key: e.key,
+            name: e.name,
+            primaryMuscleGroup: e.primaryMuscleGroup,
+            secondaryMuscleGroups: e.secondaryMuscleGroups || [],
+            equipment: e.equipment,
+            type: e.type,
+          }))
+        : SYSTEM_EXERCISES.map((e) => ({
+            key: e.key,
+            name: e.name,
+            primaryMuscleGroup: e.primaryMuscleGroup,
+            secondaryMuscleGroups: [] as string[],
+            equipment: e.equipment,
+            type: e.type,
+          }));
+
+    const catalogByKey = new Map(catalog.map((c) => [c.key, c]));
+
+    const latestCompletedSetsByExercise = new Map<string, any[]>();
+    for (const past of recentSessions) {
+      for (const ex of past.exercises || []) {
+        if (!latestCompletedSetsByExercise.has(ex.exerciseKey)) {
+          const completedSets = (ex.sets || []).filter((s) => s.status === 'completed');
+          if (completedSets.length > 0) {
+            latestCompletedSetsByExercise.set(ex.exerciseKey, completedSets);
+          }
+        }
+      }
+    }
+
+    const sortedWeakPoints = [...assessment.result.weakPoints].sort((a, b) =>
+      a.priority === b.priority
+        ? b.targetWeeklySets - a.targetWeeklySets
+        : a.priority === 'high'
+          ? -1
+          : 1
+    );
+
+    const weakMusclesSet = new Set(sortedWeakPoints.map((w) => w.muscleGroup));
+
+    const maxRoutines =
+      availableStrengthDays <= 2 ? Math.min(2, availableStrengthDays) : availableStrengthDays <= 4 ? 3 : 3;
+
+    let planDraft: {
+      summary: string;
+      routines: Array<{
+        name: string;
+        description: string;
+        exercises: Array<{
+          exerciseKey: string;
+          setsCount: number;
+          targetReps: number;
+          restSeconds: number;
+          notes?: string;
+        }>;
+      }>;
+    } | null = null;
+
+    if (this.ai) {
+      const primaryModel = getValidGeminiModel(env.GEMINI_MODEL || PRIMARY_GEMINI_MODEL);
+      const modelsToTry = Array.from(
+        new Set([primaryModel, PRIMARY_GEMINI_MODEL, FALLBACK_GEMINI_MODEL])
+      );
+
+      // Filtra catálogo priorizando os músculos deficitários + exercícios de manutenção
+      const weakCatalog = catalog.filter((c) =>
+        weakMusclesSet.has(c.primaryMuscleGroup as any)
+      );
+      const supportCatalog = catalog
+        .filter((c) => !weakMusclesSet.has(c.primaryMuscleGroup as any) && c.type === 'compound')
+        .slice(0, 20);
+      const focusedCatalog = [...weakCatalog, ...supportCatalog];
+
+      const catalogListText = focusedCatalog
+        .map(
+          (c) =>
+            `${c.key} | ${c.name} | músculo:${c.primaryMuscleGroup} | equip:${c.equipment} | tipo:${c.type}`
+        )
+        .join('\n');
+
+      const weakPointsText = sortedWeakPoints
+        .map(
+          (w) =>
+            `- ${w.muscleGroup} (prioridade: ${w.priority}, meta semanal: ${w.targetWeeklySets} séries, motivo: ${w.technicalReason}, sugestões: ${w.recommendedExerciseNames.join(', ')})`
+        )
+        .join('\n');
+
+      const multisportContext = `CONTEXTO MULTIESPORTIVO & DISPONIBILIDADE:
+- Dias disponíveis para musculação por semana: ${availableStrengthDays} dia(s)/semana (gere no máximo ${maxRoutines} fichas ajustadas a essa frequência).
+- Modo escolhido: ${
+        mode === 'adapt_existing' && existingRoutines.length > 0
+          ? `adapt_existing (adapte e otimize as fichas atuais mantendo compatibilidade e movendo os pontos fracos para o início: ${existingRoutines
+              .map(
+                (er) =>
+                  `${er.name} [${er.exercises.map((e) => e.exerciseKey).slice(0, 6).join(', ')}]`
+              )
+              .join(' | ')})`
+          : 'create_new (crie novas fichas corretivas)'
+      }.
+- Esportes de impacto ativos no perfil: ${activeImpactSports.length > 0 ? activeImpactSports.join(', ') : 'nenhum'}.
+- Sessões semanais agendadas de impacto em membros inferiores/lombar: ${highImpactWeeklySessions} (${scheduledSportsSummary.filter((s) => HIGH_IMPACT_LOWER_SPORTS.has(s)).join(', ') || 'nenhuma'}).
+${
+  limitLowerAndLumbarVolume
+    ? '- RESTRIÇÃO MULTIESPORTIVA CRÍTICA: O atleta já possui alta demanda de membros inferiores/lombar nos esportes aeróbicos/quadra/luta. NÃO prescreva volume excessivo de quadríceps, posteriores, glúteos, panturrilhas ou carga axial lombar pesada (máx. 2 a 3 séries por exercício de perna/lombar; priorize recuperação e parte superior).'
+    : '- Carga multiesportiva de inferiores controlada: volume padrão permitido.'
+}`;
+
+      const promptText = `Você é o IA Personal Trainer do Pacelog.
+Sua missão é ${mode === 'adapt_existing' ? 'adaptar as fichas do atleta ou criar' : 'criar'} de 1 a ${maxRoutines} fichas semanais corretivas para o atleta com base na Avaliação Física por IA.
+
+REGRAS OBRIGATÓRIAS:
+- Posicione os exercícios dos PONTOS FRACOS (prioridade high primeiro) SEMPRE NO INÍCIO de cada ficha (primeiros índices), quando o atleta está com energia máxima.
+- Ajuste a quantidade de séries ('setsCount') e frequência nas fichas para atingir ou aproximar o 'targetWeeklySets' de cada ponto fraco respeitando os ${availableStrengthDays} dia(s)/semana disponíveis.
+- Use EXCLUSIVAMENTE chaves 'exerciseKey' do CATÁLOGO DISPONÍVEL abaixo.
+- Objetivo do atleta: ${assessment.goal}
+- Divisão sugerida pela avaliação: ${assessment.result.recommendedSplit}
+
+${multisportContext}
+
+PONTOS FRACOS IDENTIFICADOS:
+${weakPointsText}
+
+CATÁLOGO DISPONÍVEL:
+${catalogListText}
+
+Retorne APENAS um JSON válido no formato:
+{
+  "summary": "Resumo curto explicando como as fichas priorizam os pontos fracos no início, os ${availableStrengthDays} dias disponíveis e proteção multiesportiva",
+  "routines": [
+    {
+      "name": "Nome da ficha (ex: Correção A — Ombros & Dorsal)",
+      "description": "Descrição curta do foco corretivo",
+      "exercises": [
+        {
+          "exerciseKey": "chave_exata_do_catalogo",
+          "setsCount": 4,
+          "targetReps": 10,
+          "restSeconds": 90,
+          "notes": "Foco técnico no ponto fraco"
+        }
+      ]
+    }
+  ]
+}`;
+
+      for (const modelName of modelsToTry) {
+        try {
+          const response = await this.callGeminiWithTimeout(modelName, promptText, 25000);
+          const rawText = response.text?.trim();
+          if (!rawText) continue;
+
+          const parsedJson = JSON.parse(rawText);
+          const validated = aiCorrectionRoutinesSchema.parse(parsedJson);
+          planDraft = validated;
+          break;
+        } catch (err: any) {
+          console.warn(
+            `[StrengthAIService] Correction plan failed on ${modelName}:`,
+            err?.message || err
+          );
+        }
+      }
+    }
+
+    if (!planDraft) {
+      planDraft = this.buildDeterministicCorrectionPlan(
+        sortedWeakPoints,
+        catalog,
+        assessment.goal,
+        {
+          availableStrengthDays,
+          limitLowerAndLumbarVolume,
+          activeImpactSports,
+          highImpactWeeklySessions,
+          mode,
+          existingRoutinesCount: existingRoutines.length,
+        }
+      );
+    }
+
+    const applyMultisportSafetyCap = (exercises: StrengthRoutineExerciseTemplate[]) => {
+      if (!limitLowerAndLumbarVolume) return exercises;
+      return exercises.map((ex) => {
+        const isLower = LOWER_BODY_MUSCLE_GROUPS.has(ex.primaryMuscleGroup ?? '');
+        const isLumbarHeavy = /terra|stiff|agachamento_livre|remada_curvada/i.test(ex.exerciseKey);
+        if ((isLower || isLumbarHeavy) && ex.sets.length > 3) {
+          return {
+            ...ex,
+            sets: ex.sets.slice(0, 3),
+            notes: ex.notes
+              ? `${ex.notes} (Volume moderado p/ preservar carga multiesportiva)`
+              : 'Volume moderado p/ preservar carga multiesportiva.',
+          };
+        }
+        return ex;
+      });
+    };
+
+    const persistRoutineList = async (
+      draftRoutines: NonNullable<typeof planDraft>['routines']
+    ) => {
+      const savedList: IStrengthRoutineDocument[] = [];
+      for (let i = 0; i < draftRoutines.length && i < maxRoutines; i++) {
+        const r = draftRoutines[i];
+        let hydrated = this.hydrateExercisesWithCatalogAndGhostLoads(
+          r.exercises,
+          catalogByKey,
+          latestCompletedSetsByExercise
+        );
+        if (hydrated.length === 0) continue;
+
+        hydrated = applyMultisportSafetyCap(hydrated);
+
+        // Garantir que exercícios de pontos fracos fiquem ordenados no início da sessão
+        hydrated.sort((a, b) => {
+          const aWeakIdx = sortedWeakPoints.findIndex(
+            (w) => w.muscleGroup === a.primaryMuscleGroup
+          );
+          const bWeakIdx = sortedWeakPoints.findIndex(
+            (w) => w.muscleGroup === b.primaryMuscleGroup
+          );
+          const aRank = aWeakIdx === -1 ? 999 : aWeakIdx;
+          const bRank = bWeakIdx === -1 ? 999 : bWeakIdx;
+          return aRank - bRank;
+        });
+        hydrated.forEach((ex, idx) => {
+          ex.order = idx;
+        });
+
+        if (mode === 'adapt_existing' && existingRoutines[i]) {
+          const updated = await StrengthRoutineModel.findOneAndUpdate(
+            { _id: existingRoutines[i]._id, userId },
+            {
+              $set: {
+                name: r.name.slice(0, 80),
+                description: r.description.slice(0, 300),
+                exercises: hydrated,
+              },
+            },
+            { new: true }
+          );
+          if (updated) {
+            savedList.push(updated);
+            continue;
+          }
+        }
+
+        const created = await StrengthRoutineModel.create({
+          userId,
+          name: r.name.slice(0, 80),
+          description: r.description.slice(0, 300),
+          exercises: hydrated,
+        });
+        savedList.push(created);
+      }
+      return savedList;
+    };
+
+    let resultRoutines = await persistRoutineList(planDraft.routines);
+
+    if (resultRoutines.length === 0) {
+      const fallbackPlan = this.buildDeterministicCorrectionPlan(
+        sortedWeakPoints,
+        catalog,
+        assessment.goal,
+        {
+          availableStrengthDays,
+          limitLowerAndLumbarVolume,
+          activeImpactSports,
+          highImpactWeeklySessions,
+          mode,
+          existingRoutinesCount: existingRoutines.length,
+        }
+      );
+      resultRoutines = await persistRoutineList(fallbackPlan.routines);
+      return { routines: resultRoutines, summary: fallbackPlan.summary };
+    }
+
+    return {
+      routines: resultRoutines,
+      summary: planDraft.summary,
+    };
+  }
+
+  private buildDeterministicCorrectionPlan(
+    weakPoints: PhysiqueAssessmentResult['weakPoints'],
+    catalog: Array<{
+      key: string;
+      name: string;
+      primaryMuscleGroup: string;
+      equipment: string;
+      type: string;
+    }>,
+    goal: PhysiqueAssessmentGoal,
+    context: {
+      availableStrengthDays: number;
+      limitLowerAndLumbarVolume: boolean;
+      activeImpactSports: string[];
+      highImpactWeeklySessions: number;
+      mode: 'create_new' | 'adapt_existing';
+      existingRoutinesCount: number;
+    } = {
+      availableStrengthDays: 3,
+      limitLowerAndLumbarVolume: false,
+      activeImpactSports: [],
+      highImpactWeeklySessions: 0,
+      mode: 'create_new',
+      existingRoutinesCount: 0,
+    }
+  ) {
+    const upperWeak = weakPoints.filter((w) => !LOWER_BODY_MUSCLE_GROUPS.has(w.muscleGroup));
+    const lowerWeak = weakPoints.filter((w) => LOWER_BODY_MUSCLE_GROUPS.has(w.muscleGroup));
+
+    const targetReps = goal === 'definition' ? 12 : goal === 'athletic' ? 8 : 10;
+    const restSeconds = goal === 'athletic' ? 120 : 90;
+
+    const buildExercisesForGroup = (
+      groupPoints: PhysiqueAssessmentResult['weakPoints'],
+      sessionsPerWeekForSplit: number
+    ) => {
+      const picked: Array<{
+        exerciseKey: string;
+        setsCount: number;
+        targetReps: number;
+        restSeconds: number;
+        notes?: string;
+      }> = [];
+      const usedKeys = new Set<string>();
+
+      for (const wp of groupPoints) {
+        const isLower = LOWER_BODY_MUSCLE_GROUPS.has(wp.muscleGroup);
+        const effectiveWeeklyTarget =
+          isLower && context.limitLowerAndLumbarVolume
+            ? Math.min(8, wp.targetWeeklySets)
+            : wp.targetWeeklySets;
+
+        const candidates = catalog
+          .filter((c) => c.primaryMuscleGroup === wp.muscleGroup)
+          .sort((a, b) => {
+            const aRec = wp.recommendedExerciseNames.some((n) =>
+              a.name.toLowerCase().includes(n.toLowerCase().split(' ')[0])
+            )
+              ? 1
+              : 0;
+            const bRec = wp.recommendedExerciseNames.some((n) =>
+              b.name.toLowerCase().includes(n.toLowerCase().split(' ')[0])
+            )
+              ? 1
+              : 0;
+            if (aRec !== bRec) return bRec - aRec;
+            if (a.type === 'compound' && b.type !== 'compound') return -1;
+            if (a.type !== 'compound' && b.type === 'compound') return 1;
+            return 0;
+          });
+
+        const setsNeededPerSession = Math.max(
+          2,
+          Math.ceil(effectiveWeeklyTarget / sessionsPerWeekForSplit)
+        );
+        // Se impacto multiesportivo alto, evita multiplicar exercícios para membros inferiores
+        const numExercises =
+          isLower && context.limitLowerAndLumbarVolume
+            ? 1
+            : setsNeededPerSession >= 6 && candidates.length >= 2
+              ? 2
+              : 1;
+        let remainingSets = setsNeededPerSession;
+
+        for (let i = 0; i < numExercises && i < candidates.length; i++) {
+          const ex = candidates[i];
+          if (usedKeys.has(ex.key)) continue;
+          usedKeys.add(ex.key);
+          const rawSetsHere =
+            i === numExercises - 1
+              ? Math.min(8, Math.max(2, remainingSets))
+              : Math.min(5, Math.ceil(remainingSets / (numExercises - i)));
+          const isLumbarHeavy = /terra|stiff|agachamento_livre|remada_curvada/i.test(ex.key);
+          const setsHere =
+            context.limitLowerAndLumbarVolume && (isLower || isLumbarHeavy)
+              ? Math.min(3, rawSetsHere)
+              : rawSetsHere;
+
+          remainingSets -= setsHere;
+          picked.push({
+            exerciseKey: ex.key,
+            setsCount: setsHere,
+            targetReps,
+            restSeconds,
+            notes: `Prioridade ${wp.priority === 'high' ? 'ALTA' : 'MÉDIA'} (${effectiveWeeklyTarget} séries/sem): ${wp.technicalReason.slice(0, 110)}`,
+          });
+        }
+      }
+
+      return picked;
+    };
+
+    const routines: Array<{
+      name: string;
+      description: string;
+      exercises: Array<{
+        exerciseKey: string;
+        setsCount: number;
+        targetReps: number;
+        restSeconds: number;
+        notes?: string;
+      }>;
+    }> = [];
+
+    const freqPerSplit = context.availableStrengthDays >= 4 ? 2 : Math.max(1, Math.min(2, context.availableStrengthDays));
+
+    if (context.availableStrengthDays === 1) {
+      // 1 único dia: consolida em ficha única Full Body priorizando pontos fracos
+      const allEx = buildExercisesForGroup(weakPoints, 1);
+      routines.push({
+        name: `Correção IA Full Body (${weakPoints.slice(0, 2).map((w) => w.muscleGroup).join('/')})`.slice(0, 80),
+        description: `Ficha única 1x/semana priorizando pontos fracos dentro da disponibilidade semanal.`,
+        exercises: allEx.slice(0, 7),
+      });
+    } else if (upperWeak.length > 0 && lowerWeak.length > 0) {
+      const upperEx = buildExercisesForGroup(upperWeak, freqPerSplit);
+      const lowerEx = buildExercisesForGroup(lowerWeak, context.limitLowerAndLumbarVolume ? 1 : freqPerSplit);
+      const upperRoutine = upperEx.length > 0 ? {
+        name: `Foco Pontos Fracos — Superiores (${upperWeak.map((w) => w.muscleGroup).join('/')})`.slice(0, 80),
+        description: `Ficha corretiva ajustada para ${context.availableStrengthDays} dias/sem com superiores deficitários no início.`,
+        exercises: upperEx.slice(0, 8),
+      } : null;
+      const lowerRoutine = lowerEx.length > 0 ? {
+        name: `Foco Pontos Fracos — Inferiores (${lowerWeak.map((w) => w.muscleGroup).join('/')})`.slice(0, 80),
+        description: context.limitLowerAndLumbarVolume
+          ? 'Ficha corretiva com volume moderado para preservar recuperação nos outros esportes.'
+          : 'Ficha corretiva com grupamentos deficitários inferiores no início da sessão.',
+        exercises: lowerEx.slice(0, 8),
+      } : null;
+      const topIsLower = weakPoints[0] && LOWER_BODY_MUSCLE_GROUPS.has(weakPoints[0].muscleGroup);
+      const ordered = topIsLower ? [lowerRoutine, upperRoutine] : [upperRoutine, lowerRoutine];
+      for (const item of ordered) {
+        if (item) routines.push(item);
+      }
+    } else {
+      const allEx = buildExercisesForGroup(weakPoints, freqPerSplit);
+      // Completa com compostos superiores (ou gerais se sem restrição de impacto)
+      if (allEx.length < 4) {
+        const used = new Set(allEx.map((e) => e.exerciseKey));
+        for (const c of catalog
+          .filter(
+            (x) =>
+              x.type === 'compound' &&
+              !used.has(x.key) &&
+              (!context.limitLowerAndLumbarVolume || !LOWER_BODY_MUSCLE_GROUPS.has(x.primaryMuscleGroup))
+          )
+          .slice(0, 4 - allEx.length)) {
+          allEx.push({
+            exerciseKey: c.key,
+            setsCount: 3,
+            targetReps,
+            restSeconds,
+            notes: 'Exercício complementar de manutenção estrutural.',
+          });
+        }
+      }
+      routines.push({
+        name: `Correção IA — ${weakPoints.slice(0, 2).map((w) => w.muscleGroup.toUpperCase()).join(' + ')}`.slice(
+          0,
+          80
+        ),
+        description: `Ficha prioritária para ${context.availableStrengthDays} dia(s)/semana ajustada ao volume dos pontos fracos.`,
+        exercises: allEx.slice(0, 8),
+      });
+    }
+
+    const actionVerb =
+      context.mode === 'adapt_existing' && context.existingRoutinesCount > 0
+        ? 'Adaptamos'
+        : 'Geramos';
+    const multisportNote = context.limitLowerAndLumbarVolume
+      ? ` Volume de inferiores e lombar moderado em razão da carga multiesportiva (${context.activeImpactSports.join(', ') || `${context.highImpactWeeklySessions} sessões/sem`}).`
+      : '';
+
+    return {
+      summary: `${actionVerb} ${routines.length} ficha(s) para ${context.availableStrengthDays} dia(s)/semana posicionando ${weakPoints.map((w) => w.muscleGroup).join(', ')} no início dos treinos.${multisportNote}`,
+      routines,
+    };
   }
 
   private hydrateExercisesWithCatalogAndGhostLoads(

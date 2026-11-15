@@ -4,6 +4,7 @@ import { GearModel } from '../gear/gear.model.js';
 import { ProfileModel } from '../profile/profile.model.js';
 import { UserSettingsModel } from '../settings/settings.model.js';
 import { UserSportModel } from '../settings/userSport.model.js';
+import { PhysiqueAssessmentModel } from '../physique/physique.model.js';
 import { progressService } from '../progress/progress.service.js';
 import { goalService } from '../goals/goal.service.js';
 import { scopedFilter } from '../../utils/scopedQuery.js';
@@ -33,17 +34,19 @@ export class ExportService {
   }
 
   /**
-   * Exporta um backup completo com perfil, configurações, sessões, metas e tênis.
+   * Exporta um backup completo com perfil, configurações, sessões, metas, tênis e avaliações físicas.
    */
   async exportBackupJSON(userId: string) {
-    const [profile, settings, userSports, sessions, goals, shoes] = await Promise.all([
-      ProfileModel.findOne(scopedFilter(userId)).lean(),
-      UserSettingsModel.findOne({ userId }).lean(),
-      UserSportModel.find({ userId }).lean(),
-      SessionModel.find(scopedFilter(userId)).sort({ startedAt: -1 }).lean(),
-      GoalModel.find(scopedFilter(userId)).lean(),
-      GearModel.find(scopedFilter(userId)).lean(),
-    ]);
+    const [profile, settings, userSports, sessions, goals, shoes, physiqueAssessments] =
+      await Promise.all([
+        ProfileModel.findOne(scopedFilter(userId)).lean(),
+        UserSettingsModel.findOne({ userId }).lean(),
+        UserSportModel.find({ userId }).lean(),
+        SessionModel.find(scopedFilter(userId)).sort({ startedAt: -1 }).lean(),
+        GoalModel.find(scopedFilter(userId)).lean(),
+        GearModel.find(scopedFilter(userId)).lean(),
+        PhysiqueAssessmentModel.find(scopedFilter(userId)).sort({ createdAt: -1 }).lean(),
+      ]);
 
     return {
       version: '1.0',
@@ -54,6 +57,11 @@ export class ExportService {
       sessions: sessions.map((s: any) => ({ ...s, _id: undefined, __v: undefined })),
       goals: goals.map((g: any) => ({ ...g, _id: undefined, __v: undefined })),
       shoes: shoes.map((sh: any) => ({ ...sh, _id: undefined, __v: undefined })),
+      physiqueAssessments: physiqueAssessments.map((pa: any) => ({
+        ...pa,
+        _id: undefined,
+        __v: undefined,
+      })),
     };
   }
 
@@ -68,6 +76,7 @@ export class ExportService {
         sessions?: any[] | null;
         goals?: any[] | null;
         shoes?: any[] | null;
+        physiqueAssessments?: any[] | null;
         settings?: any;
         profile?: any;
         userSports?: any[] | null;
@@ -78,11 +87,13 @@ export class ExportService {
     const sessions = backupData.data.sessions || [];
     const goals = backupData.data.goals || [];
     const shoes = backupData.data.shoes || [];
+    const physiqueAssessments = backupData.data.physiqueAssessments || [];
     const { settings, profile } = backupData.data;
 
     let importedSessionsCount = 0;
     let importedGoalsCount = 0;
     let importedShoesCount = 0;
+    let importedPhysiqueAssessmentsCount = 0;
 
     // Se o modo for REPLACE, limpa dados anteriores do usuário
     if (mode === 'replace') {
@@ -90,6 +101,7 @@ export class ExportService {
         SessionModel.deleteMany({ userId }),
         GoalModel.deleteMany({ userId }),
         GearModel.deleteMany({ userId }),
+        PhysiqueAssessmentModel.deleteMany({ userId }),
       ]);
     }
 
@@ -168,6 +180,26 @@ export class ExportService {
       importedShoesCount++;
     }
 
+    // Importa Avaliações Físicas (nunca importa campos de imagem)
+    for (const assessmentData of physiqueAssessments) {
+      if (!assessmentData.heightCm || !assessmentData.weightKg || !assessmentData.result) continue;
+      const createdAt = assessmentData.createdAt ? new Date(assessmentData.createdAt) : new Date();
+      if (mode === 'merge') {
+        const exists = await PhysiqueAssessmentModel.findOne({
+          userId,
+          createdAt,
+        });
+        if (exists) continue;
+      }
+      const { images: _ignoredImages, _id: _ignoredId, ...cleanAssessment } = assessmentData;
+      await PhysiqueAssessmentModel.create({
+        ...cleanAssessment,
+        userId,
+        createdAt,
+      });
+      importedPhysiqueAssessmentsCount++;
+    }
+
     return {
       success: true,
       mode,
@@ -175,6 +207,7 @@ export class ExportService {
         sessions: importedSessionsCount,
         goals: importedGoalsCount,
         shoes: importedShoesCount,
+        physiqueAssessments: importedPhysiqueAssessmentsCount,
         settingsUpdated: !!settings,
       },
     };
@@ -190,7 +223,17 @@ export class ExportService {
       return 'id,sportKey,startedAt,durationSeconds,rpe,sessionalLoad,status\n';
     }
 
-    const headers = ['id', 'sportKey', 'startedAt', 'endedAt', 'durationSeconds', 'rpe', 'sessionalLoad', 'status', 'metrics'];
+    const headers = [
+      'id',
+      'sportKey',
+      'startedAt',
+      'endedAt',
+      'durationSeconds',
+      'rpe',
+      'sessionalLoad',
+      'status',
+      'metrics',
+    ];
 
     const csvRows = [headers.join(',')];
 

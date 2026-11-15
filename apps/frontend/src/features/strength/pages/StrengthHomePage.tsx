@@ -11,6 +11,7 @@ import { useToast } from '../../../contexts/ToastContext';
 import { AIWorkoutBuilderCard } from '../components/AIWorkoutBuilderCard';
 import { StrengthInsightCard } from '../components/StrengthInsightCard';
 import { MuscleFatigueTelemetry } from '../../../components/progress/MuscleFatigueTelemetry';
+import { PhysiqueAssessmentModal } from '../../physique/components/PhysiqueAssessmentModal';
 import {
   Dumbbell,
   ArrowLeft,
@@ -21,6 +22,7 @@ import {
   History,
   ChevronRight,
   Clock,
+  ScanLine,
 } from 'lucide-react';
 import type {
   StrengthRoutineDTO,
@@ -46,6 +48,7 @@ export const StrengthHomePage: React.FC = () => {
   const [recentSessions, setRecentSessions] = useState<CompletedStrengthSession[]>([]);
   const [deletingRoutineId, setDeletingRoutineId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showPhysiqueModal, setShowPhysiqueModal] = useState(false);
   const startedRef = useRef(false);
 
   const state = location.state as { startedAt?: string; autoStart?: boolean; routineId?: string } | null;
@@ -367,6 +370,28 @@ export const StrengthHomePage: React.FC = () => {
         disabled={isStarting || !!startingRoutineId}
       />
 
+      {/* 3b. Atalho Avaliação Física por IA (Calibração Dimensional & Pontos Fracos) */}
+      <button
+        type="button"
+        onClick={() => setShowPhysiqueModal(true)}
+        className="w-full p-3.5 rounded-[4px] bg-[#0D1C2D] border border-[#5CA9E6]/30 hover:border-[#5CA9E6] flex items-center justify-between gap-3 text-left transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-[4px] bg-[#5CA9E6]/10 border border-[#5CA9E6]/30 flex items-center justify-center text-[#5CA9E6] shrink-0">
+            <ScanLine className="h-4 w-4" />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="font-display text-xs font-bold text-[#D4E4FA] uppercase tracking-wide">
+              Avaliação Física por IA
+            </span>
+            <span className="font-mono text-[10px] text-[#8F9380] truncate">
+              Calibração espacial efêmera & fichas para pontos fracos
+            </span>
+          </div>
+        </div>
+        <ChevronRight className="w-4 h-4 text-[#5CA9E6] shrink-0" />
+      </button>
+
       {/* 4. Mapa de fadiga muscular compacto */}
       <MuscleFatigueTelemetry compact />
 
@@ -434,6 +459,13 @@ export const StrengthHomePage: React.FC = () => {
           </div>
         </section>
       )}
+      <PhysiqueAssessmentModal
+        isOpen={showPhysiqueModal}
+        onClose={() => setShowPhysiqueModal(false)}
+        onPlanGenerated={(newRoutines) => {
+          setRoutines((prev) => [...newRoutines, ...prev]);
+        }}
+      />
     </div>
   );
 };

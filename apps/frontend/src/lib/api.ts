@@ -22,13 +22,14 @@ export class ApiError extends Error {
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
+  timeoutMs?: number;
 }
 
 export async function apiClient<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { params, headers, ...customConfig } = options;
+  const { params, headers, timeoutMs, signal: externalSignal, ...customConfig } = options;
 
   let url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
@@ -49,6 +50,25 @@ export async function apiClient<T>(
     'Content-Type': 'application/json',
   };
 
+  let controller: AbortController | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let timedOut = false;
+
+  if (timeoutMs && timeoutMs > 0 && typeof AbortController !== 'undefined') {
+    controller = new AbortController();
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        controller.abort();
+      } else {
+        externalSignal.addEventListener('abort', () => controller?.abort(), { once: true });
+      }
+    }
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller?.abort();
+    }, timeoutMs);
+  }
+
   const config: RequestInit = {
     method: customConfig.method || 'GET',
     headers: {
@@ -57,6 +77,7 @@ export async function apiClient<T>(
     },
     credentials: 'include', // Mandatório para tráfego seguro de cookies HttpOnly do Better Auth
     ...customConfig,
+    signal: controller ? controller.signal : externalSignal,
   };
 
   try {
@@ -81,8 +102,17 @@ export async function apiClient<T>(
     if (error instanceof ApiError) {
       throw error;
     }
+    if (timedOut) {
+      throw new ApiError(408, 'REQUEST_TIMEOUT', {
+        message: 'A requisição excedeu o tempo limite. Tente novamente em instantes.',
+      });
+    }
     throw new ApiError(0, 'NETWORK_ERROR', {
       originalError: error instanceof Error ? error.message : String(error),
     });
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
   }
 }

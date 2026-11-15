@@ -27,6 +27,7 @@ export const OnboardingPage: React.FC = () => {
   const [selectedSports, setSelectedSports] = useState<SportKey[]>([]);
   const [goalTitle, setGoalTitle] = useState('');
   const [goalTarget, setGoalTarget] = useState('');
+  const [heightCm, setHeightCm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const toggleSport = (key: SportKey) => {
@@ -38,6 +39,13 @@ export const OnboardingPage: React.FC = () => {
   const handleFinish = async () => {
     setIsLoading(true);
     try {
+      const parsedHeight = Number(heightCm);
+      if (heightCm && Number.isFinite(parsedHeight) && parsedHeight >= 100 && parsedHeight <= 250) {
+        await apiClient('/api/profile', {
+          method: 'PUT',
+          body: JSON.stringify({ heightCm: parsedHeight }),
+        }).catch(() => {}); // Non-blocking
+      }
       if (goalTitle && goalTarget) {
         await apiClient('/api/goals', {
           method: 'POST',
@@ -164,17 +172,33 @@ export const OnboardingPage: React.FC = () => {
                   onChange={e => setGoalTitle(e.target.value)}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[10px] text-[#8F9380] uppercase tracking-widest">Sessões por semana</label>
-                <input
-                  className="input-precision p-2 text-sm w-32"
-                  type="number"
-                  min="1"
-                  max="14"
-                  placeholder="4"
-                  value={goalTarget}
-                  onChange={e => setGoalTarget(e.target.value)}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-mono text-[10px] text-[#8F9380] uppercase tracking-widest">Sessões por semana</label>
+                  <input
+                    className="input-precision p-2 text-sm w-full"
+                    type="number"
+                    min="1"
+                    max="14"
+                    placeholder="4"
+                    value={goalTarget}
+                    onChange={e => setGoalTarget(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="onboarding-height-cm" className="font-mono text-[10px] text-[#8F9380] uppercase tracking-widest">Altura (cm) — opcional</label>
+                  <input
+                    id="onboarding-height-cm"
+                    className="input-precision p-2 text-sm w-full"
+                    type="number"
+                    step="0.5"
+                    min="100"
+                    max="250"
+                    placeholder="178"
+                    value={heightCm}
+                    onChange={e => setHeightCm(e.target.value)}
+                  />
+                </div>
               </div>
             </Card>
             <div className="flex gap-3 mt-2">

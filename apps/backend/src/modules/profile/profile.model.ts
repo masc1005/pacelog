@@ -6,6 +6,9 @@ export interface IProfile extends Document {
   name: string;
   bio?: string;
   currentWeightKg?: number;
+  heightCm?: number;
+  biologicalSex?: 'male' | 'female';
+  birthDate?: string;
   avatarUrl?: string;
   unitSystem: 'metric' | 'imperial';
   timezone: string;
@@ -43,6 +46,19 @@ const profileSchema = new Schema<IProfile>(
       type: Number,
       min: 20,
       max: 350,
+    },
+    heightCm: {
+      type: Number,
+      min: 100,
+      max: 250,
+    },
+    biologicalSex: {
+      type: String,
+      enum: ['male', 'female'],
+    },
+    birthDate: {
+      type: String,
+      trim: true,
     },
     avatarUrl: {
       type: String,
