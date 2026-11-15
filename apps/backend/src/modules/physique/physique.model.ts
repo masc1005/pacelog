@@ -1,9 +1,9 @@
 import mongoose, { Schema, type Document } from 'mongoose';
 import {
   BIOLOGICAL_SEX_VALUES,
-  BODYBUILDING_POSES,
   MUSCLE_GROUPS,
   PHYSIQUE_ASSESSMENT_GOALS,
+  PHYSIQUE_CAPTURE_SLOTS,
   PHYSIQUE_IMAGE_REJECTION_REASONS,
   type BiologicalSex,
   type PhysiqueAssessmentGoal,
@@ -25,7 +25,7 @@ export interface IPhysiqueAssessmentDocument extends Document {
 
 const PoseBreakdownSubSchema = new Schema(
   {
-    poseType: { type: String, enum: BODYBUILDING_POSES, required: true },
+    poseType: { type: String, enum: PHYSIQUE_CAPTURE_SLOTS, required: true },
     muscularAnalysis: { type: String, required: true },
     posingExecutionTip: { type: String, required: true },
   },
@@ -45,7 +45,7 @@ const WeakPointSchema = new Schema(
     muscleGroup: { type: String, enum: MUSCLE_GROUPS, required: true },
     subRegion: { type: String, required: true },
     priority: { type: String, enum: ['high', 'medium'], required: true },
-    detectedInPoses: { type: [String], enum: BODYBUILDING_POSES, default: [] },
+    detectedInPoses: { type: [String], enum: PHYSIQUE_CAPTURE_SLOTS, default: [] },
     technicalReason: { type: String, required: true },
     targetWeeklySets: { type: Number, required: true, min: 4, max: 30 },
     recommendedExerciseNames: { type: [String], required: true },

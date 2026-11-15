@@ -11,6 +11,79 @@ import { UserSportModel } from '../../src/modules/settings/userSport.model.js';
 import { WeeklyScheduleModel } from '../../src/modules/schedule/schedule.model.js';
 import { auth } from '../../src/config/auth.js';
 
+function mockGeminiSuccess(overrides: Record<string, any> = {}) {
+  (physiqueService as any).ai = {};
+  return vi
+    .spyOn(physiqueService as any, 'callGeminiMultimodalWithTimeout')
+    .mockImplementation(async (_modelName: unknown, _sys: unknown, contents: any) => {
+      const slots: string[] = [];
+      if (Array.isArray(contents)) {
+        for (const part of contents) {
+          if (typeof part?.text === 'string' && part.text.startsWith('CAPTURA ENVIADA: ')) {
+            const slot = part.text.replace('CAPTURA ENVIADA: ', '').split(' ')[0];
+            slots.push(slot);
+          }
+        }
+      }
+      const primarySlot = slots[0] || 'front_double_biceps';
+
+      return {
+        modelVersion: 'gemini-test-mock',
+        text: JSON.stringify({
+          imageQualityCheck: {
+            isAssessable: true,
+          },
+          spatialCalibration: {
+            detectedReferenceObjects: ['batente de porta ~210cm'],
+            perspectiveDistortionNote: 'Calibrado pela altura real e linha vertical da porta.',
+            calibrationConfidence: 'high',
+          },
+          anthropometryEstimate: {
+            bmi: 25,
+            estimatedBodyFatRange: { min: 11, max: 14 },
+            vTaperVisualScore: 81,
+            overallSymmetryScore: 84,
+          },
+          poseBreakdown: slots.map((poseType) => ({
+            poseType,
+            muscularAnalysis: `Análise muscular específica de ${poseType}.`,
+            posingExecutionTip: `Ajuste técnico específico para ${poseType}.`,
+          })),
+          physiqueSummary: 'Boa densidade geral com oportunidade de ganho em deltoides e peitoral superior.',
+          strongPoints: [
+            {
+              muscleGroup: 'costas',
+              note: 'Boa amplitude lateral de dorsais observada nas vistas analisadas.',
+            },
+          ],
+          weakPoints: [
+            {
+              muscleGroup: 'peito',
+              subRegion: 'Peitoral superior (feixe clavicular)',
+              priority: 'high',
+              detectedInPoses: [primarySlot],
+              technicalReason: 'Menor preenchimento clavicular em comparação ao feixe esternal.',
+              targetWeeklySets: 14,
+              recommendedExerciseNames: ['Supino Inclinado (Halteres)'],
+            },
+            {
+              muscleGroup: 'quadriceps',
+              subRegion: 'Vasto medial do quadríceps',
+              priority: 'medium',
+              detectedInPoses: [primarySlot],
+              technicalReason: 'Equilíbrio de volume próximo ao joelho.',
+              targetWeeklySets: 12,
+              recommendedExerciseNames: ['Agachamento Livre (Barra)'],
+            },
+          ],
+          posturalObservations: ['Manter escápulas estabilizadas e pelve neutra.'],
+          recommendedSplit: 'Upper / Lower (4x) priorizando peitoral superior.',
+          ...overrides,
+        }),
+      };
+    });
+}
+
 describe('Physique Assessment Module Integration Tests', () => {
   let mongoServer: MongoMemoryServer;
   let currentAuthUserId: string | null = null;
@@ -59,6 +132,7 @@ describe('Physique Assessment Module Integration Tests', () => {
       WeeklyScheduleModel.deleteMany({}),
     ]);
     currentAuthUserId = null;
+    (physiqueService as any).ai = null;
     vi.restoreAllMocks();
     // Re-attach auth mock after restoreAllMocks
     vi.spyOn(auth.api, 'getSession').mockImplementation(async () => {
@@ -103,6 +177,83 @@ describe('Physique Assessment Module Integration Tests', () => {
       });
 
     expect(res.status).toBe(401);
+  });
+
+  it('POST /api/physique/assess deve retornar 503 (sem salvar avaliação fake) quando a IA estiver indisponível ou falhar', async () => {
+    currentAuthUserId = 'athlete-unavailable';
+    (physiqueService as any).ai = null;
+
+    const noKeyRes = await request(app)
+      .post('/api/physique/assess')
+      .send({
+        poses: [
+          {
+            poseType: 'front',
+            base64: 'YWJjZGVmZ2hpamtsbW5vcA==',
+            mimeType: 'image/jpeg',
+          },
+        ],
+        heightCm: 178,
+        weightKg: 80,
+        biologicalSex: 'male',
+        age: 28,
+        goal: 'hypertrophy',
+      });
+
+    expect(noKeyRes.status).toBe(503);
+    expect(noKeyRes.body.error).toBe('PHYSIQUE_AI_UNAVAILABLE');
+    expect(noKeyRes.body.details.message).toMatch(/tente novamente/i);
+    expect(await PhysiqueAssessmentModel.countDocuments({ userId: 'athlete-unavailable' })).toBe(0);
+
+    // Simula falha/timeout em todos os modelos Gemini
+    (physiqueService as any).ai = {};
+    const failSpy = vi
+      .spyOn(physiqueService as any, 'callGeminiMultimodalWithTimeout')
+      .mockRejectedValue(new Error('Gemini timeout'));
+
+    const failedRes = await request(app)
+      .post('/api/physique/assess')
+      .send({
+        poses: [
+          {
+            poseType: 'front_double_biceps',
+            base64: 'YWJjZGVmZ2hpamtsbW5vcA==',
+            mimeType: 'image/jpeg',
+          },
+        ],
+        heightCm: 178,
+        weightKg: 80,
+        biologicalSex: 'male',
+        age: 28,
+        goal: 'hypertrophy',
+      });
+
+    expect(failedRes.status).toBe(503);
+    expect(failedRes.body.error).toBe('PHYSIQUE_AI_UNAVAILABLE');
+    expect(failedRes.body.details.message).toMatch(/tente novamente/i);
+    expect(await PhysiqueAssessmentModel.countDocuments({ userId: 'athlete-unavailable' })).toBe(0);
+
+    failSpy.mockRestore();
+
+    // Nova tentativa após retorno da IA ainda deve funcionar (503 não consumiu cota)
+    mockGeminiSuccess();
+    const okRes = await request(app)
+      .post('/api/physique/assess')
+      .send({
+        poses: [
+          {
+            poseType: 'front',
+            base64: 'YWJjZGVmZ2hpamtsbW5vcA==',
+            mimeType: 'image/jpeg',
+          },
+        ],
+        heightCm: 178,
+        weightKg: 80,
+        biologicalSex: 'male',
+        age: 28,
+        goal: 'hypertrophy',
+      });
+    expect(okRes.status).toBe(201);
   });
 
   it('POST /api/physique/assess deve validar heightCm e rejeitar poseType duplicado', async () => {
@@ -152,10 +303,95 @@ describe('Physique Assessment Module Integration Tests', () => {
 
     expect(duplicatePose.status).toBe(400);
     expect(duplicatePose.body.error).toBe('VALIDATION_ERROR');
+
+    const duplicateStandardAngle = await request(app)
+      .post('/api/physique/assess')
+      .send({
+        poses: [
+          {
+            poseType: 'front',
+            base64: 'YWJjZGVmZ2hpamtsbW5vcA==',
+            mimeType: 'image/jpeg',
+          },
+          {
+            poseType: 'front',
+            base64: 'YWJjZGVmZ2hpamtsbW5vcA==',
+            mimeType: 'image/jpeg',
+          },
+        ],
+        heightCm: 178,
+        weightKg: 80,
+        biologicalSex: 'male',
+        age: 28,
+        goal: 'hypertrophy',
+      });
+
+    expect(duplicateStandardAngle.status).toBe(400);
+    expect(duplicateStandardAngle.body.error).toBe('VALIDATION_ERROR');
+  });
+
+  it('POST /api/physique/assess deve suportar as 3 fotos normais (front, back, side) e combinação híbrida com poses sem persistir imagens', async () => {
+    currentAuthUserId = 'athlete-standard';
+    mockGeminiSuccess();
+
+    const sampleBase64 = 'YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXo=';
+    const standardRes = await request(app)
+      .post('/api/physique/assess')
+      .send({
+        poses: [
+          { poseType: 'front', base64: sampleBase64, mimeType: 'image/jpeg' },
+          { poseType: 'back', base64: sampleBase64, mimeType: 'image/webp' },
+          { poseType: 'side', base64: sampleBase64, mimeType: 'image/jpeg' },
+        ],
+        heightCm: 176,
+        weightKg: 74,
+        biologicalSex: 'female',
+        age: 26,
+        goal: 'recomposition',
+      });
+
+    expect(standardRes.status).toBe(201);
+    expect(standardRes.body.data.result.poseBreakdown).toHaveLength(3);
+    expect(
+      standardRes.body.data.result.poseBreakdown.map((item: any) => item.poseType)
+    ).toEqual(['front', 'back', 'side']);
+    expect(
+      standardRes.body.data.result.weakPoints.some((wp: any) =>
+        wp.detectedInPoses.some((slot: string) => ['front', 'back', 'side'].includes(slot))
+      )
+    ).toBe(true);
+
+    const rawStandardDoc = await PhysiqueAssessmentModel.findById(standardRes.body.data.id).lean();
+    expect(JSON.stringify(rawStandardDoc)).not.toContain(sampleBase64);
+
+    // Combinação híbrida: fotos normais + poses de fisiculturismo na mesma chamada
+    const hybridRes = await request(app)
+      .post('/api/physique/assess')
+      .send({
+        poses: [
+          { poseType: 'front', base64: sampleBase64, mimeType: 'image/jpeg' },
+          { poseType: 'side', base64: sampleBase64, mimeType: 'image/jpeg' },
+          { poseType: 'front_double_biceps', base64: sampleBase64, mimeType: 'image/jpeg' },
+          { poseType: 'back_double_biceps', base64: sampleBase64, mimeType: 'image/jpeg' },
+        ],
+        heightCm: 176,
+        weightKg: 73.2,
+        biologicalSex: 'female',
+        age: 26,
+        goal: 'definition',
+      });
+
+    expect(hybridRes.status).toBe(201);
+    expect(hybridRes.body.data.result.poseBreakdown).toHaveLength(4);
+    expect(
+      hybridRes.body.data.result.poseBreakdown.map((item: any) => item.poseType)
+    ).toEqual(['front', 'side', 'front_double_biceps', 'back_double_biceps']);
+    expect(hybridRes.body.data.result.comparisonWithPrevious).toBeDefined();
   });
 
   it('POST /api/physique/assess deve analisar até 5 poses de forma efêmera, persistir perfil e gerar poseBreakdown + subRegion', async () => {
     currentAuthUserId = 'athlete-1';
+    mockGeminiSuccess();
 
     const sampleBase64 = 'YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXo=';
     const res = await request(app)
@@ -209,6 +445,7 @@ describe('Physique Assessment Module Integration Tests', () => {
 
   it('POST /api/physique/assess deve incluir comparisonWithPrevious na 2a avaliação válida e bloquear a 3a em 7 dias (429)', async () => {
     currentAuthUserId = 'athlete-evo';
+    mockGeminiSuccess();
 
     const first = await request(app)
       .post('/api/physique/assess')
@@ -331,9 +568,9 @@ describe('Physique Assessment Module Integration Tests', () => {
     expect(await PhysiqueAssessmentModel.countDocuments({ userId: 'athlete-quality' })).toBe(0);
 
     spy.mockRestore();
-    (physiqueService as any).ai = null;
 
     // Nova tentativa válida ainda deve ser aceita (422 não consumiu cota)
+    mockGeminiSuccess();
     const ok = await request(app)
       .post('/api/physique/assess')
       .send({
@@ -355,6 +592,7 @@ describe('Physique Assessment Module Integration Tests', () => {
 
   it('POST /api/physique/:id/generate-plan deve cruzar subRegion com catálogo, respeitar adapt_existing e carga multiesportiva', async () => {
     currentAuthUserId = 'athlete-plan';
+    mockGeminiSuccess();
 
     await UserSportModel.create([
       { userId: 'athlete-plan', sportKey: 'running', displayName: 'Corrida', isActive: true },
@@ -452,6 +690,8 @@ describe('Physique Assessment Module Integration Tests', () => {
 
   it('Isolamento de usuário: atleta B não pode acessar avaliação ou gerar plano do atleta A', async () => {
     currentAuthUserId = 'athlete-a';
+    mockGeminiSuccess();
+
     const assessRes = await request(app)
       .post('/api/physique/assess')
       .send({

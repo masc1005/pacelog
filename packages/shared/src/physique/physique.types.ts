@@ -1,11 +1,15 @@
 import type { MuscleGroup } from '../exercises/exercise.enums.js';
 
+export type StandardPhysiqueAngle = 'front' | 'back' | 'side';
+
 export type BodybuildingPose =
   | 'front_double_biceps'
   | 'side_chest'
   | 'back_double_biceps'
   | 'side_triceps'
   | 'abs_and_thighs';
+
+export type PhysiqueCaptureSlot = StandardPhysiqueAngle | BodybuildingPose;
 
 export type PhysiqueImageMimeType = 'image/jpeg' | 'image/webp';
 
@@ -30,7 +34,7 @@ export type PhysiqueImageRejectionReason =
 export type GeneratePhysiquePlanMode = 'create_new' | 'adapt_existing';
 
 export interface PhysiquePoseInput {
-  poseType: BodybuildingPose;
+  poseType: PhysiqueCaptureSlot;
   base64: string;
   mimeType: PhysiqueImageMimeType;
 }
@@ -75,7 +79,7 @@ export interface AnthropometryEstimate {
 }
 
 export interface PhysiquePoseBreakdownItem {
-  poseType: BodybuildingPose;
+  poseType: PhysiqueCaptureSlot;
   muscularAnalysis: string;
   posingExecutionTip: string;
 }
@@ -89,7 +93,7 @@ export interface PhysiqueWeakPoint {
   muscleGroup: MuscleGroup;
   subRegion: string;
   priority: WeakPointPriority;
-  detectedInPoses: BodybuildingPose[];
+  detectedInPoses: PhysiqueCaptureSlot[];
   technicalReason: string;
   targetWeeklySets: number;
   recommendedExerciseNames: string[];

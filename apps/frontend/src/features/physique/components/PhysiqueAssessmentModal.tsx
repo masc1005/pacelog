@@ -25,7 +25,9 @@ import type {
   MuscleGroup,
   PhysiqueAssessmentDTO,
   PhysiqueAssessmentGoal,
+  PhysiqueCaptureSlot,
   PhysiquePoseInput,
+  StandardPhysiqueAngle,
   StrengthRoutineDTO,
 } from '@pacelog/shared';
 import { Button } from '../../../components/ui/Button';
@@ -48,44 +50,62 @@ interface EphemeralPoseDraft extends PhysiquePoseInput {
   previewUrl: string;
 }
 
-const POSE_META: Array<{
-  poseType: BodybuildingPose;
+interface CaptureSlotMeta<T extends PhysiqueCaptureSlot = PhysiqueCaptureSlot> {
+  poseType: T;
   label: string;
-  contractionTip: string;
-}> = [
+  tip: string;
+}
+
+const STANDARD_ANGLE_META: Array<CaptureSlotMeta<StandardPhysiqueAngle>> = [
+  {
+    poseType: 'front',
+    label: 'Frente (Postura Natural)',
+    tip: 'Corpo inteiro de frente em postura relaxada, pés paralelos e braços levemente afastados do tronco.',
+  },
+  {
+    poseType: 'back',
+    label: 'Costas (Postura Natural)',
+    tip: 'Costas relaxadas, coluna neutra, ombros soltos e pés alinhados para avaliar simetria dorsal.',
+  },
+  {
+    poseType: 'side',
+    label: 'Perfil (Postura Natural)',
+    tip: 'Corpo a 90° da câmera para leitura de espessura de tronco, alinhamento cervical e curvatura de coxa.',
+  },
+];
+
+const POSE_META: Array<CaptureSlotMeta<BodybuildingPose>> = [
   {
     poseType: 'front_double_biceps',
     label: 'Duplo Bíceps de Frente',
-    contractionTip:
-      'Cotovelos na linha dos ombros, punhos fechados, dorsais abertas e quadríceps travados.',
+    tip: 'Cotovelos na linha dos ombros, punhos fechados, dorsais abertas e quadríceps travados.',
   },
   {
     poseType: 'side_chest',
     label: 'Peitoral Melhor Lado',
-    contractionTip:
-      'De perfil, pressione o braço da frente contra o tronco expandindo o peitoral e contraia posterior/panturrilha.',
+    tip: 'De perfil, pressione o braço da frente contra o tronco expandindo o peitoral e contraia posterior/panturrilha.',
   },
   {
     poseType: 'back_double_biceps',
     label: 'Bíceps de Costas',
-    contractionTip:
-      'Incline ~10° para trás, abra as dorsais antes de fechar as escápulas e contraia glúteos e panturrilhas.',
+    tip: 'Incline ~10° para trás, abra as dorsais antes de fechar as escápulas e contraia glúteos e panturrilhas.',
   },
   {
     poseType: 'side_triceps',
     label: 'Lado Tríceps',
-    contractionTip:
-      'Gire o ombro da frente para trás exibindo a ferradura do tríceps, abdômen travado e perna contraída.',
+    tip: 'Gire o ombro da frente para trás exibindo a ferradura do tríceps, abdômen travado e perna contraída.',
   },
   {
     poseType: 'abs_and_thighs',
     label: 'Abdominais e Coxa',
-    contractionTip:
-      'Mãos atrás da cabeça, expire contraindo o abdômen e projete uma perna à frente travando o quadríceps.',
+    tip: 'Mãos atrás da cabeça, expire contraindo o abdômen e projete uma perna à frente travando o quadríceps.',
   },
 ];
 
-const POSE_LABELS: Record<BodybuildingPose, string> = {
+const SLOT_LABELS: Record<PhysiqueCaptureSlot, string> = {
+  front: 'Frente (Natural)',
+  back: 'Costas (Natural)',
+  side: 'Perfil (Natural)',
   front_double_biceps: 'Duplo Bíceps de Frente',
   side_chest: 'Peitoral Melhor Lado',
   back_double_biceps: 'Bíceps de Costas',
@@ -162,8 +182,9 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
   }>({ height: false, sex: false, ageOrBirthDate: false });
 
   const [goal, setGoal] = useState<PhysiqueAssessmentGoal>('classic_physique');
-  const [poses, setPoses] = useState<Partial<Record<BodybuildingPose, EphemeralPoseDraft>>>({});
-  const [compressingPose, setCompressingPose] = useState<BodybuildingPose | null>(null);
+  const [captureTab, setCaptureTab] = useState<'standard' | 'bodybuilding'>('standard');
+  const [poses, setPoses] = useState<Partial<Record<PhysiqueCaptureSlot, EphemeralPoseDraft>>>({});
+  const [compressingPose, setCompressingPose] = useState<PhysiqueCaptureSlot | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [assessment, setAssessment] = useState<PhysiqueAssessmentDTO | null>(null);
@@ -174,14 +195,17 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
   } | null>(null);
   const [availableStrengthDays, setAvailableStrengthDays] = useState<number>(3);
   const [planMode, setPlanMode] = useState<GeneratePhysiquePlanMode>('create_new');
-  const [inlineFeedback, setInlineFeedback] = useState<string | null>(null);
+  const [inlineFeedback, setInlineFeedback] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
   const [viewMode, setViewMode] = useState<'form' | 'report'>('form');
 
   const posesRef = useRef(poses);
   posesRef.current = poses;
 
   const revokeAllPoseUrls = useCallback(
-    (targetPoses?: Partial<Record<BodybuildingPose, EphemeralPoseDraft>>) => {
+    (targetPoses?: Partial<Record<PhysiqueCaptureSlot, EphemeralPoseDraft>>) => {
       const map = targetPoses ?? posesRef.current;
       Object.values(map).forEach((item) => {
         if (item?.previewUrl) {
@@ -267,7 +291,7 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
     onClose();
   };
 
-  const handleSelectPosePhoto = async (poseType: BodybuildingPose, file?: File | null) => {
+  const handleSelectPosePhoto = async (poseType: PhysiqueCaptureSlot, file?: File | null) => {
     if (!file) return;
     setInlineFeedback(null);
     setCompressingPose(poseType);
@@ -302,7 +326,7 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
     }
   };
 
-  const handleRemovePosePhoto = (poseType: BodybuildingPose) => {
+  const handleRemovePosePhoto = (poseType: PhysiqueCaptureSlot) => {
     setPoses((prev) => {
       const existing = prev[poseType];
       if (existing?.previewUrl) {
@@ -343,7 +367,7 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
       return;
     }
     if (selectedPoses.length === 0) {
-      toastError('Envie pelo menos 1 pose de fisiculturismo para avaliação.');
+      toastError('Envie pelo menos 1 foto ou pose para avaliação.');
       return;
     }
 
@@ -392,14 +416,27 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
       setAssessment(created);
       setHistory((prev) => [created, ...prev]);
       setViewMode('report');
-      success('Avaliação de poses concluída! Imagens descartadas com segurança.');
+      success('Avaliação física concluída! Imagens descartadas com segurança.');
     } catch (err: any) {
       const msg =
         (err?.details as any)?.message ||
-        err?.message ||
-        'Não foi possível concluir a avaliação física.';
+        (err?.status === 503 || err?.status === 408 || err?.status === 0
+          ? 'Não foi possível concluir a análise pela IA no momento. Tente novamente em alguns instantes.'
+          : err?.message || 'Não foi possível concluir a avaliação física.');
+
       if (err?.status === 422) {
-        setInlineFeedback(msg);
+        setInlineFeedback({
+          title: 'Ajuste necessário antes de avaliar',
+          message: msg,
+        });
+      } else if ([0, 408, 429, 503].includes(Number(err?.status))) {
+        setInlineFeedback({
+          title:
+            err?.status === 429
+              ? 'Limite semanal atingido'
+              : 'Avaliação indisponível no momento — tente novamente',
+          message: msg,
+        });
       }
       toastError(msg);
     } finally {
@@ -427,7 +464,16 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
     }
   };
 
+  const standardSelectedCount = STANDARD_ANGLE_META.filter(({ poseType }) =>
+    Boolean(poses[poseType])
+  ).length;
+  const bodybuildingSelectedCount = POSE_META.filter(({ poseType }) =>
+    Boolean(poses[poseType])
+  ).length;
   const selectedCount = Object.values(poses).filter(Boolean).length;
+
+  const activeSlots: CaptureSlotMeta[] =
+    captureTab === 'standard' ? STANDARD_ANGLE_META : POSE_META;
 
   if (typeof document === 'undefined') return null;
 
@@ -450,10 +496,10 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
                 id="physique-modal-title"
                 className="font-display text-sm sm:text-base font-bold text-[#D4E4FA] uppercase tracking-wide truncate"
               >
-                Avaliação Física • 5 Poses IA
+                Avaliação Física IA
               </h2>
               <p className="font-mono text-[10px] text-[#8F9380] uppercase tracking-wider truncate">
-                Calibração Dimensional & Plano Corretivo
+                3 Ângulos Naturais ou 5 Poses • Calibração & Plano
               </p>
             </div>
           </div>
@@ -484,12 +530,12 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 flex flex-col gap-5">
           {viewMode === 'form' ? (
             <form id="physique-assess-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
-              {/* Protocolo de Poses, Calibração & Privacidade */}
+              {/* Protocolo de Captura, Calibração & Privacidade */}
               <div className="p-3.5 rounded-[4px] bg-[#0D1C2D] border border-[#5CA9E6]/30 flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="font-mono text-[10px] uppercase tracking-widest text-[#5CA9E6] font-bold flex items-center gap-1.5">
                     <ShieldCheck className="h-3.5 w-3.5" />
-                    Protocolo 5 Poses & Processamento Efêmero
+                    Protocolo Híbrido & Processamento Efêmero
                   </span>
                   <span className="font-mono text-[9px] uppercase px-2 py-0.5 rounded bg-[#161C24] border border-[#1F2937] text-[#D4F684]">
                     0% armazenamento de fotos
@@ -499,7 +545,8 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
                   <li className="flex items-start gap-2">
                     <span className="font-mono text-[10px] text-[#D4F684] mt-0.5">01.</span>
                     <span>
-                      Envie de <strong>1 a 5 poses</strong> (recomendado enviar as 5 para análise 360° completa).
+                      Escolha enviar as <strong>3 fotos normais</strong> (Frente, Costas, Perfil), as{' '}
+                      <strong>5 poses de fisiculturismo</strong> ou combine ambas na mesma avaliação.
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
@@ -522,9 +569,11 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
                   <AlertTriangle className="h-4 w-4 text-[#FFB800] shrink-0 mt-0.5" />
                   <div className="flex flex-col gap-0.5">
                     <span className="font-mono text-[10px] uppercase font-bold text-[#FFB800]">
-                      Ajuste necessário antes de avaliar
+                      {inlineFeedback.title}
                     </span>
-                    <p className="text-xs text-[#D4E4FA] leading-relaxed">{inlineFeedback}</p>
+                    <p className="text-xs text-[#D4E4FA] leading-relaxed">
+                      {inlineFeedback.message}
+                    </p>
                   </div>
                 </div>
               )}
@@ -671,19 +720,71 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
                 </div>
               </div>
 
-              {/* 5 Cards de Poses de Fisiculturismo */}
+              {/* Switcher: 3 Fotos Normais vs 5 Poses Fisiculturismo */}
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-[10px] uppercase tracking-widest text-[#8F9380]">
-                    Poses Oficiais de Fisiculturismo (1 a 5 poses)
+                    Captura de Imagens (1 a 8 fotos)
                   </span>
                   <span className="font-mono text-[10px] text-[#A855F7] font-bold">
-                    {selectedCount}/5 enviadas
+                    {selectedCount} selecionada(s)
                   </span>
                 </div>
 
+                <div
+                  role="tablist"
+                  aria-label="Modo de captura das fotos"
+                  className="grid grid-cols-2 gap-1.5 p-1 rounded-[4px] bg-[#0D1C2D] border border-[#1F2937]"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={captureTab === 'standard'}
+                    onClick={() => setCaptureTab('standard')}
+                    className={`px-3 py-2 rounded-[3px] font-mono text-[10px] sm:text-[11px] uppercase transition-colors flex items-center justify-center gap-1.5 ${
+                      captureTab === 'standard'
+                        ? 'bg-[#5CA9E6]/15 border border-[#5CA9E6]/60 text-[#D4E4FA] font-bold'
+                        : 'border border-transparent text-[#8F9380] hover:text-[#D4E4FA]'
+                    }`}
+                  >
+                    <span>3 Fotos Normais</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[9px] ${
+                        standardSelectedCount > 0
+                          ? 'bg-[#D4F684]/20 text-[#D4F684]'
+                          : 'bg-[#161C24] text-[#8F9380]'
+                      }`}
+                    >
+                      {standardSelectedCount}/3
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={captureTab === 'bodybuilding'}
+                    onClick={() => setCaptureTab('bodybuilding')}
+                    className={`px-3 py-2 rounded-[3px] font-mono text-[10px] sm:text-[11px] uppercase transition-colors flex items-center justify-center gap-1.5 ${
+                      captureTab === 'bodybuilding'
+                        ? 'bg-[#A855F7]/20 border border-[#A855F7]/60 text-[#D4E4FA] font-bold'
+                        : 'border border-transparent text-[#8F9380] hover:text-[#D4E4FA]'
+                    }`}
+                  >
+                    <span>5 Poses Fisiculturismo</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[9px] ${
+                        bodybuildingSelectedCount > 0
+                          ? 'bg-[#D4F684]/20 text-[#D4F684]'
+                          : 'bg-[#161C24] text-[#8F9380]'
+                      }`}
+                    >
+                      {bodybuildingSelectedCount}/5
+                    </span>
+                  </button>
+                </div>
+
                 <div className="flex flex-col gap-2.5">
-                  {POSE_META.map(({ poseType, label, contractionTip }, index) => {
+                  {activeSlots.map(({ poseType, label, tip }, index) => {
                     const photo = poses[poseType];
                     const isCompressing = compressingPose === poseType;
                     const approxKb = photo ? Math.round((photo.base64.length * 3) / 4 / 1024) : 0;
@@ -722,7 +823,7 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
                                 type="button"
                                 onClick={() => handleRemovePosePhoto(poseType)}
                                 className="text-[#8F9380] hover:text-[#FFB4AB] p-1"
-                                title="Remover foto da pose"
+                                title="Remover foto"
                                 aria-label={`Remover ${label}`}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -731,7 +832,7 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
                           </div>
 
                           <p className="font-sans text-[11px] text-[#C5C8B4] leading-snug">
-                            {contractionTip}
+                            {tip}
                           </p>
                           <p className="font-mono text-[9px] text-[#8F9380]">
                             Fundo c/ referência espacial • traje esportivo justo
@@ -958,7 +1059,7 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
                               key={poseKey}
                               className="px-1.5 py-0.5 rounded bg-[#0B1521] border border-[#1F2937] font-mono text-[9px] text-[#5CA9E6]"
                             >
-                              {POSE_LABELS[poseKey] || poseKey}
+                              {SLOT_LABELS[poseKey] || poseKey}
                             </span>
                           ))}
                         </div>
@@ -983,11 +1084,11 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
                 </div>
               </div>
 
-              {/* Feedback de Execução & Leitura por Pose */}
+              {/* Feedback de Execução & Leitura por Foto / Pose */}
               {assessment.result.poseBreakdown && assessment.result.poseBreakdown.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <span className="font-mono text-[10px] uppercase tracking-widest text-[#5CA9E6] font-bold">
-                    Análise & Correção de Poses
+                    Análise & Correção por Foto / Pose
                   </span>
                   <div className="flex flex-col gap-2">
                     {assessment.result.poseBreakdown.map((pb, idx) => (
@@ -996,14 +1097,14 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
                         className="p-3 rounded-[4px] bg-[#161C24] border border-[#1F2937] flex flex-col gap-1.5"
                       >
                         <span className="font-display text-xs font-bold uppercase text-[#D4E4FA]">
-                          {POSE_LABELS[pb.poseType] || pb.poseType}
+                          {SLOT_LABELS[pb.poseType] || pb.poseType}
                         </span>
                         <p className="text-xs text-[#C5C8B4] leading-relaxed">
                           {pb.muscularAnalysis}
                         </p>
                         <div className="p-2 rounded bg-[#0D1C2D] border border-[#5CA9E6]/30 text-[11px] text-[#D4E4FA] leading-snug">
                           <strong className="font-mono text-[9px] uppercase text-[#5CA9E6] mr-1.5">
-                            Dica de Pose:
+                            Dica Técnica:
                           </strong>
                           {pb.posingExecutionTip}
                         </div>
@@ -1126,7 +1227,7 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
                 disabled={selectedCount === 0 || !!compressingPose}
                 leftIcon={<Sparkles className="h-4 w-4" />}
               >
-                {isSubmitting ? 'Calibrando & Analisando…' : `Avaliar ${selectedCount} Pose(s)`}
+                {isSubmitting ? 'Calibrando & Analisando…' : `Avaliar ${selectedCount} Foto(s)`}
               </Button>
             </>
           ) : assessment ? (
