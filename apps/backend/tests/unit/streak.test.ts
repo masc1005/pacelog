@@ -54,4 +54,13 @@ describe('calculateActiveStreak', () => {
     ];
     expect(calculateActiveStreak(dates, refDate)).toBe(2);
   });
+
+  it('deve contar corretamente treinos noturnos no fuso do Brasil (após 21h BRT / virada UTC)', () => {
+    const lateRef = new Date('2026-11-15T02:32:00.000Z'); // 14/11 23:32 BRT
+    const dates = [
+      '2026-11-15T01:30:00.000Z', // 14/11 22:30 BRT
+      '2026-11-13T22:00:00.000Z', // 13/11 19:00 BRT
+    ];
+    expect(calculateActiveStreak(dates, lateRef, 'America/Bahia')).toBe(2);
+  });
 });

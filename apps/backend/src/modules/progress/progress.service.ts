@@ -32,6 +32,7 @@ import {
   LOAD_DISCLAIMER,
 } from './baseline.service.js';
 import { calculateActiveStreak } from './streak.service.js';
+import { UserSettingsModel } from '../settings/settings.model.js';
 import { computePrimaryMetric, SPORT_MUSCLE_IMPACT } from '../sessions/sport.rules.js';
 import {
   calculateConfidence as calcComparisonConfidence,
@@ -844,13 +845,20 @@ export class ProgressService {
       disclaimer: LOAD_DISCLAIMER,
     };
 
-    // Streak de dias consecutivos ativos
-    const recentSessions = await SessionModel.find({ userId })
-      .sort({ startedAt: -1 })
-      .limit(60)
-      .select('startedAt')
-      .lean();
-    const totalActiveDaysStreak = calculateActiveStreak(recentSessions.map((s) => s.startedAt));
+    // Streak de dias consecutivos ativos (respeitando o fuso horário do atleta)
+    const [recentSessions, userSettings] = await Promise.all([
+      SessionModel.find({ userId })
+        .sort({ startedAt: -1 })
+        .limit(60)
+        .select('startedAt')
+        .lean(),
+      UserSettingsModel.findOne({ userId }).select('timezone').lean(),
+    ]);
+    const totalActiveDaysStreak = calculateActiveStreak(
+      recentSessions.map((s) => s.startedAt),
+      new Date(),
+      userSettings?.timezone
+    );
 
     // Distribuição por esporte (7 dias)
     const sportsAgg = await SessionModel.aggregate([

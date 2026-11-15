@@ -19,6 +19,7 @@ import { calculateActiveStreak } from '../progress/streak.service.js';
 import { getGearImpact } from '@pacelog/shared';
 import type { SessionSummaryDTO, SportKey, SportSummaryStats } from '@pacelog/shared';
 import { UserSportModel } from '../settings/userSport.model.js';
+import { UserSettingsModel } from '../settings/settings.model.js';
 
 export class SessionService {
   /**
@@ -368,13 +369,20 @@ export class SessionService {
     const averageRpe =
       totalSessions > 0 ? Math.round((totalRpeSum / totalSessions) * 10) / 10 : 0;
 
-    // Streak de dias consecutivos ativos
-    const recentSessions = await SessionModel.find({ userId })
-      .sort({ startedAt: -1 })
-      .limit(60)
-      .select('startedAt')
-      .lean();
-    const streakDays = calculateActiveStreak(recentSessions.map((s) => s.startedAt));
+    // Streak de dias consecutivos ativos (respeitando o fuso horário do atleta)
+    const [recentSessions, userSettings] = await Promise.all([
+      SessionModel.find({ userId })
+        .sort({ startedAt: -1 })
+        .limit(60)
+        .select('startedAt')
+        .lean(),
+      UserSettingsModel.findOne({ userId }).select('timezone').lean(),
+    ]);
+    const streakDays = calculateActiveStreak(
+      recentSessions.map((s) => s.startedAt),
+      new Date(),
+      userSettings?.timezone
+    );
 
     return {
       totalSessions,
