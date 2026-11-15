@@ -1,14 +1,17 @@
 import { GoogleGenAI } from '@google/genai';
 import {
+  BODYBUILDING_POSES,
   MUSCLE_GROUPS,
   PHYSIQUE_IMAGE_REJECTION_REASONS,
   PhysiqueAssessmentResultSchema,
   type BiologicalSex,
+  type BodybuildingPose,
   type CreatePhysiqueAssessmentInput,
   type GeneratePhysiquePlanInput,
   type MuscleGroup,
   type PhysiqueAssessmentResult,
   type PhysiqueImageRejectionReason,
+  type PhysiquePoseBreakdownItem,
 } from '@pacelog/shared';
 import { env } from '../../config/env.js';
 import {
@@ -31,6 +34,45 @@ const STRENGTH_MUSCLE_GROUPS: MuscleGroup[] = MUSCLE_GROUPS.filter(
 
 const MAX_VALID_ASSESSMENTS_PER_WEEK = 2;
 const RATE_LIMIT_WINDOW_DAYS = 7;
+
+const POSE_LABELS_PT: Record<BodybuildingPose, string> = {
+  front_double_biceps: 'Duplo Bíceps de Frente',
+  side_chest: 'Peitoral Melhor Lado',
+  back_double_biceps: 'Bíceps de Costas',
+  side_triceps: 'Lado Tríceps',
+  abs_and_thighs: 'Abdominais e Coxa',
+};
+
+const POSE_EVALUATION_DEFAULTS: Record<
+  BodybuildingPose,
+  { analysis: string; tip: string }
+> = {
+  front_double_biceps: {
+    analysis:
+      'Avaliação de pico de bíceps, simetria de braços, abertura de dorsal frontal (V-taper), linha de cintura e volume de quadríceps.',
+    tip: 'Eleve os cotovelos levemente acima da linha dos ombros, projete o dorsal para fora antes de fechar os punhos e trave os quadríceps com leve rotação externa dos pés.',
+  },
+  side_chest: {
+    analysis:
+      'Avaliação de espessura peitoral (feixe clavicular/superior), deltoide anterior/lateral, braço de perfil, caixa torácica e curvatura de posterior/panturrilha.',
+    tip: 'Pressione o braço da frente contra o tronco para projetar o peitoral superior, eleve a caixa torácica e comprima o posterior da perna da frente contra a de trás.',
+  },
+  back_double_biceps: {
+    analysis:
+      'Avaliação de largura e inserção baixa de dorsais, densidade de trapézio/romboides, deltoide posterior, cabeça longa do tríceps, lombar, glúteo e posterior/panturrilha.',
+    tip: 'Incline o tronco cerca de 10° para trás em direção à câmera para mostrar espessura lombar e dorsal sem fechar as escápulas antes da hora.',
+  },
+  side_triceps: {
+    analysis:
+      'Avaliação da cabeça longa e lateral do tríceps (ferradura), separação de deltoide, controle abdominal/oblíquos e cortes laterais de coxa.',
+    tip: 'Gire o ombro da frente levemente para trás para abrir a ferradura do tríceps, mantenha o abdômen travado (sem dilatar) e flexione o quadríceps/posterior lateral.',
+  },
+  abs_and_thighs: {
+    analysis:
+      'Avaliação de profundidade dos blocos abdominais, serrátil anterior, oblíquos e separação das cabeças do quadríceps (vasto medial, lateral e reto femoral).',
+    tip: 'Expire o ar antes de contrair o abdômen para baixo (sem arredondar demais a lombar), abra os cotovelos para exibir o serrátil e estenda uma perna à frente travando o vasto medial.',
+  },
+};
 
 const MUSCLE_GROUP_ALIASES: Record<string, MuscleGroup> = {
   peito: 'peito',
@@ -92,36 +134,39 @@ function normalizeMuscleGroup(raw: string): MuscleGroup {
   return 'ombros';
 }
 
-function computeAgeFromBirthDate(birthDate?: string): number | undefined {
-  if (!birthDate) return undefined;
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate.trim());
-  if (!match) return undefined;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const today = new Date();
-  let age = today.getUTCFullYear() - year;
-  const monthDiff = today.getUTCMonth() + 1 - month;
-  if (monthDiff < 0 || (monthDiff === 0 && today.getUTCDate() < day)) {
-    age -= 1;
+function normalizePoseType(raw: string): BodybuildingPose | null {
+  const normalized = (raw || '').toLowerCase().trim();
+  if ((BODYBUILDING_POSES as readonly string[]).includes(normalized)) {
+    return normalized as BodybuildingPose;
   }
-  if (!Number.isFinite(age) || age < 14 || age > 110) return undefined;
-  return age;
+  return null;
 }
 
 function buildPhysiqueSystemPrompt(): string {
-  return `Você é um Avaliador Físico Biomecânico e Especialista em Telemetria Corporal do Pacelog.
-Sua tarefa é analisar fotos do atleta (frente, costas e/ou perfil) usando fotogrametria calibrada e retornar EXCLUSIVAMENTE um JSON estruturado, objetivo e técnico (sem linguagem clínica/médica ou diagnósticos patológicos).
+  return `Você é um Avaliador Físico de Fisiculturismo, Juiz Técnico de Poses e Especialista em Telemetria Corporal do Pacelog.
+Sua tarefa é analisar fotos das poses oficiais de fisiculturismo do atleta usando calibração fotogramétrica real e retornar EXCLUSIVAMENTE um JSON estruturado, objetivo e técnico (sem linguagem clínica/médica ou diagnósticos patológicos).
 
-ETAPA 0 — CONTROLE DE QUALIDADE DA IMAGEM (OBRIGATÓRIO):
-- Antes de avaliar o físico, verifique se há uma pessoa visível com contornos musculares minimamente legíveis.
-- Se a foto NÃO mostrar uma pessoa ('no_person_detected'), estiver extremamente escura/borrada ('poor_lighting_or_blur'), com enquadramento inutilizável ('bad_framing') ou com roupas largas/casacos que ocultem totalmente o físico ('clothing_obscured'), retorne 'imageQualityCheck.isAssessable = false', informe 'rejectionReason' e um 'userFeedback' amigável orientando trajes esportivos justos (bermuda/shorts e top ou sem camisa) e boa iluminação.
+ETAPA 0 — CONTROLE DE QUALIDADE E POSE (OBRIGATÓRIO):
+- Antes de avaliar o físico, verifique se cada foto permite leitura muscular clara e corresponde minimamente à pose declarada.
+- Se a foto NÃO mostrar claramente a pose ou físico utilizável ('wrong_pose'), estiver extremamente escura/borrada ('poor_lighting_or_blur'), com enquadramento cortado demais ('bad_framing') ou com roupas largas/casacos ocultando a musculatura ('clothing_obscured'), retorne 'imageQualityCheck.isAssessable = false', informe 'rejectionReason' e um 'userFeedback' amigável orientando trajes esportivos justos (bermuda/sunga de pose/top), iluminação frontal/superior e execução clara da pose.
 
-DIRETRIZES OBRIGATÓRIAS DE CALIBRAÇÃO FOTOGRAMÉTRICA:
-1. Use a altura real (heightCm), peso (weightKg), sexo biológico e idade informados como escala mestra vertical, volumétrica e referência fisiológica de percentual de gordura e simetria.
-2. Inspecione o ambiente ao redor do usuário na imagem em busca de objetos de dimensão conhecida (batentes/portas de ~210cm, interruptores/tomadas a ~110-120cm do chão, pisos/azulejos, espelhos, bancos ou anilhas de academia) e liste-os em 'detectedReferenceObjects'.
-3. Cruze a perspectiva das linhas verticais desses objetos com a altura real do usuário para descontar distorções de lente grande-angular e inclinação da câmera (evitando falsos diagnósticos de membros curtos ou assimetrias causadas pelo ângulo da foto). Descreva essa compensação em 'perspectiveDistortionNote' e atribua 'calibrationConfidence' ('high', 'medium' ou 'low').
-4. Avalie os grupamentos musculares oficiais (${STRENGTH_MUSCLE_GROUPS.join(', ')}) considerando proporção, densidade, simetria e alinhamento postural, e retorne estritamente o JSON validado pelo contrato abaixo.`;
+DIRETRIZES OBRIGATÓRIAS:
+1. CALIBRAÇÃO FOTOGRAMÉTRICA:
+   - Use 'heightCm', 'weightKg', 'biologicalSex' e 'age' como escala mestra vertical, volumétrica e referência fisiológica.
+   - Identifique objetos de referência no ambiente (portas ~210cm, interruptores ~115cm, azulejos, espelhos, racks/anilhas de academia) em 'detectedReferenceObjects'.
+   - Cruze a perspectiva desses objetos com a altura real para descontar distorções de ângulo/lente da câmera e registre em 'perspectiveDistortionNote' e 'calibrationConfidence' ('high', 'medium' ou 'low').
+
+2. LEITURA ESPECÍFICA POR POSE DE FISICULTURISMO (gere 'poseBreakdown' para cada pose enviada):
+   - 'front_double_biceps': avalie pico de bíceps, simetria de braços, abertura de dorsal frontal (V-taper), linha de cintura e volume de quadríceps.
+   - 'side_chest': avalie espessura peitoral (especialmente feixe clavicular/superior), deltoide anterior/lateral, braço de perfil, caixa torácica e curvatura de posterior de coxa/panturrilha.
+   - 'back_double_biceps': avalie largura e inserção baixa de dorsais, densidade de trapézio/romboides, deltoide posterior, cabeça longa do tríceps, lombar, glúteo e posterior/panturrilha de costas.
+   - 'side_triceps': avalie cabeça longa e lateral do tríceps ("ferradura"), separação de deltoide, controle de linha abdominal/oblíquos e cortes laterais de coxa.
+   - 'abs_and_thighs': avalie profundidade dos blocos abdominais, serrátil anterior, oblíquos e separação das cabeças do quadríceps (vasto medial, lateral e reto femoral).
+   - Em cada item de 'poseBreakdown', forneça também 'posingExecutionTip' corrigindo a execução da pose (ex.: altura de cotovelos, encaixe de escápula, ativação de coxa, expiração abdominal).
+
+3. PONTOS FRACOS COM SUB-REGIÃO E RASTREAMENTO DE POSE:
+   - Em 'weakPoints', identifique exatamente a sub-região anatômica em 'subRegion' (ex: "Peitoral superior (feixe clavicular)", "Deltoide posterior", "Cabeça longa do tríceps", "Vasto medial do quadríceps", "Largura de dorsal") e liste em 'detectedInPoses' em quais poses enviadas o déficit apareceu.
+   - Use exclusivamente as chaves oficiais em 'muscleGroup': ${STRENGTH_MUSCLE_GROUPS.join(', ')}.`;
 }
 
 function stripBase64Prefix(raw: string): string {
@@ -192,18 +237,23 @@ export class PhysiqueService {
     let assessmentResult: PhysiqueAssessmentResult | null = null;
     let modelUsed = 'deterministic-fallback';
 
-    // Mantém referências efêmeras das imagens apenas durante a chamada multimodal
-    let imageParts: Array<{ inlineData: { data: string; mimeType: string } }> =
-      input.images.map((img) => ({
-        inlineData: {
-          data: stripBase64Prefix(img.base64),
-          mimeType: img.mimeType,
-        },
-      }));
+    const submittedPoses: BodybuildingPose[] = input.poses.map((p) => p.poseType);
 
-    let resolvedSex: BiologicalSex | undefined = input.biologicalSex;
-    let resolvedAge: number | undefined =
-      input.age ?? computeAgeFromBirthDate(input.birthDate);
+    // Mantém referências efêmeras das poses apenas durante a chamada multimodal
+    let poseParts: Array<
+      | { text: string }
+      | { inlineData: { data: string; mimeType: string } }
+    > = input.poses.flatMap((pose) => [
+      {
+        text: `POSE ENVIADA: ${pose.poseType} (${POSE_LABELS_PT[pose.poseType]})`,
+      },
+      {
+        inlineData: {
+          data: stripBase64Prefix(pose.base64),
+          mimeType: pose.mimeType,
+        },
+      },
+    ]);
 
     try {
       // 1. Rate limiting: máximo 2 avaliações válidas salvas a cada 7 dias
@@ -225,30 +275,25 @@ export class PhysiqueService {
         });
       }
 
-      // 2. Carrega perfil existente + última avaliação válida em paralelo
-      const [existingProfile, previousDoc] = await Promise.all([
-        ProfileModel.findOne(scopedFilter(userId)).lean().catch(() => null),
-        PhysiqueAssessmentModel.findOne(
-          scopedFilter(userId, {
-            'result.imageQualityCheck.isAssessable': { $ne: false },
-          })
-        )
-          .sort({ createdAt: -1 })
-          .lean()
-          .catch(() => null),
-      ]);
+      // 2. Carrega última avaliação válida para memória evolutiva sem fotos
+      const previousDoc = await PhysiqueAssessmentModel.findOne(
+        scopedFilter(userId, {
+          'result.imageQualityCheck.isAssessable': { $ne: false },
+        })
+      )
+        .sort({ createdAt: -1 })
+        .lean()
+        .catch(() => null);
 
-      resolvedSex = resolvedSex ?? existingProfile?.biologicalSex;
-      resolvedAge =
-        resolvedAge ?? computeAgeFromBirthDate(existingProfile?.birthDate);
-
-      // Atualiza altura, peso e contexto biológico no perfil caso informados
+      // Persiste automaticamente altura, peso e contexto biológico no perfil do usuário
       const profileUpdate: Record<string, any> = {
         heightCm: input.heightCm,
         currentWeightKg: input.weightKg,
+        biologicalSex: input.biologicalSex,
       };
-      if (input.biologicalSex) profileUpdate.biologicalSex = input.biologicalSex;
-      if (input.birthDate) profileUpdate.birthDate = input.birthDate;
+      if (input.birthDate) {
+        profileUpdate.birthDate = input.birthDate;
+      }
 
       await ProfileModel.findOneAndUpdate(
         scopedFilter(userId),
@@ -282,17 +327,9 @@ export class PhysiqueService {
           new Set([primaryModel, PRIMARY_GEMINI_MODEL, FALLBACK_GEMINI_MODEL])
         );
 
-        const anglesSummary = input.images.map((i) => i.angle).join(', ');
-        const biologicalContextLines = [
-          `- Sexo biológico: ${
-            resolvedSex === 'male'
-              ? 'Masculino'
-              : resolvedSex === 'female'
-              ? 'Feminino'
-              : 'Não informado'
-          }`,
-          `- Idade: ${resolvedAge !== undefined ? `${resolvedAge} anos` : 'Não informada'}`,
-        ].join('\n');
+        const posesSummary = submittedPoses
+          .map((p) => `${p} (${POSE_LABELS_PT[p]})`)
+          .join(', ');
 
         const previousPromptBlock = previousContext
           ? `\nHISTÓRICO EVOLUTIVO DO ATLETA (laudo anterior de ${previousContext.daysSinceLast} dias atrás, sem fotos armazenadas):
@@ -301,28 +338,38 @@ ${JSON.stringify({
   previousWeightKg: previousContext.weightKg,
   currentWeightKg: input.weightKg,
   weightDeltaKg: previousContext.weightDeltaKg,
-  previousBodyFatRange: previousContext.result.anthropometryEstimate?.estimatedBodyFatRange,
+  previousBodyFatRange:
+    previousContext.result.anthropometryEstimate?.estimatedBodyFatRange,
+  previousVTaperScore:
+    previousContext.result.anthropometryEstimate?.vTaperVisualScore,
+  previousSymmetryScore:
+    previousContext.result.anthropometryEstimate?.overallSymmetryScore,
   previousStrongPoints: previousContext.result.strongPoints,
   previousWeakPoints: previousContext.result.weakPoints?.map((w) => ({
     muscleGroup: w.muscleGroup,
+    subRegion: w.subRegion,
     priority: w.priority,
     technicalReason: w.technicalReason,
   })),
   previousSummary: previousContext.result.physiqueSummary,
 })}
-IMPORTANTE: Como existe avaliação anterior, PREENCHA obrigatoriamente o campo 'comparisonWithPrevious' comparando a composição atual com a anterior.\n`
-          : '\nNão há avaliação anterior salva. NÃO inclua o campo comparisonWithPrevious (ou deixe omitido).\n';
+IMPORTANTE: Como existe avaliação anterior, PREENCHA obrigatoriamente o campo 'comparisonWithPrevious' comparando condicionamento, V-taper e pontos fracos.\n`
+          : '\nNão há avaliação anterior salva. NÃO inclua o campo comparisonWithPrevious.\n';
 
         const userPrompt = `DADOS DE CALIBRAÇÃO DO ATLETA:
 - Altura real (escala mestra vertical): ${input.heightCm} cm
 - Peso atual: ${input.weightKg} kg
 - IMC calculado: ${bmi}
-${biologicalContextLines}
-- Objetivo declarado: ${input.goal}
-- Ângulos enviados: ${anglesSummary}
+- Sexo biológico: ${input.biologicalSex === 'male' ? 'Masculino' : 'Feminino'}
+- Idade: ${input.age} anos
+- Objetivo / Categoria declarada: ${input.goal}
+- Poses enviadas (${submittedPoses.length}): ${posesSummary}
 ${previousPromptBlock}
-GRUPAMENTOS MUSCULARES PERMITIDOS (use exatamente estas chaves em 'muscleGroup'):
+GRUPAMENTOS MUSCULARES PERMITIDOS EM 'muscleGroup':
 ${STRENGTH_MUSCLE_GROUPS.join(', ')}
+
+POSES PERMITIDAS EM 'poseType' E 'detectedInPoses':
+${BODYBUILDING_POSES.join(', ')}
 
 Retorne APENAS um JSON válido com esta estrutura exata:
 {
@@ -332,30 +379,40 @@ Retorne APENAS um JSON válido com esta estrutura exata:
     "userFeedback": null
   },
   "spatialCalibration": {
-    "detectedReferenceObjects": ["objeto 1 (ex: batente de porta ~210cm)", "objeto 2"],
+    "detectedReferenceObjects": ["batente de porta ~210cm", "interruptor ~115cm"],
     "perspectiveDistortionNote": "Explicação objetiva da inclinação/lente da câmera e como foi descontada pela altura real de ${input.heightCm} cm",
     "calibrationConfidence": "high | medium | low"
   },
   "anthropometryEstimate": {
     "bmi": ${bmi},
-    "estimatedBodyFatRange": { "min": 12, "max": 16 },
-    "waistToShoulderVisualRatio": "Ex: 1:1.45 (V-taper moderado)"
+    "estimatedBodyFatRange": { "min": 10, "max": 13 },
+    "vTaperVisualScore": 78,
+    "overallSymmetryScore": 82
   },
-  "physiqueSummary": "Leitura técnica geral de proporção, densidade muscular e simetria.",
+  "poseBreakdown": [
+    {
+      "poseType": "${submittedPoses[0]}",
+      "muscularAnalysis": "Leitura muscular técnica específica da pose",
+      "posingExecutionTip": "Correção biomecânica/estética para posar melhor (ex: altura dos cotovelos, encaixe de escápula, ativação de coxa)"
+    }
+  ],
+  "physiqueSummary": "Leitura técnica geral de proporção, densidade, condicionamento e simetria.",
   "strongPoints": [
     { "muscleGroup": "peito", "note": "Observação técnica objetiva" }
   ],
   "weakPoints": [
     {
       "muscleGroup": "ombros",
+      "subRegion": "Deltoide posterior e porção lateral",
       "priority": "high | medium",
-      "technicalReason": "Razão biomecânica/visual baseada na proporção calibrada",
+      "detectedInPoses": ["${submittedPoses[0]}"],
+      "technicalReason": "Razão biomecânica/estética baseada nas poses avaliadas",
       "targetWeeklySets": 16,
-      "recommendedExerciseNames": ["Elevação Lateral (Halteres)", "Desenvolvimento Sentado (Halteres)"]
+      "recommendedExerciseNames": ["Crucifixo Invertido (Halteres)", "Elevação Lateral (Polia / Cabo)"]
     }
   ],
   "posturalObservations": [
-    "Observação curta sobre alinhamento de ombros, escápulas, pelve ou joelhos"
+    "Observação curta sobre alinhamento escapular, pélvico ou de ombros"
   ],
   "recommendedSplit": "Sugestão objetiva de divisão semanal priorizando os pontos fracos"${
     previousContext
@@ -363,7 +420,7 @@ Retorne APENAS um JSON válido com esta estrutura exata:
   "comparisonWithPrevious": {
     "daysSinceLast": ${previousContext.daysSinceLast},
     "weightDeltaKg": ${previousContext.weightDeltaKg},
-    "bodyFatDeltaNote": "Comparativo objetivo da evolução do percentual de gordura estimado",
+    "conditioningEvolutionNote": "Evolução de condicionamento, definição e maturidade muscular vs. avaliação anterior",
     "weakPointsProgress": "Evolução perceptível dos pontos fracos anteriores"
   }`
       : ''
@@ -374,8 +431,8 @@ Se a imagem NÃO for avaliável, retorne:
 {
   "imageQualityCheck": {
     "isAssessable": false,
-    "rejectionReason": "clothing_obscured | poor_lighting_or_blur | bad_framing | no_person_detected",
-    "userFeedback": "Mensagem clara e amigável explicando exatamente o que ajustar na foto (ex: usar trajes esportivos justos como shorts/bermuda e top ou sem camisa, melhorar iluminação ou enquadramento)."
+    "rejectionReason": "clothing_obscured | poor_lighting_or_blur | bad_framing | wrong_pose",
+    "userFeedback": "Mensagem clara orientando ajuste (roupa justa esportiva, iluminação, enquadramento ou pose correta)."
   },
   "spatialCalibration": {
     "detectedReferenceObjects": [],
@@ -385,8 +442,10 @@ Se a imagem NÃO for avaliável, retorne:
   "anthropometryEstimate": {
     "bmi": ${bmi},
     "estimatedBodyFatRange": { "min": 15, "max": 20 },
-    "waistToShoulderVisualRatio": "Indisponível"
+    "vTaperVisualScore": 50,
+    "overallSymmetryScore": 50
   },
+  "poseBreakdown": [],
   "physiqueSummary": "Imagem não avaliável.",
   "strongPoints": [],
   "weakPoints": [],
@@ -397,7 +456,7 @@ Se a imagem NÃO for avaliável, retorne:
         const systemInstruction = buildPhysiqueSystemPrompt();
         const contents: Array<
           { text: string } | { inlineData: { data: string; mimeType: string } }
-        > = [{ text: userPrompt }, ...imageParts];
+        > = [{ text: userPrompt }, ...poseParts];
 
         for (const modelName of modelsToTry) {
           try {
@@ -405,10 +464,9 @@ Se a imagem NÃO for avaliável, retorne:
               modelName,
               systemInstruction,
               contents,
-              30000
+              35000
             );
 
-            // Detecta bloqueio explícito pelos filtros de segurança do Gemini
             const finishReason = response?.candidates?.[0]?.finishReason;
             const blockReason = response?.promptFeedback?.blockReason;
             if (
@@ -418,13 +476,13 @@ Se a imagem NÃO for avaliável, retorne:
             ) {
               throw new HttpError(422, 'PHYSIQUE_IMAGE_NOT_ASSESSABLE', {
                 message:
-                  'As fotos foram bloqueadas pelos filtros de segurança da IA. Use trajes esportivos justos (bermuda/shorts de treino e top ou sem camisa) em ambiente bem iluminado e evite poses ou cortes ambíguos.',
+                  'As fotos foram bloqueadas pelos filtros de segurança da IA. Use trajes esportivos justos (bermuda/sunga de pose/top) em ambiente bem iluminado e enquadramento claro.',
                 rejectionReason: 'bad_framing',
                 imageQualityCheck: {
                   isAssessable: false,
                   rejectionReason: 'bad_framing',
                   userFeedback:
-                    'As fotos foram bloqueadas pelos filtros de segurança da IA. Use trajes esportivos justos (bermuda/shorts de treino e top ou sem camisa) em ambiente bem iluminado.',
+                    'As fotos foram bloqueadas pelos filtros de segurança da IA. Use trajes esportivos justos (bermuda/sunga de pose/top) e boa iluminação.',
                 },
               });
             }
@@ -436,6 +494,7 @@ Se a imagem NÃO for avaliável, retorne:
             const normalized = this.normalizeAiResult(
               rawJson,
               bmi,
+              submittedPoses,
               previousContext
             );
             const validated = PhysiqueAssessmentResultSchema.parse(normalized);
@@ -443,7 +502,7 @@ Se a imagem NÃO for avaliável, retorne:
             if (!validated.imageQualityCheck.isAssessable) {
               const feedback =
                 validated.imageQualityCheck.userFeedback ||
-                'Não foi possível avaliar o físico nas fotos enviadas. Use trajes esportivos justos (bermuda/shorts e top ou sem camisa), boa iluminação e enquadramento completo.';
+                'Não foi possível avaliar as poses enviadas. Use trajes esportivos justos, boa iluminação e execute a pose solicitada por inteiro.';
               throw new HttpError(422, 'PHYSIQUE_IMAGE_NOT_ASSESSABLE', {
                 message: feedback,
                 rejectionReason: validated.imageQualityCheck.rejectionReason,
@@ -468,13 +527,13 @@ Se a imagem NÃO for avaliável, retorne:
             ) {
               throw new HttpError(422, 'PHYSIQUE_IMAGE_NOT_ASSESSABLE', {
                 message:
-                  'As fotos foram bloqueadas pelos filtros de segurança da IA. Utilize trajes esportivos justos (shorts/bermuda de treino, top ou sem camisa) e boa iluminação.',
+                  'As fotos foram bloqueadas pelos filtros de segurança da IA. Utilize trajes esportivos justos (bermuda/sunga de pose/top) e boa iluminação.',
                 rejectionReason: 'bad_framing',
                 imageQualityCheck: {
                   isAssessable: false,
                   rejectionReason: 'bad_framing',
                   userFeedback:
-                    'As fotos foram bloqueadas pelos filtros de segurança da IA. Utilize trajes esportivos justos (shorts/bermuda de treino, top ou sem camisa) e boa iluminação.',
+                    'As fotos foram bloqueadas pelos filtros de segurança da IA. Utilize trajes esportivos justos e boa iluminação.',
                 },
               });
             }
@@ -490,22 +549,23 @@ Se a imagem NÃO for avaliável, retorne:
         assessmentResult = this.buildDeterministicFallback(
           input,
           bmi,
-          resolvedSex,
-          resolvedAge,
+          submittedPoses,
           previousContext
         );
       }
     } finally {
       // Descarte imediato em memória: garante que nenhum base64 permaneça referenciado
-      imageParts.forEach((p) => {
-        p.inlineData.data = '';
+      poseParts.forEach((part) => {
+        if ('inlineData' in part) {
+          part.inlineData.data = '';
+        }
       });
-      imageParts = [];
-      if (Array.isArray(input.images)) {
-        input.images.forEach((img) => {
-          img.base64 = '';
+      poseParts = [];
+      if (Array.isArray(input.poses)) {
+        input.poses.forEach((p) => {
+          p.base64 = '';
         });
-        input.images.length = 0;
+        input.poses.length = 0;
       }
     }
 
@@ -514,8 +574,8 @@ Se a imagem NÃO for avaliável, retorne:
       heightCm: input.heightCm,
       weightKg: input.weightKg,
       goal: input.goal,
-      ...(resolvedSex ? { biologicalSex: resolvedSex } : {}),
-      ...(resolvedAge !== undefined ? { age: resolvedAge } : {}),
+      biologicalSex: input.biologicalSex,
+      age: input.age,
       result: assessmentResult,
       modelUsed,
     });
@@ -563,6 +623,7 @@ Se a imagem NÃO for avaliável, retorne:
   private normalizeAiResult(
     raw: any,
     fallbackBmi: number,
+    submittedPoses: BodybuildingPose[],
     previousContext: PreviousComparisonContext | null
   ): any {
     const rawCheck = raw?.imageQualityCheck;
@@ -582,6 +643,33 @@ Se a imagem NÃO for avaliável, retorne:
       ...(rawCheck?.userFeedback ? { userFeedback: String(rawCheck.userFeedback) } : {}),
     };
 
+    const rawBreakdownMap = new Map<BodybuildingPose, PhysiquePoseBreakdownItem>();
+    if (Array.isArray(raw?.poseBreakdown)) {
+      for (const item of raw.poseBreakdown) {
+        const poseType = normalizePoseType(item?.poseType);
+        if (!poseType) continue;
+        const defaults = POSE_EVALUATION_DEFAULTS[poseType];
+        rawBreakdownMap.set(poseType, {
+          poseType,
+          muscularAnalysis: String(item?.muscularAnalysis || defaults.analysis),
+          posingExecutionTip: String(item?.posingExecutionTip || defaults.tip),
+        });
+      }
+    }
+
+    const poseBreakdown: PhysiquePoseBreakdownItem[] = isAssessable
+      ? submittedPoses.map((poseType) => {
+          const matched = rawBreakdownMap.get(poseType);
+          if (matched) return matched;
+          const defaults = POSE_EVALUATION_DEFAULTS[poseType];
+          return {
+            poseType,
+            muscularAnalysis: defaults.analysis,
+            posingExecutionTip: defaults.tip,
+          };
+        })
+      : [];
+
     const strongPoints = Array.isArray(raw?.strongPoints)
       ? raw.strongPoints.map((sp: any) => ({
           muscleGroup: normalizeMuscleGroup(sp.muscleGroup),
@@ -591,30 +679,48 @@ Se a imagem NÃO for avaliável, retorne:
 
     const weakPoints =
       Array.isArray(raw?.weakPoints) && raw.weakPoints.length > 0
-        ? raw.weakPoints.map((wp: any) => ({
-            muscleGroup: normalizeMuscleGroup(wp.muscleGroup),
-            priority: wp.priority === 'medium' ? 'medium' : 'high',
-            technicalReason: String(
-              wp.technicalReason ||
-                'Volume adicional recomendado para equilíbrio estético e simetria.'
-            ),
-            targetWeeklySets: Math.min(
-              30,
-              Math.max(4, Math.round(Number(wp.targetWeeklySets) || 14))
-            ),
-            recommendedExerciseNames:
-              Array.isArray(wp.recommendedExerciseNames) &&
-              wp.recommendedExerciseNames.length > 0
-                ? wp.recommendedExerciseNames.map(String)
-                : ['Exercício composto prioritário'],
-          }))
+        ? raw.weakPoints.map((wp: any) => {
+            const group = normalizeMuscleGroup(wp.muscleGroup);
+            const rawPoses = Array.isArray(wp.detectedInPoses)
+              ? wp.detectedInPoses
+                  .map((p: any) => normalizePoseType(String(p)))
+                  .filter(
+                    (p: BodybuildingPose | null): p is BodybuildingPose =>
+                      p !== null && submittedPoses.includes(p)
+                  )
+              : [];
+            return {
+              muscleGroup: group,
+              subRegion: String(
+                wp.subRegion || `Porção principal de ${group}`
+              ),
+              priority: wp.priority === 'medium' ? 'medium' : 'high',
+              detectedInPoses:
+                rawPoses.length > 0 ? rawPoses : [submittedPoses[0]],
+              technicalReason: String(
+                wp.technicalReason ||
+                  'Volume adicional recomendado para equilíbrio estético e simetria.'
+              ),
+              targetWeeklySets: Math.min(
+                30,
+                Math.max(4, Math.round(Number(wp.targetWeeklySets) || 14))
+              ),
+              recommendedExerciseNames:
+                Array.isArray(wp.recommendedExerciseNames) &&
+                wp.recommendedExerciseNames.length > 0
+                  ? wp.recommendedExerciseNames.map(String)
+                  : ['Exercício composto prioritário'],
+            };
+          })
         : isAssessable
         ? [
             {
               muscleGroup: 'ombros',
+              subRegion: 'Deltoide lateral e posterior',
               priority: 'high',
+              detectedInPoses: [submittedPoses[0]],
               technicalReason:
-                'Maior largura de deltoides melhora a relação cintura-ombros.',
+                'Maior largura de deltoides amplia o V-taper nas poses frontais e posteriores.',
               targetWeeklySets: 16,
               recommendedExerciseNames: ['Elevação Lateral (Halteres)'],
             },
@@ -623,14 +729,23 @@ Se a imagem NÃO for avaliável, retorne:
 
     const minBf = Math.min(
       55,
-      Math.max(4, Number(raw?.anthropometryEstimate?.estimatedBodyFatRange?.min) || 14)
+      Math.max(4, Number(raw?.anthropometryEstimate?.estimatedBodyFatRange?.min) || 12)
     );
     const maxBf = Math.min(
       60,
       Math.max(
         minBf + 1,
-        Number(raw?.anthropometryEstimate?.estimatedBodyFatRange?.max) || minBf + 4
+        Number(raw?.anthropometryEstimate?.estimatedBodyFatRange?.max) || minBf + 3
       )
+    );
+
+    const vTaperVisualScore = Math.min(
+      100,
+      Math.max(0, Math.round(Number(raw?.anthropometryEstimate?.vTaperVisualScore) || 74))
+    );
+    const overallSymmetryScore = Math.min(
+      100,
+      Math.max(0, Math.round(Number(raw?.anthropometryEstimate?.overallSymmetryScore) || 76))
     );
 
     const comparisonWithPrevious =
@@ -638,8 +753,8 @@ Se a imagem NÃO for avaliável, retorne:
         ? {
             daysSinceLast: previousContext.daysSinceLast,
             weightDeltaKg: previousContext.weightDeltaKg,
-            bodyFatDeltaNote: String(
-              raw?.comparisonWithPrevious?.bodyFatDeltaNote ||
+            conditioningEvolutionNote: String(
+              raw?.comparisonWithPrevious?.conditioningEvolutionNote ||
                 `Peso variou ${
                   previousContext.weightDeltaKg >= 0 ? '+' : ''
                 }${previousContext.weightDeltaKg} kg em ${
@@ -677,13 +792,12 @@ Se a imagem NÃO for avaliável, retorne:
           min: minBf,
           max: maxBf,
         },
-        waistToShoulderVisualRatio: String(
-          raw?.anthropometryEstimate?.waistToShoulderVisualRatio ||
-            'Proporção equilibrada'
-        ),
+        vTaperVisualScore,
+        overallSymmetryScore,
       },
+      poseBreakdown,
       physiqueSummary: String(
-        raw?.physiqueSummary || 'Avaliação física calibrada concluída.'
+        raw?.physiqueSummary || 'Avaliação física de poses calibrada concluída.'
       ),
       strongPoints,
       weakPoints,
@@ -701,22 +815,23 @@ Se a imagem NÃO for avaliável, retorne:
   private buildDeterministicFallback(
     input: CreatePhysiqueAssessmentInput,
     bmi: number,
-    biologicalSex?: BiologicalSex,
-    age?: number,
+    submittedPoses: BodybuildingPose[],
     previousContext?: PreviousComparisonContext | null
   ): PhysiqueAssessmentResult {
-    const refAge = age ?? 28;
     const rawBf =
-      biologicalSex === 'female'
-        ? 1.2 * bmi + 0.23 * refAge - 5.4
-        : biologicalSex === 'male'
-        ? 1.2 * bmi + 0.23 * refAge - 16.2
-        : (bmi - 10) * 1.1;
+      input.biologicalSex === 'female'
+        ? 1.2 * bmi + 0.23 * input.age - 5.4
+        : 1.2 * bmi + 0.23 * input.age - 16.2;
 
     const baseBf = Math.max(
-      biologicalSex === 'female' ? 12 : 6,
+      input.biologicalSex === 'female' ? 12 : 6,
       Math.min(42, Math.round(rawBf))
     );
+
+    const pickDetected = (preferred: BodybuildingPose[]): BodybuildingPose[] => {
+      const matched = preferred.filter((p) => submittedPoses.includes(p));
+      return matched.length > 0 ? matched : [submittedPoses[0]];
+    };
 
     const goalWeakPoints: Record<
       CreatePhysiqueAssessmentInput['goal'],
@@ -725,48 +840,67 @@ Se a imagem NÃO for avaliável, retorne:
       hypertrophy: [
         {
           muscleGroup: 'ombros',
+          subRegion: 'Deltoide lateral e posterior',
           priority: 'high',
-          technicalReason: `Escala calibrada (${input.heightCm} cm / ${input.weightKg} kg): priorizar porção lateral e posterior dos deltoides amplia o V-taper.`,
+          detectedInPoses: pickDetected([
+            'front_double_biceps',
+            'back_double_biceps',
+          ]),
+          technicalReason: `Escala calibrada (${input.heightCm} cm / ${input.weightKg} kg): ampliar o deltoide lateral e posterior potencializa o V-taper frontal e dorsal.`,
           targetWeeklySets: 16,
           recommendedExerciseNames: [
             'Elevação Lateral (Halteres)',
-            'Desenvolvimento Sentado (Halteres)',
+            'Crucifixo Invertido (Halteres)',
           ],
         },
         {
-          muscleGroup: 'costas',
+          muscleGroup: 'peito',
+          subRegion: 'Peitoral superior (feixe clavicular)',
           priority: 'high',
+          detectedInPoses: pickDetected(['side_chest', 'front_double_biceps']),
           technicalReason:
-            'Maior densidade e largura de dorsal equilibram a linha de tronco e postura torácica.',
-          targetWeeklySets: 16,
+            'Preencher a região clavicular cria maior espessura torácica na pose Side Chest e transição com o deltoide anterior.',
+          targetWeeklySets: 14,
           recommendedExerciseNames: [
-            'Puxada Frente Aberta (Polia)',
-            'Remada Curvada Pronada (Barra)',
+            'Supino Inclinado (Halteres)',
+            'Crucifixo Inclinado (Halteres)',
           ],
         },
         {
           muscleGroup: 'panturrilhas',
+          subRegion: 'Gastrocnêmio medial e sóleo',
           priority: 'medium',
+          detectedInPoses: pickDetected(['side_chest', 'back_double_biceps']),
           technicalReason:
-            'Desenvolvimento distal dos membros inferiores melhora a simetria geral.',
+            'Volume distal dos membros inferiores equilibra a proporção entre braços e pernas nas poses laterais e posteriores.',
           targetWeeklySets: 12,
-          recommendedExerciseNames: ['Panturrilha em Pé (Máquina / Smith)'],
+          recommendedExerciseNames: [
+            'Panturrilha em Pé (Máquina)',
+            'Panturrilha Sentado (Sóleo / Gêmeos)',
+          ],
         },
       ],
       definition: [
         {
           muscleGroup: 'abdomen',
+          subRegion: 'Linha média e serrátil anterior',
           priority: 'high',
+          detectedInPoses: pickDetected(['abs_and_thighs', 'side_triceps']),
           technicalReason:
-            'Fortalecimento com sobrecarga progressiva preserva profundidade da linha média durante déficit calórico.',
+            'Sobrecarga progressiva na linha abdominal e controle de vacuum preservam a profundidade dos cortes durante déficit.',
           targetWeeklySets: 12,
-          recommendedExerciseNames: ['Abdominal Supra na Polia (Crunch)'],
+          recommendedExerciseNames: [
+            'Abdominal Crunch (Polia / Cabo)',
+            'Stomach Vacuum (Core Profundo)',
+          ],
         },
         {
           muscleGroup: 'ombros',
+          subRegion: 'Deltoide lateral (cabeça acromial)',
           priority: 'medium',
+          detectedInPoses: pickDetected(['front_double_biceps', 'side_triceps']),
           technicalReason:
-            'Manter volume de deltoides preserva aparência de largura e separação muscular.',
+            'Preservar densidade lateral mantém o aspecto de ombros arredondados mesmo com redução de glicogênio.',
           targetWeeklySets: 14,
           recommendedExerciseNames: ['Elevação Lateral (Polia / Cabo)'],
         },
@@ -774,9 +908,14 @@ Se a imagem NÃO for avaliável, retorne:
       recomposition: [
         {
           muscleGroup: 'costas',
+          subRegion: 'Largura de dorsal e inserção baixa',
           priority: 'high',
+          detectedInPoses: pickDetected([
+            'front_double_biceps',
+            'back_double_biceps',
+          ]),
           technicalReason:
-            'Grupamento de alta demanda metabólica e impacto direto na proporção ombro-cintura.',
+            'Grupamento de alta demanda metabólica e impacto direto na relação ombro-cintura.',
           targetWeeklySets: 14,
           recommendedExerciseNames: [
             'Puxada Frente Aberta (Polia)',
@@ -785,38 +924,155 @@ Se a imagem NÃO for avaliável, retorne:
         },
         {
           muscleGroup: 'quadriceps',
+          subRegion: 'Vasto medial e reto femoral',
           priority: 'medium',
+          detectedInPoses: pickDetected([
+            'abs_and_thighs',
+            'front_double_biceps',
+          ]),
           technicalReason:
-            'Base de membros inferiores acelera gasto energético e equilibra o físico.',
+            'Maior varredura lateral e definição próxima ao joelho melhoram o equilíbrio inferior.',
           targetWeeklySets: 14,
-          recommendedExerciseNames: ['Agachamento Livre (Barra)', 'Leg Press 45°'],
+          recommendedExerciseNames: ['Agachamento Livre (Barra)', 'Cadeira Extensora'],
         },
       ],
-      athletic: [
+      classic_physique: [
         {
-          muscleGroup: 'posteriores',
+          muscleGroup: 'costas',
+          subRegion: 'Largura de dorsal e V-taper clássico',
           priority: 'high',
+          detectedInPoses: pickDetected([
+            'front_double_biceps',
+            'back_double_biceps',
+          ]),
           technicalReason:
-            'Cadeia posterior forte otimiza potência de corrida, saltos e estabilidade pélvica.',
-          targetWeeklySets: 14,
+            'Na estética Classic Physique, a amplitude de dorsal aliada à linha de cintura fina define a silhueta em X.',
+          targetWeeklySets: 16,
           recommendedExerciseNames: [
-            'Stiff / Levantamento Terra Romeno (Barra)',
-            'Mesa Flexora',
+            'Barra Fixa Pronada (Pull-up)',
+            'Puxada Frente Aberta (Polia)',
           ],
         },
         {
           muscleGroup: 'abdomen',
-          priority: 'medium',
+          subRegion: 'Controle de cintura (Vacuum & oblíquos)',
+          priority: 'high',
+          detectedInPoses: pickDetected(['abs_and_thighs', 'side_triceps']),
           technicalReason:
-            'Estabilidade anti-rotacional e transferência de força entre membros.',
+            'Manter a parede abdominal profunda sem hipertrofia excessiva dos oblíquos protege a ilusão clássica.',
+          targetWeeklySets: 10,
+          recommendedExerciseNames: [
+            'Stomach Vacuum (Core Profundo)',
+            'Abdominal Infra Pendurado na Barra',
+          ],
+        },
+        {
+          muscleGroup: 'posteriores',
+          subRegion: 'Curvatura de bíceps femoral',
+          priority: 'medium',
+          detectedInPoses: pickDetected(['side_chest', 'back_double_biceps']),
+          technicalReason:
+            'Proporção lateral entre quadríceps e posterior valoriza as poses de perfil.',
           targetWeeklySets: 12,
-          recommendedExerciseNames: ['Prancha Abdominal (Plank)'],
+          recommendedExerciseNames: ['Stiff (Barra)', 'Mesa Flexora'],
+        },
+      ],
+      mens_physique: [
+        {
+          muscleGroup: 'ombros',
+          subRegion: 'Deltoide lateral e posterior (caping)',
+          priority: 'high',
+          detectedInPoses: pickDetected([
+            'front_double_biceps',
+            'back_double_biceps',
+          ]),
+          technicalReason:
+            'No Men’s Physique, o arredondamento lateral e posterior dos deltoides determina a largura visual.',
+          targetWeeklySets: 18,
+          recommendedExerciseNames: [
+            'Elevação Lateral (Polia / Cabo)',
+            'Face Pull (Polia com Corda)',
+          ],
+        },
+        {
+          muscleGroup: 'peito',
+          subRegion: 'Peitoral superior (feixe clavicular)',
+          priority: 'high',
+          detectedInPoses: pickDetected(['side_chest', 'front_double_biceps']),
+          technicalReason:
+            'Feixe superior preenchido cria destaque na transição clavícula-ombro.',
+          targetWeeklySets: 14,
+          recommendedExerciseNames: [
+            'Supino Inclinado (Halteres)',
+            'Crossover (Polia Baixa)',
+          ],
+        },
+      ],
+      bodybuilding: [
+        {
+          muscleGroup: 'triceps',
+          subRegion: 'Cabeça longa do tríceps (ferradura)',
+          priority: 'high',
+          detectedInPoses: pickDetected(['side_triceps', 'back_double_biceps']),
+          technicalReason:
+            'A cabeça longa preenche a parte inferior do braço de perfil e de costas, elevando a densidade do membro superior.',
+          targetWeeklySets: 14,
+          recommendedExerciseNames: [
+            'Tríceps Francês na Polia (Corda)',
+            'Tríceps Testa (Barra W)',
+          ],
+        },
+        {
+          muscleGroup: 'posteriores',
+          subRegion: 'Bíceps femoral e inserção glúteo-posterior',
+          priority: 'high',
+          detectedInPoses: pickDetected(['side_chest', 'back_double_biceps']),
+          technicalReason:
+            'Profundidade posterior garante equilíbrio 360° frente vs. costas.',
+          targetWeeklySets: 14,
+          recommendedExerciseNames: [
+            'Levantamento Romeno / RDL (Barra)',
+            'Mesa Flexora',
+          ],
+        },
+        {
+          muscleGroup: 'costas',
+          subRegion: 'Densidade de trapézio medial e romboides',
+          priority: 'medium',
+          detectedInPoses: pickDetected(['back_double_biceps']),
+          technicalReason:
+            'Maior espessura no miolo das costas eleva o detalhamento na contração dorsal traseira.',
+          targetWeeklySets: 16,
+          recommendedExerciseNames: [
+            'Remada Curvada Pronada (Barra)',
+            'Remada Cavalinho (Barra T)',
+          ],
         },
       ],
     };
 
-    const minBf = Math.max(biologicalSex === 'female' ? 11 : 5, baseBf - 2);
+    const minBf = Math.max(input.biologicalSex === 'female' ? 11 : 5, baseBf - 2);
     const maxBf = Math.min(45, baseBf + 2);
+
+    const poseBreakdown: PhysiquePoseBreakdownItem[] = submittedPoses.map(
+      (poseType) => {
+        const defaults = POSE_EVALUATION_DEFAULTS[poseType];
+        return {
+          poseType,
+          muscularAnalysis: `${defaults.analysis} (Escala calibrada: ${input.heightCm} cm / ${input.weightKg} kg, objetivo ${input.goal}).`,
+          posingExecutionTip: defaults.tip,
+        };
+      }
+    );
+
+    const vTaperVisualScore = Math.max(
+      45,
+      Math.min(95, Math.round(84 - Math.max(0, baseBf - 12) * 1.1))
+    );
+    const overallSymmetryScore = Math.max(
+      50,
+      Math.min(95, Math.round(78 + (submittedPoses.length >= 4 ? 4 : 0)))
+    );
 
     const comparisonWithPrevious = previousContext
       ? (() => {
@@ -827,12 +1083,12 @@ Se a imagem NÃO for avaliável, retorne:
           const currMidBf = (minBf + maxBf) / 2;
           const bfDiff = Number((currMidBf - prevMidBf).toFixed(1));
           const prevWeakNames = previousContext.result.weakPoints
-            .map((w) => w.muscleGroup)
+            .map((w) => w.subRegion || w.muscleGroup)
             .join(', ');
           return {
             daysSinceLast: previousContext.daysSinceLast,
             weightDeltaKg: previousContext.weightDeltaKg,
-            bodyFatDeltaNote: `Tendência de BF% estimado: ${
+            conditioningEvolutionNote: `Tendência de BF% estimado: ${
               bfDiff > 0 ? `+${bfDiff}%` : `${bfDiff}%`
             } em relação à avaliação anterior (${previousContext.daysSinceLast}d atrás, peso ${
               previousContext.weightDeltaKg >= 0 ? '+' : ''
@@ -844,13 +1100,7 @@ Se a imagem NÃO for avaliável, retorne:
         })()
       : undefined;
 
-    const sexLabel =
-      biologicalSex === 'female'
-        ? 'feminino'
-        : biologicalSex === 'male'
-        ? 'masculino'
-        : 'geral';
-    const ageLabel = age !== undefined ? `, ${age} anos` : '';
+    const sexLabel = input.biologicalSex === 'female' ? 'feminino' : 'masculino';
 
     return {
       imageQualityCheck: {
@@ -860,7 +1110,7 @@ Se a imagem NÃO for avaliável, retorne:
         detectedReferenceObjects: [
           'Escala antropométrica direta (altura e peso informados)',
         ],
-        perspectiveDistortionNote: `Calibração estimada a partir da escala mestra de ${input.heightCm} cm e ${input.weightKg} kg (IMC ${bmi}, referência fisiológica ${sexLabel}${ageLabel}).`,
+        perspectiveDistortionNote: `Calibração estimada a partir da escala mestra de ${input.heightCm} cm e ${input.weightKg} kg (IMC ${bmi}, referência fisiológica ${sexLabel}, ${input.age} anos).`,
         calibrationConfidence: 'low',
       },
       anthropometryEstimate: {
@@ -869,12 +1119,11 @@ Se a imagem NÃO for avaliável, retorne:
           min: minBf,
           max: maxBf,
         },
-        waistToShoulderVisualRatio:
-          biologicalSex === 'female'
-            ? 'Estimativa base via antropometria (1:1.25 – 1:1.35)'
-            : 'Estimativa base via antropometria (1:1.35 – 1:1.45)',
+        vTaperVisualScore,
+        overallSymmetryScore,
       },
-      physiqueSummary: `Análise estruturada para atleta (${sexLabel}${ageLabel}) de ${input.heightCm} cm e ${input.weightKg} kg (IMC ${bmi}) com foco em ${input.goal}.`,
+      poseBreakdown,
+      physiqueSummary: `Análise estruturada de ${submittedPoses.length} pose(s) para atleta (${sexLabel}, ${input.age} anos) de ${input.heightCm} cm e ${input.weightKg} kg (IMC ${bmi}) com foco em ${input.goal}.`,
       strongPoints: [
         {
           muscleGroup: 'peito',
@@ -887,11 +1136,11 @@ Se a imagem NÃO for avaliável, retorne:
       ],
       weakPoints: goalWeakPoints[input.goal],
       posturalObservations: [
-        'Manter retração escapular controlada em movimentos de empurrar e puxar.',
-        'Garantir alinhamento neutro da pelve e coluna lombar sob carga axial.',
+        'Manter depressão e retração escapular controlada nas poses de frente e costas.',
+        'Garantir alinhamento neutro da pelve e ativação isométrica de quadríceps durante as poses.',
       ],
       recommendedSplit:
-        'Upper / Lower (4x/semana) posicionando os pontos fracos como primeiros exercícios de cada sessão.',
+        'Upper / Lower (4x/semana) posicionando as sub-regiões deficitárias no início de cada sessão.',
       ...(comparisonWithPrevious ? { comparisonWithPrevious } : {}),
     };
   }

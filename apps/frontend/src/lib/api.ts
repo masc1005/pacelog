@@ -9,6 +9,8 @@ export const API_BASE_URL = isLocalhost
   ? `http://${isBrowser ? window.location.hostname : 'localhost'}:3333`
   : '';
 
+export const PHYSIQUE_API_TIMEOUT_MS = 60000;
+
 export class ApiError extends Error {
   constructor(
     public status: number,

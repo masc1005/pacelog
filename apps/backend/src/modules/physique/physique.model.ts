@@ -1,6 +1,7 @@
 import mongoose, { Schema, type Document } from 'mongoose';
 import {
   BIOLOGICAL_SEX_VALUES,
+  BODYBUILDING_POSES,
   MUSCLE_GROUPS,
   PHYSIQUE_ASSESSMENT_GOALS,
   PHYSIQUE_IMAGE_REJECTION_REASONS,
@@ -14,13 +15,22 @@ export interface IPhysiqueAssessmentDocument extends Document {
   heightCm: number;
   weightKg: number;
   goal: PhysiqueAssessmentGoal;
-  biologicalSex?: BiologicalSex;
-  age?: number;
+  biologicalSex: BiologicalSex;
+  age: number;
   result: PhysiqueAssessmentResult;
   modelUsed?: string;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const PoseBreakdownSubSchema = new Schema(
+  {
+    poseType: { type: String, enum: BODYBUILDING_POSES, required: true },
+    muscularAnalysis: { type: String, required: true },
+    posingExecutionTip: { type: String, required: true },
+  },
+  { _id: false }
+);
 
 const StrongPointSchema = new Schema(
   {
@@ -33,7 +43,9 @@ const StrongPointSchema = new Schema(
 const WeakPointSchema = new Schema(
   {
     muscleGroup: { type: String, enum: MUSCLE_GROUPS, required: true },
+    subRegion: { type: String, required: true },
     priority: { type: String, enum: ['high', 'medium'], required: true },
+    detectedInPoses: { type: [String], enum: BODYBUILDING_POSES, default: [] },
     technicalReason: { type: String, required: true },
     targetWeeklySets: { type: Number, required: true, min: 4, max: 30 },
     recommendedExerciseNames: { type: [String], required: true },
@@ -54,7 +66,7 @@ const ComparisonWithPreviousSubSchema = new Schema(
   {
     daysSinceLast: { type: Number, required: true, min: 0 },
     weightDeltaKg: { type: Number, required: true },
-    bodyFatDeltaNote: { type: String, required: true },
+    conditioningEvolutionNote: { type: String, required: true },
     weakPointsProgress: { type: String, required: true },
   },
   { _id: false }
@@ -82,8 +94,10 @@ const PhysiqueResultSubSchema = new Schema(
         min: { type: Number, required: true },
         max: { type: Number, required: true },
       },
-      waistToShoulderVisualRatio: { type: String, required: true },
+      vTaperVisualScore: { type: Number, required: true, min: 0, max: 100 },
+      overallSymmetryScore: { type: Number, required: true, min: 0, max: 100 },
     },
+    poseBreakdown: { type: [PoseBreakdownSubSchema], default: [] },
     physiqueSummary: { type: String, required: true },
     strongPoints: { type: [StrongPointSchema], default: [] },
     weakPoints: { type: [WeakPointSchema], default: [] },
@@ -97,15 +111,15 @@ const PhysiqueResultSubSchema = new Schema(
   { _id: false }
 );
 
-// ATENÇÃO: Nunca armazenar base64 ou buffers de imagens neste schema (processamento 100% efêmero)
+// ATENÇÃO: Nunca armazenar poses/base64 ou buffers de imagens neste schema (processamento 100% efêmero)
 const PhysiqueAssessmentSchema = new Schema<IPhysiqueAssessmentDocument>(
   {
     userId: { type: String, required: true, index: true },
     heightCm: { type: Number, required: true, min: 100, max: 250 },
     weightKg: { type: Number, required: true, min: 30, max: 300 },
     goal: { type: String, enum: PHYSIQUE_ASSESSMENT_GOALS, required: true },
-    biologicalSex: { type: String, enum: BIOLOGICAL_SEX_VALUES },
-    age: { type: Number, min: 14, max: 110 },
+    biologicalSex: { type: String, enum: BIOLOGICAL_SEX_VALUES, required: true },
+    age: { type: Number, required: true, min: 14, max: 110 },
     result: { type: PhysiqueResultSubSchema, required: true },
     modelUsed: { type: String },
   },

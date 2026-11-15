@@ -17,6 +17,7 @@ export const SENSITIVE_KEYS = [
   'email',
   'notes',
   'images',
+  'poses',
   'base64',
 ];
 

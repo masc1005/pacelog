@@ -45,11 +45,20 @@ describe('Sentry Data Scrubbing & PII Privacy Tests', () => {
     expect(clean.metrics[0].notes).toBe('[REDACTED]');
   });
 
-  it('deve mascarar campo images e base64 de avaliações físicas', () => {
+  it('deve mascarar campos poses, images e base64 de avaliações físicas', () => {
     const payload = {
       heightCm: 178,
       weightKg: 82,
-      goal: 'hypertrophy',
+      biologicalSex: 'male',
+      age: 28,
+      goal: 'classic_physique',
+      poses: [
+        {
+          poseType: 'front_double_biceps',
+          base64: '/9j/4AAQSkZJRgABAQAAAQABAAD/',
+          mimeType: 'image/jpeg',
+        },
+      ],
       images: [
         { angle: 'front', base64: '/9j/4AAQSkZJRgABAQAAAQABAAD/', mimeType: 'image/jpeg' },
       ],
@@ -58,7 +67,21 @@ describe('Sentry Data Scrubbing & PII Privacy Tests', () => {
     const clean = scrubSensitiveData(payload);
 
     expect(clean.heightCm).toBe(178);
+    expect(clean.poses).toBe('[REDACTED]');
     expect(clean.images).toBe('[REDACTED]');
+    expect(JSON.stringify(clean)).not.toContain('/9j/4AAQSkZJRg');
+  });
+
+  it('deve mascarar base64 mesmo quando aninhado em outro campo', () => {
+    const payload = {
+      nested: {
+        poseType: 'side_chest',
+        base64: 'SECRET_IMAGE_BYTES',
+      },
+    };
+
+    const clean = scrubSensitiveData(payload);
+    expect(clean.nested.base64).toBe('[REDACTED]');
   });
 
   it('deve lidar com valores primitivos, nulos ou indefinidos sem quebrar', () => {

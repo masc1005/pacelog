@@ -172,6 +172,8 @@ describe('Profile Module & Authorization Integration Tests', () => {
         userId: 'del-user',
         heightCm: 175,
         weightKg: 75,
+        biologicalSex: 'male',
+        age: 27,
         goal: 'hypertrophy',
         result: {
           imageQualityCheck: { isAssessable: true },
@@ -183,14 +185,24 @@ describe('Profile Module & Authorization Integration Tests', () => {
           anthropometryEstimate: {
             bmi: 24.5,
             estimatedBodyFatRange: { min: 14, max: 18 },
-            waistToShoulderVisualRatio: '1:1.4',
+            vTaperVisualScore: 76,
+            overallSymmetryScore: 78,
           },
+          poseBreakdown: [
+            {
+              poseType: 'front_double_biceps',
+              muscularAnalysis: 'Análise OK',
+              posingExecutionTip: 'Manter cotovelos altos',
+            },
+          ],
           physiqueSummary: 'Resumo',
           strongPoints: [],
           weakPoints: [
             {
               muscleGroup: 'ombros',
+              subRegion: 'Deltoide lateral',
               priority: 'high',
+              detectedInPoses: ['front_double_biceps'],
               technicalReason: 'Largura',
               targetWeeklySets: 14,
               recommendedExerciseNames: ['Elevação Lateral'],

@@ -1,4 +1,4 @@
-import { apiClient } from '../lib/api';
+import { apiClient, PHYSIQUE_API_TIMEOUT_MS } from '../lib/api';
 import type {
   CreatePhysiqueAssessmentInput,
   GeneratePhysiquePlanInput,
@@ -6,14 +6,12 @@ import type {
   StrengthRoutineDTO,
 } from '@pacelog/shared';
 
-const PHYSIQUE_TIMEOUT_MS = 60000;
-
 export const physiqueApi = {
   assess: (input: CreatePhysiqueAssessmentInput) =>
     apiClient<PhysiqueAssessmentDTO>('/api/physique/assess', {
       method: 'POST',
       body: JSON.stringify(input),
-      timeoutMs: PHYSIQUE_TIMEOUT_MS,
+      timeoutMs: PHYSIQUE_API_TIMEOUT_MS,
     }),
 
   list: () => apiClient<PhysiqueAssessmentDTO[]>('/api/physique'),
@@ -27,7 +25,7 @@ export const physiqueApi = {
       {
         method: 'POST',
         body: JSON.stringify(input),
-        timeoutMs: PHYSIQUE_TIMEOUT_MS,
+        timeoutMs: PHYSIQUE_API_TIMEOUT_MS,
       }
     ),
 };

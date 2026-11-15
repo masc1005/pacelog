@@ -96,14 +96,24 @@ describe('Export API', () => {
         anthropometryEstimate: {
           bmi: 24.3,
           estimatedBodyFatRange: { min: 13, max: 16 },
-          waistToShoulderVisualRatio: '1:1.45',
+          vTaperVisualScore: 78,
+          overallSymmetryScore: 81,
         },
+        poseBreakdown: [
+          {
+            poseType: 'front_double_biceps',
+            muscularAnalysis: 'Boa simetria de braços',
+            posingExecutionTip: 'Manter cotovelos na linha dos ombros',
+          },
+        ],
         physiqueSummary: 'Bom equilíbrio geral',
         strongPoints: [{ muscleGroup: 'peito', note: 'Densidade adequada' }],
         weakPoints: [
           {
             muscleGroup: 'ombros',
+            subRegion: 'Deltoide lateral',
             priority: 'high',
+            detectedInPoses: ['front_double_biceps'],
             technicalReason: 'Deltoide lateral subdesenvolvido',
             targetWeeklySets: 16,
             recommendedExerciseNames: ['Elevação Lateral (Halteres)'],

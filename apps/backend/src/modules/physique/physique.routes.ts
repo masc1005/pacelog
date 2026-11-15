@@ -17,10 +17,10 @@ export const physiqueRoutes = Router();
 // Todas as rotas exigem autenticação
 physiqueRoutes.use(requireAuth);
 
-// Aplica express.json({ limit: '8mb' }) exclusivamente na rota POST /physique/assess
+// Aplica express.json({ limit: '12mb' }) exclusivamente na rota POST /physique/assess
 physiqueRoutes.post(
   '/assess',
-  express.json({ limit: '8mb' }),
+  express.json({ limit: '12mb' }),
   validate(CreatePhysiqueAssessmentInputSchema),
   assessPhysiqueController
 );

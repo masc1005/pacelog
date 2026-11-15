@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SPORT_KEYS, type SportKey } from '@pacelog/shared';
+import { SPORT_KEYS, type BiologicalSex, type SportKey } from '@pacelog/shared';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Activity, Zap, Sun, Dumbbell, Flame, ChevronRight, Target, Waves, Bike, Shield } from 'lucide-react';
@@ -28,6 +28,8 @@ export const OnboardingPage: React.FC = () => {
   const [goalTitle, setGoalTitle] = useState('');
   const [goalTarget, setGoalTarget] = useState('');
   const [heightCm, setHeightCm] = useState('');
+  const [biologicalSex, setBiologicalSex] = useState<BiologicalSex | ''>('');
+  const [birthDate, setBirthDate] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const toggleSport = (key: SportKey) => {
@@ -39,11 +41,21 @@ export const OnboardingPage: React.FC = () => {
   const handleFinish = async () => {
     setIsLoading(true);
     try {
+      const profilePayload: Record<string, any> = {};
       const parsedHeight = Number(heightCm);
       if (heightCm && Number.isFinite(parsedHeight) && parsedHeight >= 100 && parsedHeight <= 250) {
+        profilePayload.heightCm = parsedHeight;
+      }
+      if (biologicalSex) {
+        profilePayload.biologicalSex = biologicalSex;
+      }
+      if (birthDate && /^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+        profilePayload.birthDate = birthDate;
+      }
+      if (Object.keys(profilePayload).length > 0) {
         await apiClient('/api/profile', {
           method: 'PUT',
-          body: JSON.stringify({ heightCm: parsedHeight }),
+          body: JSON.stringify(profilePayload),
         }).catch(() => {}); // Non-blocking
       }
       if (goalTitle && goalTarget) {
@@ -151,15 +163,15 @@ export const OnboardingPage: React.FC = () => {
           </div>
         )}
 
-        {/* STEP 2: Meta inicial */}
+        {/* STEP 2: Meta inicial & Biometria */}
         {step === 2 && (
           <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-right-4">
             <div className="text-center">
-              <h2 className="font-display text-2xl font-bold text-[#D4E4FA] uppercase">Meta Inicial</h2>
-              <p className="font-mono text-xs text-[#8F9380] mt-1 uppercase tracking-widest">Defina seu primeiro marco semanal (opcional)</p>
+              <h2 className="font-display text-2xl font-bold text-[#D4E4FA] uppercase">Meta & Biometria</h2>
+              <p className="font-mono text-xs text-[#8F9380] mt-1 uppercase tracking-widest">Defina seu marco semanal e perfil fisiológico (opcional)</p>
             </div>
             <Card className="p-6 bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-4">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-1">
                 <Target className="h-4 w-4 text-[#D4F684]" />
                 <span className="font-mono text-xs text-[#C5C8B4] uppercase tracking-widest">Exemplo: "4 treinos por semana"</span>
               </div>
@@ -197,6 +209,32 @@ export const OnboardingPage: React.FC = () => {
                     placeholder="178"
                     value={heightCm}
                     onChange={e => setHeightCm(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-[#1F2937]">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="onboarding-biological-sex" className="font-mono text-[10px] text-[#8F9380] uppercase tracking-widest">Sexo Biológico</label>
+                  <select
+                    id="onboarding-biological-sex"
+                    className="input-precision p-2 text-sm w-full"
+                    value={biologicalSex}
+                    onChange={e => setBiologicalSex(e.target.value as BiologicalSex | '')}
+                  >
+                    <option value="">Não informar</option>
+                    <option value="male">Masculino</option>
+                    <option value="female">Feminino</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="onboarding-birth-date" className="font-mono text-[10px] text-[#8F9380] uppercase tracking-widest">Nascimento</label>
+                  <input
+                    id="onboarding-birth-date"
+                    className="input-precision p-2 text-sm w-full"
+                    type="date"
+                    value={birthDate}
+                    onChange={e => setBirthDate(e.target.value)}
                   />
                 </div>
               </div>

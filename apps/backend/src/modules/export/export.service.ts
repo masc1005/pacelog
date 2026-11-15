@@ -191,7 +191,12 @@ export class ExportService {
         });
         if (exists) continue;
       }
-      const { images: _ignoredImages, _id: _ignoredId, ...cleanAssessment } = assessmentData;
+      const {
+        images: _ignoredImages,
+        poses: _ignoredPoses,
+        _id: _ignoredId,
+        ...cleanAssessment
+      } = assessmentData;
       await PhysiqueAssessmentModel.create({
         ...cleanAssessment,
         userId,

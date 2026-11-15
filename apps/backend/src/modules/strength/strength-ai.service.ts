@@ -38,6 +38,57 @@ const LOWER_BODY_MUSCLE_GROUPS = new Set([
   'panturrilhas',
 ]);
 
+function normalizeText(value: string): string {
+  return (value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+const SUBREGION_KEY_HINTS: Array<{ match: RegExp; keyTokens: string[] }> = [
+  { match: /clavicular|peitoral superior|feixe superior/, keyTokens: ['inclinado', 'polia_baixa'] },
+  { match: /peitoral inferior|declinado/, keyTokens: ['declinado', 'polia_alta', 'paralelas'] },
+  { match: /deltoide posterior|posterior do ombro/, keyTokens: ['invertido', 'face_pull'] },
+  { match: /deltoide lateral|acromial|caping|ombro lateral/, keyTokens: ['elevacao_lateral'] },
+  { match: /deltoide anterior/, keyTokens: ['desenvolvimento', 'frontal'] },
+  { match: /cabeca longa.*triceps|ferradura/, keyTokens: ['frances', 'testa'] },
+  { match: /largura.*dorsal|v-taper|insercao baixa/, keyTokens: ['puxada', 'barra_fixa', 'pulldown'] },
+  { match: /espessura|trapezio|romboide|miolo/, keyTokens: ['remada', 'encolhimento'] },
+  { match: /pico.*biceps|inclinada/, keyTokens: ['inclinada', 'concentrada', 'scott'] },
+  { match: /martelo|braquial|antebraco/, keyTokens: ['martelo', 'inversa'] },
+  { match: /vasto medial|reto femoral|distal/, keyTokens: ['extensora', 'frontal', 'agachamento'] },
+  { match: /soleo/, keyTokens: ['sentado'] },
+  { match: /gastrocnemio|em pe/, keyTokens: ['em_pe', 'leg_press'] },
+  { match: /vacuum|cintura|obliquo/, keyTokens: ['vacuum', 'infra', 'prancha_lateral'] },
+  { match: /infra.*abdom|linha media/, keyTokens: ['crunch', 'infra', 'ab_wheel'] },
+  { match: /biceps femoral|isquiotibiais|posterior/, keyTokens: ['stiff', 'rdl', 'mesa_flexora'] },
+];
+
+function scoreSubRegionMatch(exerciseKey: string, exerciseName: string, subRegion?: string): number {
+  if (!subRegion) return 0;
+  const subNorm = normalizeText(subRegion);
+  const targetNorm = `${normalizeText(exerciseKey)} ${normalizeText(exerciseName)}`;
+  let score = 0;
+
+  for (const hint of SUBREGION_KEY_HINTS) {
+    if (hint.match.test(subNorm)) {
+      for (const token of hint.keyTokens) {
+        if (targetNorm.includes(token)) {
+          score += 3;
+        }
+      }
+    }
+  }
+
+  for (const word of subNorm.split(/[\s,/()-]+/)) {
+    if (word.length >= 4 && targetNorm.includes(word)) {
+      score += 1;
+    }
+  }
+
+  return score;
+}
+
 const aiGeneratedWorkoutSchema = z.object({
   name: z.string().min(2).max(80),
   description: z.string().max(300),
@@ -385,8 +436,8 @@ Retorne APENAS um JSON válido com a estrutura:
   }
 
   /**
-   * Gera ou adapta fichas corretivas focadas nos pontos fracos identificados
-   * pela Avaliação Física por IA, respeitando os dias disponíveis de musculação
+   * Gera ou adapta fichas corretivas focadas nos pontos fracos (e sub-regiões anatômicas)
+   * identificados pela Avaliação Física por IA, respeitando os dias disponíveis de musculação
    * e a carga multiesportiva semanal (corrida, ciclismo, futevôlei, lutas, etc.).
    */
   async generatePhysiqueCorrectionPlan(
@@ -490,7 +541,7 @@ Retorne APENAS um JSON válido com a estrutura:
     const weakMusclesSet = new Set(sortedWeakPoints.map((w) => w.muscleGroup));
 
     const maxRoutines =
-      availableStrengthDays <= 2 ? Math.min(2, availableStrengthDays) : availableStrengthDays <= 4 ? 3 : 3;
+      availableStrengthDays <= 2 ? Math.min(2, availableStrengthDays) : 3;
 
     let planDraft: {
       summary: string;
@@ -532,7 +583,7 @@ Retorne APENAS um JSON válido com a estrutura:
       const weakPointsText = sortedWeakPoints
         .map(
           (w) =>
-            `- ${w.muscleGroup} (prioridade: ${w.priority}, meta semanal: ${w.targetWeeklySets} séries, motivo: ${w.technicalReason}, sugestões: ${w.recommendedExerciseNames.join(', ')})`
+            `- ${w.muscleGroup} (sub-região: ${w.subRegion}, prioridade: ${w.priority}, poses: ${(w.detectedInPoses || []).join(', ') || 'gerais'}, meta semanal: ${w.targetWeeklySets} séries, motivo: ${w.technicalReason}, sugestões: ${w.recommendedExerciseNames.join(', ')})`
         )
         .join('\n');
 
@@ -557,18 +608,19 @@ ${
 }`;
 
       const promptText = `Você é o IA Personal Trainer do Pacelog.
-Sua missão é ${mode === 'adapt_existing' ? 'adaptar as fichas do atleta ou criar' : 'criar'} de 1 a ${maxRoutines} fichas semanais corretivas para o atleta com base na Avaliação Física por IA.
+Sua missão é ${mode === 'adapt_existing' ? 'adaptar as fichas do atleta ou criar' : 'criar'} de 1 a ${maxRoutines} fichas semanais corretivas com base na Avaliação Física de Poses por IA.
 
 REGRAS OBRIGATÓRIAS:
-- Posicione os exercícios dos PONTOS FRACOS (prioridade high primeiro) SEMPRE NO INÍCIO de cada ficha (primeiros índices), quando o atleta está com energia máxima.
+- Posicione os exercícios das SUB-REGIÕES DEFICITÁRIAS (prioridade high primeiro) SEMPRE NO INÍCIO de cada ficha (primeiros índices), quando o atleta está com energia máxima.
+- Cruze cada 'subRegion' (ex: peitoral superior -> supino inclinado; deltoide posterior -> crucifixo invertido / face pull; cabeça longa do tríceps -> tríceps francês / testa) com as chaves exatas do CATÁLOGO DISPONÍVEL.
 - Ajuste a quantidade de séries ('setsCount') e frequência nas fichas para atingir ou aproximar o 'targetWeeklySets' de cada ponto fraco respeitando os ${availableStrengthDays} dia(s)/semana disponíveis.
 - Use EXCLUSIVAMENTE chaves 'exerciseKey' do CATÁLOGO DISPONÍVEL abaixo.
-- Objetivo do atleta: ${assessment.goal}
+- Objetivo / Categoria do atleta: ${assessment.goal}
 - Divisão sugerida pela avaliação: ${assessment.result.recommendedSplit}
 
 ${multisportContext}
 
-PONTOS FRACOS IDENTIFICADOS:
+PONTOS FRACOS IDENTIFICADOS (COM SUB-REGIÃO):
 ${weakPointsText}
 
 CATÁLOGO DISPONÍVEL:
@@ -576,10 +628,10 @@ ${catalogListText}
 
 Retorne APENAS um JSON válido no formato:
 {
-  "summary": "Resumo curto explicando como as fichas priorizam os pontos fracos no início, os ${availableStrengthDays} dias disponíveis e proteção multiesportiva",
+  "summary": "Resumo curto explicando como as fichas priorizam as sub-regiões deficitárias no início, os ${availableStrengthDays} dias disponíveis e proteção multiesportiva",
   "routines": [
     {
-      "name": "Nome da ficha (ex: Correção A — Ombros & Dorsal)",
+      "name": "Nome da ficha (ex: Correção A — Peitoral Superior & Deltoides)",
       "description": "Descrição curta do foco corretivo",
       "exercises": [
         {
@@ -587,7 +639,7 @@ Retorne APENAS um JSON válido no formato:
           "setsCount": 4,
           "targetReps": 10,
           "restSeconds": 90,
-          "notes": "Foco técnico no ponto fraco"
+          "notes": "Foco na sub-região deficitária"
         }
       ]
     }
@@ -762,8 +814,8 @@ Retorne APENAS um JSON válido no formato:
     const upperWeak = weakPoints.filter((w) => !LOWER_BODY_MUSCLE_GROUPS.has(w.muscleGroup));
     const lowerWeak = weakPoints.filter((w) => LOWER_BODY_MUSCLE_GROUPS.has(w.muscleGroup));
 
-    const targetReps = goal === 'definition' ? 12 : goal === 'athletic' ? 8 : 10;
-    const restSeconds = goal === 'athletic' ? 120 : 90;
+    const targetReps = goal === 'definition' ? 12 : 10;
+    const restSeconds = goal === 'bodybuilding' || goal === 'classic_physique' ? 90 : 90;
 
     const buildExercisesForGroup = (
       groupPoints: PhysiqueAssessmentResult['weakPoints'],
@@ -788,13 +840,17 @@ Retorne APENAS um JSON válido no formato:
         const candidates = catalog
           .filter((c) => c.primaryMuscleGroup === wp.muscleGroup)
           .sort((a, b) => {
+            const aSub = scoreSubRegionMatch(a.key, a.name, wp.subRegion);
+            const bSub = scoreSubRegionMatch(b.key, b.name, wp.subRegion);
+            if (aSub !== bSub) return bSub - aSub;
+
             const aRec = wp.recommendedExerciseNames.some((n) =>
-              a.name.toLowerCase().includes(n.toLowerCase().split(' ')[0])
+              normalizeText(a.name).includes(normalizeText(n).split(' ')[0])
             )
               ? 1
               : 0;
             const bRec = wp.recommendedExerciseNames.some((n) =>
-              b.name.toLowerCase().includes(n.toLowerCase().split(' ')[0])
+              normalizeText(b.name).includes(normalizeText(n).split(' ')[0])
             )
               ? 1
               : 0;
@@ -837,7 +893,7 @@ Retorne APENAS um JSON válido no formato:
             setsCount: setsHere,
             targetReps,
             restSeconds,
-            notes: `Prioridade ${wp.priority === 'high' ? 'ALTA' : 'MÉDIA'} (${effectiveWeeklyTarget} séries/sem): ${wp.technicalReason.slice(0, 110)}`,
+            notes: `Foco ${wp.subRegion} (${wp.priority === 'high' ? 'ALTA' : 'MÉDIA'}, ${effectiveWeeklyTarget} séries/sem): ${wp.technicalReason.slice(0, 90)}`,
           });
         }
       }
@@ -857,39 +913,52 @@ Retorne APENAS um JSON válido no formato:
       }>;
     }> = [];
 
-    const freqPerSplit = context.availableStrengthDays >= 4 ? 2 : Math.max(1, Math.min(2, context.availableStrengthDays));
+    const freqPerSplit =
+      context.availableStrengthDays >= 4
+        ? 2
+        : Math.max(1, Math.min(2, context.availableStrengthDays));
 
     if (context.availableStrengthDays === 1) {
-      // 1 único dia: consolida em ficha única Full Body priorizando pontos fracos
       const allEx = buildExercisesForGroup(weakPoints, 1);
       routines.push({
         name: `Correção IA Full Body (${weakPoints.slice(0, 2).map((w) => w.muscleGroup).join('/')})`.slice(0, 80),
-        description: `Ficha única 1x/semana priorizando pontos fracos dentro da disponibilidade semanal.`,
+        description: `Ficha única 1x/semana priorizando sub-regiões deficitárias dentro da disponibilidade semanal.`,
         exercises: allEx.slice(0, 7),
       });
     } else if (upperWeak.length > 0 && lowerWeak.length > 0) {
       const upperEx = buildExercisesForGroup(upperWeak, freqPerSplit);
-      const lowerEx = buildExercisesForGroup(lowerWeak, context.limitLowerAndLumbarVolume ? 1 : freqPerSplit);
-      const upperRoutine = upperEx.length > 0 ? {
-        name: `Foco Pontos Fracos — Superiores (${upperWeak.map((w) => w.muscleGroup).join('/')})`.slice(0, 80),
-        description: `Ficha corretiva ajustada para ${context.availableStrengthDays} dias/sem com superiores deficitários no início.`,
-        exercises: upperEx.slice(0, 8),
-      } : null;
-      const lowerRoutine = lowerEx.length > 0 ? {
-        name: `Foco Pontos Fracos — Inferiores (${lowerWeak.map((w) => w.muscleGroup).join('/')})`.slice(0, 80),
-        description: context.limitLowerAndLumbarVolume
-          ? 'Ficha corretiva com volume moderado para preservar recuperação nos outros esportes.'
-          : 'Ficha corretiva com grupamentos deficitários inferiores no início da sessão.',
-        exercises: lowerEx.slice(0, 8),
-      } : null;
-      const topIsLower = weakPoints[0] && LOWER_BODY_MUSCLE_GROUPS.has(weakPoints[0].muscleGroup);
-      const ordered = topIsLower ? [lowerRoutine, upperRoutine] : [upperRoutine, lowerRoutine];
+      const lowerEx = buildExercisesForGroup(
+        lowerWeak,
+        context.limitLowerAndLumbarVolume ? 1 : freqPerSplit
+      );
+      const upperRoutine =
+        upperEx.length > 0
+          ? {
+              name: `Foco Pontos Fracos — Superiores (${upperWeak.map((w) => w.muscleGroup).join('/')})`.slice(0, 80),
+              description: `Ficha corretiva ajustada para ${context.availableStrengthDays} dias/sem com superiores deficitários no início.`,
+              exercises: upperEx.slice(0, 8),
+            }
+          : null;
+      const lowerRoutine =
+        lowerEx.length > 0
+          ? {
+              name: `Foco Pontos Fracos — Inferiores (${lowerWeak.map((w) => w.muscleGroup).join('/')})`.slice(0, 80),
+              description: context.limitLowerAndLumbarVolume
+                ? 'Ficha corretiva com volume moderado para preservar recuperação nos outros esportes.'
+                : 'Ficha corretiva com grupamentos deficitários inferiores no início da sessão.',
+              exercises: lowerEx.slice(0, 8),
+            }
+          : null;
+      const topIsLower =
+        weakPoints[0] && LOWER_BODY_MUSCLE_GROUPS.has(weakPoints[0].muscleGroup);
+      const ordered = topIsLower
+        ? [lowerRoutine, upperRoutine]
+        : [upperRoutine, lowerRoutine];
       for (const item of ordered) {
         if (item) routines.push(item);
       }
     } else {
       const allEx = buildExercisesForGroup(weakPoints, freqPerSplit);
-      // Completa com compostos superiores (ou gerais se sem restrição de impacto)
       if (allEx.length < 4) {
         const used = new Set(allEx.map((e) => e.exerciseKey));
         for (const c of catalog
@@ -897,7 +966,8 @@ Retorne APENAS um JSON válido no formato:
             (x) =>
               x.type === 'compound' &&
               !used.has(x.key) &&
-              (!context.limitLowerAndLumbarVolume || !LOWER_BODY_MUSCLE_GROUPS.has(x.primaryMuscleGroup))
+              (!context.limitLowerAndLumbarVolume ||
+                !LOWER_BODY_MUSCLE_GROUPS.has(x.primaryMuscleGroup))
           )
           .slice(0, 4 - allEx.length)) {
           allEx.push({
@@ -928,7 +998,7 @@ Retorne APENAS um JSON válido no formato:
       : '';
 
     return {
-      summary: `${actionVerb} ${routines.length} ficha(s) para ${context.availableStrengthDays} dia(s)/semana posicionando ${weakPoints.map((w) => w.muscleGroup).join(', ')} no início dos treinos.${multisportNote}`,
+      summary: `${actionVerb} ${routines.length} ficha(s) para ${context.availableStrengthDays} dia(s)/semana posicionando ${weakPoints.map((w) => w.subRegion || w.muscleGroup).join(', ')} no início dos treinos.${multisportNote}`,
       routines,
     };
   }

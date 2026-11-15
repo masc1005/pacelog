@@ -1,50 +1,79 @@
 import { z } from 'zod';
 import { MUSCLE_GROUPS } from '../exercises/exercise.enums.js';
 
-export const PHYSIQUE_PHOTO_ANGLES = ['front', 'back', 'side'] as const;
+export const BODYBUILDING_POSES = [
+  'front_double_biceps',
+  'side_chest',
+  'back_double_biceps',
+  'side_triceps',
+  'abs_and_thighs',
+] as const;
+
+export const BodybuildingPoseEnum = z.enum(BODYBUILDING_POSES);
+
 export const PHYSIQUE_IMAGE_MIME_TYPES = ['image/jpeg', 'image/webp'] as const;
+
 export const PHYSIQUE_ASSESSMENT_GOALS = [
   'hypertrophy',
   'definition',
   'recomposition',
-  'athletic',
+  'classic_physique',
+  'mens_physique',
+  'bodybuilding',
 ] as const;
+
 export const BIOLOGICAL_SEX_VALUES = ['male', 'female'] as const;
+
 export const PHYSIQUE_IMAGE_REJECTION_REASONS = [
   'clothing_obscured',
   'poor_lighting_or_blur',
   'bad_framing',
-  'no_person_detected',
+  'wrong_pose',
 ] as const;
+
 export const GENERATE_PHYSIQUE_PLAN_MODES = ['create_new', 'adapt_existing'] as const;
 
-export const PhysiqueImageInputSchema = z.object({
-  angle: z.enum(PHYSIQUE_PHOTO_ANGLES),
+export const PhysiquePoseInputSchema = z.object({
+  poseType: BodybuildingPoseEnum,
   base64: z.string().min(10, 'Imagem em base64 inválida'),
   mimeType: z.enum(PHYSIQUE_IMAGE_MIME_TYPES),
 });
 
-export const CreatePhysiqueAssessmentInputSchema = z.object({
-  images: z
-    .array(PhysiqueImageInputSchema)
-    .min(1, 'Envie pelo menos 1 foto para avaliação')
-    .max(3, 'Envie no máximo 3 fotos (frente, costas, perfil)'),
-  heightCm: z
-    .number()
-    .min(100, 'Altura mínima é 100 cm')
-    .max(250, 'Altura máxima é 250 cm'),
-  weightKg: z
-    .number()
-    .min(30, 'Peso mínimo é 30 kg')
-    .max(300, 'Peso máximo é 300 kg'),
-  goal: z.enum(PHYSIQUE_ASSESSMENT_GOALS),
-  biologicalSex: z.enum(BIOLOGICAL_SEX_VALUES).optional(),
-  birthDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de nascimento inválida (YYYY-MM-DD)')
-    .optional(),
-  age: z.number().int().min(14).max(110).optional(),
-});
+export const CreatePhysiqueAssessmentInputSchema = z
+  .object({
+    poses: z
+      .array(PhysiquePoseInputSchema)
+      .min(1, 'Envie pelo menos 1 pose para avaliação')
+      .max(5, 'Envie no máximo 5 poses oficiais de fisiculturismo'),
+    heightCm: z
+      .number()
+      .min(100, 'Altura mínima é 100 cm')
+      .max(250, 'Altura máxima é 250 cm'),
+    weightKg: z
+      .number()
+      .min(30, 'Peso mínimo é 30 kg')
+      .max(300, 'Peso máximo é 300 kg'),
+    biologicalSex: z.enum(BIOLOGICAL_SEX_VALUES),
+    age: z.number().int().min(14, 'Idade mínima é 14 anos').max(110, 'Idade máxima é 110 anos'),
+    birthDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de nascimento inválida (YYYY-MM-DD)')
+      .optional(),
+    goal: z.enum(PHYSIQUE_ASSESSMENT_GOALS),
+  })
+  .superRefine((data, ctx) => {
+    const seen = new Set<string>();
+    data.poses.forEach((p, idx) => {
+      if (seen.has(p.poseType)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['poses', idx, 'poseType'],
+          message: `Pose duplicada não permitida: ${p.poseType}`,
+        });
+      }
+      seen.add(p.poseType);
+    });
+  });
 
 export const PhysiqueImageQualityCheckSchema = z.object({
   isAssessable: z.boolean(),
@@ -55,7 +84,7 @@ export const PhysiqueImageQualityCheckSchema = z.object({
 export const PhysiqueComparisonWithPreviousSchema = z.object({
   daysSinceLast: z.number().int().min(0),
   weightDeltaKg: z.number(),
-  bodyFatDeltaNote: z.string().min(1),
+  conditioningEvolutionNote: z.string().min(1),
   weakPointsProgress: z.string().min(1),
 });
 
@@ -71,7 +100,14 @@ export const AnthropometryEstimateSchema = z.object({
     min: z.number().min(3).max(60),
     max: z.number().min(3).max(65),
   }),
-  waistToShoulderVisualRatio: z.string().min(1),
+  vTaperVisualScore: z.number().min(0).max(100),
+  overallSymmetryScore: z.number().min(0).max(100),
+});
+
+export const PhysiquePoseBreakdownItemSchema = z.object({
+  poseType: BodybuildingPoseEnum,
+  muscularAnalysis: z.string().min(1),
+  posingExecutionTip: z.string().min(1),
 });
 
 export const PhysiqueStrongPointSchema = z.object({
@@ -81,7 +117,9 @@ export const PhysiqueStrongPointSchema = z.object({
 
 export const PhysiqueWeakPointSchema = z.object({
   muscleGroup: z.enum(MUSCLE_GROUPS),
+  subRegion: z.string().min(1),
   priority: z.enum(['high', 'medium']),
+  detectedInPoses: z.array(BodybuildingPoseEnum).default([]),
   technicalReason: z.string().min(1),
   targetWeeklySets: z.number().int().min(4).max(30),
   recommendedExerciseNames: z.array(z.string().min(1)).min(1),
@@ -92,6 +130,7 @@ export const PhysiqueAssessmentResultSchema = z
     imageQualityCheck: PhysiqueImageQualityCheckSchema,
     spatialCalibration: SpatialCalibrationSchema,
     anthropometryEstimate: AnthropometryEstimateSchema,
+    poseBreakdown: z.array(PhysiquePoseBreakdownItemSchema).default([]),
     physiqueSummary: z.string().min(1),
     strongPoints: z.array(PhysiqueStrongPointSchema).default([]),
     weakPoints: z.array(PhysiqueWeakPointSchema).default([]),

@@ -1,36 +1,48 @@
 import type { MuscleGroup } from '../exercises/exercise.enums.js';
 
-export type PhysiquePhotoAngle = 'front' | 'back' | 'side';
+export type BodybuildingPose =
+  | 'front_double_biceps'
+  | 'side_chest'
+  | 'back_double_biceps'
+  | 'side_triceps'
+  | 'abs_and_thighs';
+
 export type PhysiqueImageMimeType = 'image/jpeg' | 'image/webp';
+
 export type PhysiqueAssessmentGoal =
   | 'hypertrophy'
   | 'definition'
   | 'recomposition'
-  | 'athletic';
+  | 'classic_physique'
+  | 'mens_physique'
+  | 'bodybuilding';
+
 export type CalibrationConfidence = 'high' | 'medium' | 'low';
 export type WeakPointPriority = 'high' | 'medium';
 export type BiologicalSex = 'male' | 'female';
+
 export type PhysiqueImageRejectionReason =
   | 'clothing_obscured'
   | 'poor_lighting_or_blur'
   | 'bad_framing'
-  | 'no_person_detected';
+  | 'wrong_pose';
+
 export type GeneratePhysiquePlanMode = 'create_new' | 'adapt_existing';
 
-export interface PhysiqueImageInput {
-  angle: PhysiquePhotoAngle;
+export interface PhysiquePoseInput {
+  poseType: BodybuildingPose;
   base64: string;
   mimeType: PhysiqueImageMimeType;
 }
 
 export interface CreatePhysiqueAssessmentInput {
-  images: PhysiqueImageInput[];
+  poses: PhysiquePoseInput[];
   heightCm: number;
   weightKg: number;
-  goal: PhysiqueAssessmentGoal;
-  biologicalSex?: BiologicalSex;
+  biologicalSex: BiologicalSex;
+  age: number;
   birthDate?: string;
-  age?: number;
+  goal: PhysiqueAssessmentGoal;
 }
 
 export interface PhysiqueImageQualityCheck {
@@ -42,7 +54,7 @@ export interface PhysiqueImageQualityCheck {
 export interface PhysiqueComparisonWithPrevious {
   daysSinceLast: number;
   weightDeltaKg: number;
-  bodyFatDeltaNote: string;
+  conditioningEvolutionNote: string;
   weakPointsProgress: string;
 }
 
@@ -58,7 +70,14 @@ export interface AnthropometryEstimate {
     min: number;
     max: number;
   };
-  waistToShoulderVisualRatio: string;
+  vTaperVisualScore: number;
+  overallSymmetryScore: number;
+}
+
+export interface PhysiquePoseBreakdownItem {
+  poseType: BodybuildingPose;
+  muscularAnalysis: string;
+  posingExecutionTip: string;
 }
 
 export interface PhysiqueStrongPoint {
@@ -68,7 +87,9 @@ export interface PhysiqueStrongPoint {
 
 export interface PhysiqueWeakPoint {
   muscleGroup: MuscleGroup;
+  subRegion: string;
   priority: WeakPointPriority;
+  detectedInPoses: BodybuildingPose[];
   technicalReason: string;
   targetWeeklySets: number;
   recommendedExerciseNames: string[];
@@ -78,6 +99,7 @@ export interface PhysiqueAssessmentResult {
   imageQualityCheck: PhysiqueImageQualityCheck;
   spatialCalibration: SpatialCalibration;
   anthropometryEstimate: AnthropometryEstimate;
+  poseBreakdown: PhysiquePoseBreakdownItem[];
   physiqueSummary: string;
   strongPoints: PhysiqueStrongPoint[];
   weakPoints: PhysiqueWeakPoint[];
@@ -92,8 +114,8 @@ export interface PhysiqueAssessmentDTO {
   heightCm: number;
   weightKg: number;
   goal: PhysiqueAssessmentGoal;
-  biologicalSex?: BiologicalSex;
-  age?: number;
+  biologicalSex: BiologicalSex;
+  age: number;
   result: PhysiqueAssessmentResult;
   modelUsed?: string;
   createdAt: string;
