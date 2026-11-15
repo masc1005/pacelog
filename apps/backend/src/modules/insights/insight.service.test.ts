@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { z } from 'zod';
 
-import { getValidGeminiModel, aiProgressInsightSchema } from './insight.service.js';
+import {
+  getValidGeminiModel,
+  PRIMARY_GEMINI_MODEL,
+  aiProgressInsightSchema,
+} from './insight.service.js';
 
 describe('AI Insight Zod Schema', () => {
   it('should accept valid JSON payload with string values', () => {
@@ -61,17 +64,16 @@ describe('AI Insight Zod Schema', () => {
 });
 
 describe('getValidGeminiModel', () => {
-  it('should map invalid or hallucinated model aliases to gemini-flash-latest', () => {
-    expect(getValidGeminiModel('gemini-3.5-flash')).toBe('gemini-flash-latest');
-    expect(getValidGeminiModel('gemini-3-flash')).toBe('gemini-flash-latest');
-    expect(getValidGeminiModel(undefined)).toBe('gemini-flash-latest');
-    expect(getValidGeminiModel('')).toBe('gemini-flash-latest');
+  it('should fall back to PRIMARY_GEMINI_MODEL when model is missing or blank', () => {
+    expect(getValidGeminiModel(undefined)).toBe(PRIMARY_GEMINI_MODEL);
+    expect(getValidGeminiModel('')).toBe(PRIMARY_GEMINI_MODEL);
+    expect(getValidGeminiModel('   ')).toBe(PRIMARY_GEMINI_MODEL);
   });
 
-  it('should preserve valid model names and latest alias', () => {
-    expect(getValidGeminiModel('gemini-flash-latest')).toBe('gemini-flash-latest');
+  it('should preserve and trim explicit model names', () => {
+    expect(getValidGeminiModel('  gemini-3.8-flash  ')).toBe('gemini-3.8-flash');
+    expect(getValidGeminiModel('gemini-3.5-flash-lite')).toBe('gemini-3.5-flash-lite');
     expect(getValidGeminiModel('gemini-2.5-flash')).toBe('gemini-2.5-flash');
-    expect(getValidGeminiModel('gemini-2.0-flash')).toBe('gemini-2.0-flash');
   });
 });
 
