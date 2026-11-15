@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Sparkles, Play, Bookmark, RefreshCw, Trash2, Clock, Target, X, ChevronRight } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
@@ -172,15 +173,17 @@ export const AIWorkoutBuilderCard: React.FC<AIWorkoutBuilderCardProps> = ({
         </span>
       </button>
 
-      {/* Modal / Bottom Sheet */}
-      {isOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="ai-builder-modal-title"
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4"
-          onClick={() => setIsOpen(false)}
-        >
+      {/* Modal / Bottom Sheet via Portal para ficar acima da BottomNav e Header */}
+      {isOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ai-builder-modal-title"
+            className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4"
+            onClick={() => setIsOpen(false)}
+          >
           <div
             onClick={(e) => e.stopPropagation()}
             className="w-full sm:max-w-lg max-h-[88dvh] flex flex-col bg-[#0D1C2D] border-t sm:border border-[#A855F7]/40 rounded-t-2xl sm:rounded-[6px] shadow-2xl overflow-hidden"
@@ -207,7 +210,7 @@ export const AIWorkoutBuilderCard: React.FC<AIWorkoutBuilderCardProps> = ({
             </div>
 
             {/* Conteúdo rolável */}
-            <div className="p-4 overflow-y-auto flex flex-col gap-4">
+            <div className="p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] overflow-y-auto flex flex-col gap-4">
               {/* Atalhos rápidos de divisão */}
               <div className="flex flex-col gap-1.5">
                 <span className="font-mono text-[10px] uppercase tracking-widest text-[#C5C8B4]">
@@ -481,8 +484,9 @@ export const AIWorkoutBuilderCard: React.FC<AIWorkoutBuilderCardProps> = ({
               )}
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
     </>
   );
 };

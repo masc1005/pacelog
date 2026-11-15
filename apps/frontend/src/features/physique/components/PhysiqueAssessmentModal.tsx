@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Camera,
   CheckCircle2,
@@ -279,8 +280,14 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
 
   const selectedCount = Object.values(photos).filter(Boolean).length;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-[#05080D]/85 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] bg-[#05080D]/85 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+    >
       <div className="w-full sm:max-w-2xl max-h-[92vh] bg-[#08090C] border border-[#1F2937] rounded-t-2xl sm:rounded-lg flex flex-col overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 bg-[#0D1C2D] border-b border-[#1F2937] shrink-0">
@@ -321,7 +328,7 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
+        <div className="flex-1 overflow-y-auto p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] flex flex-col gap-5">
           {viewMode === 'form' ? (
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               {/* Checklist obrigatório de enquadramento, vestimenta & privacidade */}
@@ -878,6 +885,7 @@ export const PhysiqueAssessmentModal: React.FC<PhysiqueAssessmentModalProps> = (
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

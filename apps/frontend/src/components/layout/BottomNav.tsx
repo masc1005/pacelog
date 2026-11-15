@@ -53,7 +53,7 @@ export const BottomNav: React.FC = () => {
     <>
       <nav
         aria-label="Navegação principal"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#051424]/95 backdrop-blur-md border-t border-[#1F2937] pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#051424]/95 backdrop-blur-md border-t border-[#1F2937] pb-[max(0.5rem,env(safe-area-inset-bottom))]"
       >
         <div className="flex items-stretch justify-between px-1 pt-1">
           {/* Lado esquerdo */}
