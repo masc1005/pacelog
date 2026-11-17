@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ActiveStrengthSession } from '@pacelog/shared';
 import { strengthApi } from '../../../services/strength.api';
+import { useAuth } from '../../../contexts/AuthContext';
 
 type SessionState = {
   session: ActiveStrengthSession | null;
@@ -11,14 +12,15 @@ type SessionState = {
 const RECOVERY_KEY = 'pacelog_strength_session_id';
 
 // Estado compartilhado em nível de módulo para sincronizar múltiplos consumidores
-// (ex.: ActiveStrengthSessionPage e ActiveStrengthFloatingBar no MainLayout)
+// (ex.: ActiveStrengthSessionPage, StrengthHomePage e ActiveStrengthFloatingBar no MainLayout)
 let sharedState: SessionState = {
   session: null,
   isLoading: true,
   error: null,
 };
+let activeUserId: string | null = null;
 let hasFetchedInitial = false;
-let fetchPromise: Promise<void> | null = null;
+let fetchPromise: Promise<ActiveStrengthSession | null> | null = null;
 const listeners = new Set<(state: SessionState) => void>();
 
 function notifyListeners() {
@@ -32,13 +34,56 @@ function updateSharedState(next: SessionState) {
   notifyListeners();
 }
 
+function persistRecoveryId(session: ActiveStrengthSession | null) {
+  try {
+    if (session) {
+      localStorage.setItem(RECOVERY_KEY, session.id);
+    } else {
+      localStorage.removeItem(RECOVERY_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
+async function fetchActiveSessionFromServer(): Promise<ActiveStrengthSession | null> {
+  if (fetchPromise) {
+    return fetchPromise;
+  }
+
+  fetchPromise = (async () => {
+    try {
+      const session = await strengthApi.getActiveSession();
+      hasFetchedInitial = true;
+      persistRecoveryId(session);
+      updateSharedState({ session, isLoading: false, error: null });
+      return session;
+    } catch {
+      hasFetchedInitial = true;
+      updateSharedState({
+        ...sharedState,
+        isLoading: false,
+        error: 'Não foi possível verificar a sessão ativa.',
+      });
+      return null;
+    } finally {
+      fetchPromise = null;
+    }
+  })();
+
+  return fetchPromise;
+}
+
 /**
  * Hook principal de gerenciamento da sessão ativa de musculação.
  * - Recupera sessão ao montar (verificando backend)
+ * - Reseta cache em memória caso o usuário autenticado mude (logout/login)
  * - Persiste id localmente para recuperação após reload
  * - Compartilha estado reativo entre todas as instâncias montadas
  */
 export function useActiveStrengthSession() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [state, setState] = useState<SessionState>(sharedState);
   const isMounted = useRef(true);
 
@@ -59,32 +104,23 @@ export function useActiveStrengthSession() {
     };
   }, []);
 
-  // Carrega sessão ativa do backend na primeira montagem
+  // Reseta estado compartilhado ao trocar/deslogar usuário e carrega sessão ativa na primeira montagem
   useEffect(() => {
-    if (hasFetchedInitial || fetchPromise) return;
-
-    fetchPromise = (async () => {
-      try {
-        const session = await strengthApi.getActiveSession();
-        hasFetchedInitial = true;
-        if (session) {
-          localStorage.setItem(RECOVERY_KEY, session.id);
-        } else {
-          localStorage.removeItem(RECOVERY_KEY);
-        }
-        updateSharedState({ session, isLoading: false, error: null });
-      } catch {
-        hasFetchedInitial = true;
-        updateSharedState({
-          ...sharedState,
-          isLoading: false,
-          error: 'Não foi possível verificar a sessão ativa.',
-        });
-      } finally {
-        fetchPromise = null;
+    if (activeUserId !== userId) {
+      activeUserId = userId;
+      hasFetchedInitial = false;
+      fetchPromise = null;
+      if (!userId) {
+        persistRecoveryId(null);
+        updateSharedState({ session: null, isLoading: false, error: null });
+        return;
       }
-    })();
-  }, []);
+      updateSharedState({ session: null, isLoading: true, error: null });
+    }
+
+    if (!userId || hasFetchedInitial || fetchPromise) return;
+    fetchActiveSessionFromServer();
+  }, [userId]);
 
   const setSession = useCallback(
     (
@@ -95,15 +131,21 @@ export function useActiveStrengthSession() {
     ) => {
       const newSession =
         typeof updater === 'function' ? updater(sharedState.session) : updater;
-      if (newSession) {
-        localStorage.setItem(RECOVERY_KEY, newSession.id);
-      } else {
-        localStorage.removeItem(RECOVERY_KEY);
-      }
+      hasFetchedInitial = true;
+      persistRecoveryId(newSession);
       updateSharedState({ session: newSession, isLoading: false, error: null });
     },
     []
   );
+
+  const refreshSession = useCallback(async (): Promise<ActiveStrengthSession | null> => {
+    if (!userId) {
+      persistRecoveryId(null);
+      updateSharedState({ session: null, isLoading: false, error: null });
+      return null;
+    }
+    return fetchActiveSessionFromServer();
+  }, [userId]);
 
   const clearError = useCallback(() => {
     updateSharedState({ ...sharedState, error: null });
@@ -114,6 +156,7 @@ export function useActiveStrengthSession() {
     isLoading: state.isLoading,
     error: state.error,
     setSession,
+    refreshSession,
     clearError,
   };
 }

@@ -32,6 +32,10 @@ import type {
   CompletedStrengthSession,
 } from '@pacelog/shared';
 
+function getFriendlyStartError(err: any, fallback: string): string {
+  return (err?.details as any)?.message || err?.message || fallback;
+}
+
 /**
  * Ponto de entrada do módulo de musculação.
  */
@@ -40,7 +44,7 @@ export const StrengthHomePage: React.FC = () => {
   const location = useLocation();
   const { success, error: toastError } = useToast();
   const { formatWeight, formatTime } = useSettings();
-  const { session, isLoading } = useActiveStrengthSession();
+  const { session, isLoading, setSession, refreshSession } = useActiveStrengthSession();
   const [customStartedAt, setCustomStartedAt] = useState<string>(() =>
     toLocalInputDateTime(new Date())
   );
@@ -52,6 +56,7 @@ export const StrengthHomePage: React.FC = () => {
   const [deletingRoutineId, setDeletingRoutineId] = useState<string | null>(null);
   const [expandedRoutineId, setExpandedRoutineId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [autoStartFailed, setAutoStartFailed] = useState(false);
   const [showPhysiqueModal, setShowPhysiqueModal] = useState(false);
   const startedRef = useRef(false);
 
@@ -61,6 +66,8 @@ export const StrengthHomePage: React.FC = () => {
   const passedRoutineId = state?.routineId;
 
   useEffect(() => {
+    refreshSession().catch(() => null);
+
     strengthApi
       .listRoutines()
       .then((data) => setRoutines(data || []))
@@ -74,7 +81,7 @@ export const StrengthHomePage: React.FC = () => {
         setRecentSessions(items.slice(0, 3));
       })
       .catch(() => setRecentSessions([]));
-  }, []);
+  }, [refreshSession]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -93,13 +100,25 @@ export const StrengthHomePage: React.FC = () => {
           startedAt: passedStartedAt,
           routineId: passedRoutineId,
         })
-        .then(() => navigate('/strength/active', { replace: true }))
-        .catch((err) => {
-          console.error('Erro ao auto-iniciar sessão de musculação:', err);
+        .then((created) => {
+          setSession(created);
           navigate('/strength/active', { replace: true });
+        })
+        .catch(async (err: any) => {
+          console.error('Erro ao auto-iniciar sessão de musculação:', err);
+          if (err?.code === 'STRENGTH_SESSION_ALREADY_ACTIVE') {
+            const active = await refreshSession();
+            if (active) {
+              navigate('/strength/active', { replace: true });
+              return;
+            }
+          }
+          setAutoStartFailed(true);
+          setIsStarting(false);
+          setError(getFriendlyStartError(err, 'Erro ao iniciar treino.'));
         });
     }
-  }, [isLoading, session, autoStart, passedStartedAt, passedRoutineId, navigate]);
+  }, [isLoading, session, autoStart, passedStartedAt, passedRoutineId, navigate, setSession, refreshSession]);
 
   const handleStart = async (routineId?: string) => {
     if (isStarting || startingRoutineId) return;
@@ -110,16 +129,25 @@ export const StrengthHomePage: React.FC = () => {
     }
     setError(null);
     try {
-      const isoDate = new Date(customStartedAt).toISOString();
-      await strengthApi.startSession({
+      const parsedDate = customStartedAt ? new Date(customStartedAt) : new Date();
+      const isoDate = (isNaN(parsedDate.getTime()) ? new Date() : parsedDate).toISOString();
+      const created = await strengthApi.startSession({
         operationId: randomUUID(),
         startedAt: isoDate,
         routineId,
       });
+      setSession(created);
       navigate('/strength/active', { replace: true });
     } catch (err: any) {
       console.error('Erro ao iniciar treino:', err);
-      setError(err?.message || 'Erro ao iniciar treino.');
+      if (err?.code === 'STRENGTH_SESSION_ALREADY_ACTIVE') {
+        const active = await refreshSession();
+        if (active) {
+          navigate('/strength/active', { replace: true });
+          return;
+        }
+      }
+      setError(getFriendlyStartError(err, 'Erro ao iniciar treino.'));
       setIsStarting(false);
       setStartingRoutineId(null);
     }
@@ -130,17 +158,26 @@ export const StrengthHomePage: React.FC = () => {
     setIsStarting(true);
     setError(null);
     try {
-      const isoDate = new Date(customStartedAt).toISOString();
-      await strengthApi.startSession({
+      const parsedDate = customStartedAt ? new Date(customStartedAt) : new Date();
+      const isoDate = (isNaN(parsedDate.getTime()) ? new Date() : parsedDate).toISOString();
+      const created = await strengthApi.startSession({
         operationId: randomUUID(),
         startedAt: isoDate,
         notes: `IA Personal: ${workout.name}`,
         exercises: workout.exercises,
       });
+      setSession(created);
       navigate('/strength/active', { replace: true });
     } catch (err: any) {
       console.error('Erro ao iniciar treino gerado pela IA:', err);
-      setError(err?.message || 'Erro ao iniciar treino gerado pela IA.');
+      if (err?.code === 'STRENGTH_SESSION_ALREADY_ACTIVE') {
+        const active = await refreshSession();
+        if (active) {
+          navigate('/strength/active', { replace: true });
+          return;
+        }
+      }
+      setError(getFriendlyStartError(err, 'Erro ao iniciar treino gerado pela IA.'));
       setIsStarting(false);
     }
   };
@@ -159,7 +196,7 @@ export const StrengthHomePage: React.FC = () => {
     }
   };
 
-  if (isLoading || (autoStart && passedStartedAt)) {
+  if (isLoading || (autoStart && passedStartedAt && !autoStartFailed)) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]" aria-busy="true">
         <p className="font-mono text-sm text-[#8F9380] animate-pulse uppercase tracking-widest">

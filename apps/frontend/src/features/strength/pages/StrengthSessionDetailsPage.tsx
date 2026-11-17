@@ -4,6 +4,7 @@ import { strengthApi } from '../../../services/strength.api';
 import { apiClient } from '../../../lib/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useSettings } from '../../../hooks/useSettings';
+import { useActiveStrengthSession } from '../hooks/useActiveStrengthSession';
 import { formatDuration } from '../hooks/useSessionTimer';
 import { StrengthInsightCard } from '../components/StrengthInsightCard';
 import { Button } from '../../../components/ui/Button';
@@ -17,6 +18,7 @@ export const StrengthSessionDetailsPage: React.FC = () => {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
   const { formatWeight, formatTime } = useSettings();
+  const { setSession: setActiveSession, refreshSession } = useActiveStrengthSession();
   const [session, setSession] = useState<CompletedStrengthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -141,16 +143,25 @@ export const StrengthSessionDetailsPage: React.FC = () => {
         name: `Treino de ${new Date(session.startedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`,
         sessionId: id,
       });
-      await strengthApi.startSession({
+      const created = await strengthApi.startSession({
         operationId: randomUUID(),
         startedAt: new Date().toISOString(),
         routineId: tempRoutine.id,
       });
       // Remove a ficha temporária para não poluir a lista do usuário
       await strengthApi.deleteRoutine(tempRoutine.id).catch(() => {});
+      setActiveSession(created);
       navigate('/strength/active');
     } catch (err: any) {
-      toastError(err?.message || 'Não foi possível iniciar o treino (verifique se já há um treino em andamento).');
+      if (err?.code === 'STRENGTH_SESSION_ALREADY_ACTIVE') {
+        const active = await refreshSession().catch(() => null);
+        if (active) {
+          toastError('Você já tem um treino de musculação em andamento.');
+          setIsRepeatingWorkout(false);
+          return;
+        }
+      }
+      toastError((err?.details as any)?.message || err?.message || 'Não foi possível iniciar o treino (verifique se já há um treino em andamento).');
       setIsRepeatingWorkout(false);
     }
   };
