@@ -683,7 +683,7 @@ export const upsertDailyReadinessSchema = z.object({
   focusLevel: z.number().int().min(1).max(5).default(3),
   bodyWeightKg: z.number().positive().max(350).optional(),
   weightKg: z.number().positive().max(350).optional(),
-  soreRegions: z.array(z.string().min(1).max(40)).max(12).optional(),
+  soreRegions: z.array(z.string().min(1).max(40)).max(20).optional(),
   notes: z.string().max(300).optional(),
 });
 export type UpsertDailyReadinessInput = z.infer<typeof upsertDailyReadinessSchema>;

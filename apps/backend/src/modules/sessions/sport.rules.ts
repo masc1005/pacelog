@@ -8,13 +8,13 @@ import type {
 import { enrichSwimmingMetrics } from './swimming.rules.js';
 
 export const SPORT_MUSCLE_IMPACT: Record<string, string[]> = {
-  running: ['quadriceps', 'posteriores', 'panturrilhas', 'joelhos'],
-  futevolei: ['quadriceps', 'posteriores', 'panturrilhas', 'joelhos', 'core'],
-  football: ['quadriceps', 'posteriores', 'panturrilhas', 'joelhos'],
-  cycling: ['quadriceps', 'posteriores', 'panturrilhas'],
-  boxing: ['ombros', 'costas', 'antebracos', 'pegada', 'core'],
-  jiujitsu: ['ombros', 'costas', 'antebracos', 'pegada', 'core'],
-  swimming: ['ombros', 'costas', 'peito', 'core'],
+  running: ['quadriceps', 'posteriores', 'gluteos', 'panturrilhas', 'joelhos', 'tornozelos', 'quadris'],
+  futevolei: ['quadriceps', 'posteriores', 'gluteos', 'panturrilhas', 'joelhos', 'tornozelos', 'quadris', 'core', 'lombar'],
+  football: ['quadriceps', 'posteriores', 'gluteos', 'panturrilhas', 'joelhos', 'tornozelos', 'quadris', 'core'],
+  cycling: ['quadriceps', 'posteriores', 'gluteos', 'panturrilhas', 'joelhos', 'quadris'],
+  boxing: ['ombros', 'costas', 'peito', 'triceps', 'antebracos', 'pegada', 'core', 'cotovelos', 'punhos'],
+  jiujitsu: ['ombros', 'costas', 'lombar', 'antebracos', 'pegada', 'core', 'quadris', 'joelhos', 'cotovelos', 'punhos'],
+  swimming: ['ombros', 'costas', 'peito', 'triceps', 'core', 'cotovelos'],
 };
 
 /**

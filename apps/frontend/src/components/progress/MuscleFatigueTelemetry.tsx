@@ -4,6 +4,7 @@ import { apiClient } from '../../lib/api';
 
 export type MuscleFatigueRegion = {
   region: string;
+  category?: 'muscle' | 'joint';
   fatigueScore: number;
   recoveryPercent: number;
   status: 'fresh' | 'recovering' | 'fatigued';
@@ -21,11 +22,17 @@ const statusColor = {
   fatigued: '#FF6B35',
 } as const;
 
+const JOINT_KEYS = new Set(['joelhos', 'quadris', 'tornozelos', 'cotovelos', 'punhos']);
+
 const labels: Record<string, string> = {
   quadriceps: 'Quadríceps',
-  posteriores: 'Posterior',
+  posteriores: 'Posteriores',
   panturrilhas: 'Panturrilhas',
   joelhos: 'Joelhos',
+  quadris: 'Quadris',
+  tornozelos: 'Tornozelos',
+  cotovelos: 'Cotovelos',
+  punhos: 'Punhos',
   ombros: 'Ombros',
   costas: 'Costas',
   lombar: 'Lombar',
@@ -51,45 +58,75 @@ export const MuscleFatigueTelemetry: React.FC<Props> = ({ compact = false, class
 
   if (regions.length === 0) return null;
 
+  const muscleRegions = regions.filter(
+    (r) => (r.category ?? (JOINT_KEYS.has(r.region) ? 'joint' : 'muscle')) === 'muscle'
+  );
+  const jointRegions = regions.filter(
+    (r) => (r.category ?? (JOINT_KEYS.has(r.region) ? 'joint' : 'muscle')) === 'joint'
+  );
+
+  const renderGrid = (items: MuscleFatigueRegion[]) => (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {items.map((region) => (
+        <div key={region.region} className="rounded bg-[#161C24] p-2">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="truncate font-mono text-[10px] text-[#C5C8B4]">
+              {labels[region.region] ?? region.region}
+            </span>
+            <span
+              className="shrink-0 font-mono text-[10px]"
+              style={{ color: statusColor[region.status] }}
+              title={`${region.recoveryPercent}% recuperado (fadiga: ${region.fatigueScore}%)`}
+            >
+              {region.recoveryPercent}% recup.
+            </span>
+          </div>
+          <div className="h-1 overflow-hidden rounded bg-[#1F2937]">
+            <div
+              className="h-full rounded"
+              style={{
+                width: `${region.recoveryPercent}%`,
+                backgroundColor: statusColor[region.status],
+              }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <section className={`rounded border border-[#1F2937] bg-[#0D1C2D] ${compact ? 'p-3' : 'p-5'} ${className}`}>
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-[#5CA9E6]" />
           <h2 className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#D4E4FA]">
-            Mapa de fadiga muscular
+            Mapa de fadiga muscular e articular
           </h2>
         </div>
         <span className="font-mono text-[9px] uppercase tracking-wider text-[#8F9380]">
           % Recuperação (72h)
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {regions.map((region) => (
-          <div key={region.region} className="rounded bg-[#161C24] p-2">
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="truncate font-mono text-[10px] text-[#C5C8B4]">
-                {labels[region.region] ?? region.region}
-              </span>
-              <span
-                className="shrink-0 font-mono text-[10px]"
-                style={{ color: statusColor[region.status] }}
-                title={`${region.recoveryPercent}% recuperado (fadiga: ${region.fatigueScore}%)`}
-              >
-                {region.recoveryPercent}% recup.
-              </span>
-            </div>
-            <div className="h-1 overflow-hidden rounded bg-[#1F2937]">
-              <div
-                className="h-full rounded"
-                style={{
-                  width: `${region.recoveryPercent}%`,
-                  backgroundColor: statusColor[region.status],
-                }}
-              />
-            </div>
+
+      <div className="flex flex-col gap-3">
+        {muscleRegions.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="font-mono text-[9px] uppercase tracking-widest text-[#8F9380]">
+              Grupos Musculares
+            </span>
+            {renderGrid(muscleRegions)}
           </div>
-        ))}
+        )}
+
+        {jointRegions.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="font-mono text-[9px] uppercase tracking-widest text-[#8F9380]">
+              Articulações
+            </span>
+            {renderGrid(jointRegions)}
+          </div>
+        )}
       </div>
     </section>
   );

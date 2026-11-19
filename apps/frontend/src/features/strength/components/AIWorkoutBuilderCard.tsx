@@ -32,7 +32,7 @@ const MUSCLE_PRESETS = [
 ];
 
 const QUICK_SPLITS = [
-  { label: 'Sugerir p/ Hoje', muscles: [] as string[], hint: 'IA analisa seu histórico recente' },
+  { label: 'Sugerir p/ Hoje', muscles: [] as string[], hint: 'IA analisa suas atividades dos últimos 7 dias' },
   { label: 'Push (Empurrar)', muscles: ['peito', 'ombros', 'triceps'], hint: 'Peito, Ombros e Tríceps' },
   { label: 'Pull (Puxar)', muscles: ['costas', 'biceps'], hint: 'Costas, Dorsal e Bíceps' },
   { label: 'Legs (Pernas)', muscles: ['quadriceps', 'posteriores', 'gluteos', 'panturrilhas'], hint: 'Inferiores completo' },
@@ -244,7 +244,7 @@ export const AIWorkoutBuilderCard: React.FC<AIWorkoutBuilderCardProps> = ({
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-[10px] uppercase tracking-widest text-[#C5C8B4]">
-                    Foco Muscular {selectedMuscles.length === 0 && '(Automático pelo histórico)'}
+                    Foco Muscular {selectedMuscles.length === 0 && '(Automático pelos últimos 7 dias)'}
                   </span>
                   {selectedMuscles.length > 0 && (
                     <button

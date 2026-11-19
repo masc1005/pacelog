@@ -57,12 +57,19 @@ const SORE_REGION_OPTIONS = [
   ['peito', 'Peito'],
   ['costas', 'Costas'],
   ['lombar', 'Lombar'],
+  ['biceps', 'Bíceps'],
+  ['triceps', 'Tríceps'],
+  ['antebracos', 'Antebraços'],
   ['quadriceps', 'Quadríceps'],
   ['posteriores', 'Posterior de coxa'],
-  ['joelhos', 'Joelhos'],
+  ['gluteos', 'Glúteos'],
   ['panturrilhas', 'Panturrilhas'],
   ['core', 'Core'],
-  ['antebracos', 'Antebraços'],
+  ['joelhos', 'Joelhos'],
+  ['quadris', 'Quadris'],
+  ['tornozelos', 'Tornozelos'],
+  ['cotovelos', 'Cotovelos'],
+  ['punhos', 'Punhos'],
 ] as const;
 
 interface DailyReadinessCardProps {
