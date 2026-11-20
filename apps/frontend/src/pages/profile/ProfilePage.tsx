@@ -21,6 +21,7 @@ import { apiClient } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 import type { UserProfile } from '../../types/user.types';
 import { PhysiqueAssessmentModal } from '../../features/physique/components/PhysiqueAssessmentModal';
+import { InjuryStatusCard } from '../../features/injuries/components/InjuryStatusCard';
 
 export const ProfilePage: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -113,6 +114,7 @@ export const ProfilePage: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6 font-sans max-w-2xl mx-auto w-full pb-24">
+      <InjuryStatusCard />
       <div className="flex items-center justify-between border-b border-[#1F2937] pb-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-[#D4E4FA] uppercase tracking-wide">

@@ -20,6 +20,7 @@ import type {
   DailyReadinessDTO,
   ReadinessStatus,
 } from '@pacelog/shared';
+import { InjuryTrackerModal } from '../../features/injuries/components/InjuryTrackerModal';
 
 const STATUS_META: Record<
   ReadinessStatus,
@@ -84,6 +85,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showInjury, setShowInjury] = useState(false);
 
   // Estado dos seletores rápidos (1 a 5)
   const [sleepQuality, setSleepQuality] = useState<number>(4);
@@ -299,6 +301,12 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
               <span className="font-display text-lg font-bold text-[#D4E4FA] mt-1">
                 {todayEntry.muscleRecovery}/5
               </span>
+              {todayEntry.muscleRecovery <= 2 && (
+                <button type="button" onClick={() => setShowInjury(true)}
+                  className="mt-2 text-left font-mono text-[9px] uppercase text-[#FF6B35]">
+                  Vincular dor localizada
+                </button>
+              )}
             </div>
 
             <div className="p-3 rounded bg-[#161C24] border border-[#1F2937] flex flex-col justify-between">
@@ -597,6 +605,7 @@ export const DailyReadinessCard: React.FC<DailyReadinessCardProps> = ({ compact 
         </form>
       )}
       </Card>
+      <InjuryTrackerModal open={showInjury} onClose={() => setShowInjury(false)} />
     </>
   );
 };

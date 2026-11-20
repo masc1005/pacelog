@@ -16,6 +16,12 @@ export * from './exercises/exercise.enums.js';
 export * from './exercises/exercise.types.js';
 
 // ==========================================
+// MÓDULO DE LESÕES E DORES
+// ==========================================
+export * from './injuries/injury.types.js';
+export * from './injuries/injury.schemas.js';
+
+// ==========================================
 // MÓDULO DE AVALIAÇÃO FÍSICA POR IA (PHYSIQUE)
 // ==========================================
 export * from './physique/physique.types.js';
@@ -356,6 +362,15 @@ export interface ProgressOverviewDTO {
   weeklySessionsCount: number;
   sportsBreakdown: SportSummaryStats[];
   recentPersonalRecords: PersonalRecordItem[];
+  injurySummary?: Array<{
+    id: string;
+    region: string;
+    side: 'left' | 'right' | 'bilateral' | 'center';
+    severity: number;
+    category: 'soreness_doms' | 'tendon_overload' | 'joint_discomfort' | 'strain_or_pull' | 'other';
+    status: 'active' | 'recovering';
+    updatedAt: Date | string;
+  }>;
 }
 
 // ==========================================

@@ -9,6 +9,7 @@ import { WeeklyScheduleModel } from '../schedule/schedule.model.js';
 import { DailyReadinessModel } from '../readiness/readiness.model.js';
 import { StrengthRoutineModel } from '../strength/strength-routine.model.js';
 import { ActiveStrengthSessionModel } from '../strength/strength-session.model.js';
+import { InjuryModel } from '../injuries/injury.model.js';
 import { progressService } from '../progress/progress.service.js';
 import { goalService } from '../goals/goal.service.js';
 import { scopedFilter } from '../../utils/scopedQuery.js';
@@ -53,6 +54,7 @@ export class ExportService {
       dailyReadiness,
       strengthRoutines,
       strengthSessions,
+      injuries,
     ] = await Promise.all([
       ProfileModel.findOne(scopedFilter(userId)).lean(),
       UserSettingsModel.findOne({ userId }).lean(),
@@ -65,6 +67,7 @@ export class ExportService {
       DailyReadinessModel.find({ userId }).sort({ dateKey: -1 }).lean(),
       StrengthRoutineModel.find({ userId }).lean(),
       ActiveStrengthSessionModel.find({ userId }).sort({ startedAt: -1 }).lean(),
+      InjuryModel.find(scopedFilter(userId)).sort({ updatedAt: -1 }).lean(),
     ]);
 
     return {
@@ -85,6 +88,7 @@ export class ExportService {
       dailyReadiness: dailyReadiness.map((dr: any) => ({ ...dr, _id: undefined, __v: undefined })),
       strengthRoutines: strengthRoutines.map((sr: any) => ({ ...sr, _id: undefined, __v: undefined })),
       strengthSessions: strengthSessions.map((ss: any) => ({ ...ss, _id: undefined, __v: undefined })),
+      injuries: injuries.map((injury: any) => ({ ...injury, _id: undefined, __v: undefined })),
     };
   }
 
@@ -107,6 +111,7 @@ export class ExportService {
         dailyReadiness?: any[] | null;
         strengthRoutines?: any[] | null;
         strengthSessions?: any[] | null;
+        injuries?: any[] | null;
       };
     }
   ) {
@@ -119,6 +124,7 @@ export class ExportService {
     const dailyReadiness = backupData.data.dailyReadiness || [];
     const strengthRoutines = backupData.data.strengthRoutines || [];
     const strengthSessions = backupData.data.strengthSessions || [];
+    const injuries = backupData.data.injuries || [];
     const { settings, profile, weeklySchedule } = backupData.data;
 
     let importedSessionsCount = 0;
@@ -137,6 +143,7 @@ export class ExportService {
         ...(dailyReadiness.length > 0 ? [DailyReadinessModel.deleteMany({ userId })] : []),
         ...(strengthRoutines.length > 0 ? [StrengthRoutineModel.deleteMany({ userId })] : []),
         ...(strengthSessions.length > 0 ? [ActiveStrengthSessionModel.deleteMany({ userId })] : []),
+        ...(injuries.length > 0 ? [InjuryModel.deleteMany(scopedFilter(userId))] : []),
       ]);
     }
 
@@ -324,6 +331,16 @@ export class ExportService {
         startedAt: new Date(ssData.startedAt),
         finishedAt: ssData.finishedAt ? new Date(ssData.finishedAt) : undefined,
       });
+    }
+
+    for (const injuryData of injuries) {
+      if (!injuryData.region || !injuryData.side || !injuryData.severity) continue;
+      const { _id: _injuryId, __v: _injuryVersion, id: _injuryLegacyId, ...cleanInjury } = injuryData;
+      await InjuryModel.findOneAndUpdate(
+        { userId, region: injuryData.region, side: injuryData.side, occurredAt: injuryData.occurredAt ? new Date(injuryData.occurredAt) : undefined },
+        { $set: { ...cleanInjury, userId } },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
     }
 
     return {

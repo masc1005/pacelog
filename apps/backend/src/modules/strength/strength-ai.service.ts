@@ -27,6 +27,8 @@ import type {
   PhysiqueAssessmentGoal,
   GeneratePhysiquePlanInput,
 } from '@pacelog/shared';
+import { InjuryModel } from '../injuries/injury.model.js';
+import { scopedFilter } from '../../utils/scopedQuery.js';
 
 const HIGH_IMPACT_LOWER_SPORTS = new Set([
   'running',
@@ -975,6 +977,7 @@ export class StrengthAIService {
       latestReadiness,
       userSettings,
       fatigueMap,
+      activeInjuries,
     ] = await Promise.all([
       ExerciseModel.find({
         isActive: true,
@@ -1003,6 +1006,10 @@ export class StrengthAIService {
         .lean()
         .catch(() => null),
       progressService.getMuscleFatigueMap(userId).catch(() => null),
+      InjuryModel.find(scopedFilter(userId, { status: { $in: ['active', 'recovering'] } }))
+        .sort({ severity: -1, updatedAt: -1 })
+        .lean()
+        .catch(() => []),
     ]);
 
     const catalog: CatalogExerciseItem[] =
@@ -1042,9 +1049,19 @@ export class StrengthAIService {
     // 3. Filtrar catálogo candidato e montar contexto completo das atividades dos últimos 7 dias
     const requestedMuscles = (input.muscleGroups || []).filter(Boolean);
     const requestedEquipment = (input.equipment || []).filter(Boolean);
-    const soreRegions = (input.soreRegions ?? latestReadiness?.soreRegions ?? []).map((region) =>
-      region.toLowerCase()
-    );
+    const injuryRegions = (activeInjuries as any[]).map((injury) => {
+      const region = String(injury.region).toLowerCase();
+      const highPriority =
+        injury.severity >= 5 ||
+        ['tendon_overload', 'joint_discomfort', 'strain_or_pull'].includes(injury.category);
+      return highPriority ? region : region;
+    });
+    const soreRegions = Array.from(new Set([
+      ...(input.soreRegions ?? latestReadiness?.soreRegions ?? []).map((region) =>
+        region.toLowerCase()
+      ),
+      ...injuryRegions,
+    ]));
 
     const sevenDayContext = buildSevenDayActivityContext({
       strengthSessions: recentStrengthSessions,
@@ -1144,6 +1161,8 @@ REGRAS OBRIGATÓRIAS:
 - Avalie o volume semanal acumulado por grupamento, o tempo de recuperação desde o último estímulo (24–72h) e o impacto cruzado dos outros esportes (ex.: corrida/futebol/futevôlei/ciclismo geram fadiga em quadríceps, posteriores, panturrilhas e joelhos; boxe/jiu-jitsu/natação exigem ombros, costas, pegada e core).
 - Se o atleta não especificou grupamentos musculares nem pedido livre, escolha uma divisão complementar lógica priorizando grupamentos recuperados e sub-estimulados na janela dos últimos 7 dias, evitando sobrecarregar musculaturas altamente exigidas nas últimas 24–48h.
 - Mesmo quando o atleta escolher grupamentos específicos, calibre o volume e a seleção de exercícios considerando a carga multiesportiva dos últimos 7 dias.
+- Lesões/dor ativa ou em recuperação consideradas: ${(activeInjuries as any[]).map((injury) => `${injury.region}/${injury.side} (${injury.category}, severidade ${injury.severity}/10)`).join('; ') || 'nenhuma'}.
+- Para severidade >= 5 ou categorias de tendão, articulação ou estiramento, evite carga direta e movimentos articulares na região afetada.
 - Nunca selecione exercícios cujo grupo primário ou secundário sobrecarregue as regiões protegidas por dor: ${soreRegions.join(', ') || 'nenhuma'}.
 
 PARÂMETROS DO ATLETA:

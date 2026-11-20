@@ -12,6 +12,7 @@ import { DailyReadinessModel } from '../readiness/readiness.model.js';
 import { StrengthRoutineModel } from '../strength/strength-routine.model.js';
 import { ActiveStrengthSessionModel } from '../strength/strength-session.model.js';
 import { ExerciseModel } from '../strength/exercise.model.js';
+import { InjuryModel } from '../injuries/injury.model.js';
 import { scopedFilter } from '../../utils/scopedQuery.js';
 import { HttpError } from '../../utils/httpError.js';
 import type { UpdateProfileInput, UpdateSportsInput, OnboardingInput } from './profile.schemas.js';
@@ -132,5 +133,6 @@ export async function deleteAccountAndData(userId: string): Promise<void> {
     StrengthRoutineModel.deleteMany({ userId }),
     ActiveStrengthSessionModel.deleteMany({ userId }),
     ExerciseModel.deleteMany({ ownerId: userId, isSystem: false }),
+    InjuryModel.deleteMany(scopedFilter(userId)),
   ]);
 }

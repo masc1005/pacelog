@@ -35,6 +35,7 @@ import type {
   WeeklyScheduleWorkoutItem,
   StrengthRoutineDTO,
 } from '@pacelog/shared';
+import { InjuryStatusCard } from '../../features/injuries/components/InjuryStatusCard';
 
 interface WeeklyScheduleCardProps {
   recentSessions?: any[];
@@ -436,6 +437,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
 
   return (
     <Card className="p-5 bg-[#0D1C2D] border-[#1F2937] flex flex-col gap-4">
+      <InjuryStatusCard compact={compact} />
       {/* Header do Cronograma */}
       <div className="flex items-center justify-between border-b border-[#1F2937] pb-3">
         <div className="flex items-center gap-2.5">
