@@ -2,6 +2,8 @@ import { SessionModel } from '../sessions/session.model.js';
 import { DailyReadinessModel } from '../readiness/readiness.model.js';
 import { ActiveStrengthSessionModel } from '../strength/strength-session.model.js';
 import { ExerciseModel } from '../strength/exercise.model.js';
+import { InjuryModel } from '../injuries/injury.model.js';
+import { scopedFilter } from '../../utils/scopedQuery.js';
 import { shouldRecommendDeload } from './fatigue.js';
 import { computeMuscleFatigueRegions, type MuscleFatigueRegionDTO } from './muscle-fatigue.js';
 import type {
@@ -856,6 +858,21 @@ export class ProgressService {
     }));
 
     const recentPersonalRecords = await this.getPersonalRecords(userId);
+    const recentInjuries = await InjuryModel.find(
+      scopedFilter(userId, { status: { $in: ['active', 'recovering'] } })
+    )
+      .sort({ updatedAt: -1 })
+      .limit(20)
+      .lean();
+    const injurySummary = recentInjuries.map((injury: any) => ({
+      id: injury._id.toString(),
+      region: injury.region,
+      side: injury.side,
+      severity: injury.severity,
+      category: injury.category,
+      status: injury.status,
+      updatedAt: injury.updatedAt,
+    }));
 
     return {
       acwr,
@@ -865,6 +882,7 @@ export class ProgressService {
       weeklySessionsCount,
       sportsBreakdown,
       recentPersonalRecords: recentPersonalRecords.slice(0, 4),
+      injurySummary,
     };
   }
 

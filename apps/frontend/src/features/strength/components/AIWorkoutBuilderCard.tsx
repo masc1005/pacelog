@@ -11,6 +11,7 @@ import type {
   StrengthRoutineDTO,
   StrengthWorkoutGoal,
 } from '@pacelog/shared';
+import { useInjuries } from '../../injuries/hooks/useInjuries';
 
 interface AIWorkoutBuilderCardProps {
   onStartGeneratedWorkout: (workout: GeneratedStrengthWorkoutDTO) => Promise<void>;
@@ -54,6 +55,7 @@ export const AIWorkoutBuilderCard: React.FC<AIWorkoutBuilderCardProps> = ({
   disabled = false,
 }) => {
   const { success, error: toastError } = useToast();
+  const { injuries } = useInjuries();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
   const [durationMinutes, setDurationMinutes] = useState<number>(45);
@@ -166,6 +168,11 @@ export const AIWorkoutBuilderCard: React.FC<AIWorkoutBuilderCardProps> = ({
           <Badge variant="green" size="sm" className="px-1.5 py-0 text-[9px] shrink-0">
             IA
           </Badge>
+          {injuries.some((item) => item.status === 'active' || item.status === 'recovering') && (
+            <Badge variant="amber" size="sm" className="px-1.5 py-0 text-[9px] shrink-0">
+              Dor considerada
+            </Badge>
+          )}
         </div>
         <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-[#A855F7] shrink-0">
           Configurar

@@ -22,6 +22,7 @@ import { settingsRoutes } from './modules/settings/settings.routes.js';
 import { scheduleRoutes } from './modules/schedule/schedule.routes.js';
 import { readinessRoutes } from './modules/readiness/readiness.routes.js';
 import { physiqueRoutes } from './modules/physique/physique.routes.js';
+import { injuryRoutes } from './modules/injuries/injury.routes.js';
 
 export const app = express();
 app.set('trust proxy', 1);
@@ -107,6 +108,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/schedule', scheduleRoutes);
 app.use('/api/readiness', readinessRoutes);
 app.use('/api/physique', physiqueRoutes);
+app.use('/api/injuries', injuryRoutes);
 
 // Health check e Keep-Alive para Render, Railway, Docker e monitoramento
 const healthHandler = (_req: express.Request, res: express.Response) => {

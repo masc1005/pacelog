@@ -31,6 +31,7 @@ import { SportProgressSummary } from '../../components/progress/SportProgressSum
 import { WeekNavigator } from '../../components/progress/WeekNavigator';
 import { MuscleFatigueTelemetry } from '../../components/progress/MuscleFatigueTelemetry';
 import { AIProgressInsight } from '../../components/ui/AIProgressInsight';
+import { InjuryStatusCard } from '../../features/injuries/components/InjuryStatusCard';
 
 // ==========================================
 // ABAS SEGMENTADAS DA PÁGINA
@@ -174,6 +175,7 @@ export const ProgressPage: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-4 font-sans max-w-4xl mx-auto w-full pb-24">
+      <InjuryStatusCard compact />
       {/* Header compacto + atalhos em linha */}
       <div className="flex items-center justify-between gap-3 border-b border-[#1F2937] pb-3">
         <h1 className="font-display text-xl sm:text-2xl font-bold text-[#D4E4FA] uppercase tracking-wide">

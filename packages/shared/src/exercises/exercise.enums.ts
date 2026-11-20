@@ -35,6 +35,19 @@ export const BODY_REGIONS = [
   'pegada',
   'cotovelos',
   'punhos',
+  'ombro',
+  'cotovelo',
+  'punho',
+  'quadril',
+  'joelho',
+  'tornozelo',
+  'panturrilha',
+  'posterior_de_coxa',
+  'quadriceps',
+  'peitoral',
+  'costas_dorsal',
+  'trapezio',
+  'cervical',
 ] as const;
 export type BodyRegion = (typeof BODY_REGIONS)[number];
 

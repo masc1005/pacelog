@@ -8,7 +8,10 @@ export type SyncOperationType =
   | 'delete_session'
   | 'create_goal'
   | 'update_settings'
-  | 'strength_finish_session';
+  | 'strength_finish_session'
+  | 'create_injury'
+  | 'update_injury'
+  | 'delete_injury';
 
 export type SyncStatus = 'pending' | 'syncing' | 'failed' | 'synced';
 
