@@ -14,6 +14,7 @@ import {
   ScanLine,
   Pencil,
   Check,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Link, useNavigate } from 'react-router-dom';
@@ -22,6 +23,7 @@ import { useToast } from '../../contexts/ToastContext';
 import type { UserProfile } from '../../types/user.types';
 import { PhysiqueAssessmentModal } from '../../features/physique/components/PhysiqueAssessmentModal';
 import { InjuryStatusCard } from '../../features/injuries/components/InjuryStatusCard';
+import { InjuryTrackerModal } from '../../features/injuries/components/InjuryTrackerModal';
 
 export const ProfilePage: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -40,6 +42,7 @@ export const ProfilePage: React.FC = () => {
   const [birthDateInput, setBirthDateInput] = useState('');
   const [isSavingBioContext, setIsSavingBioContext] = useState(false);
   const [showPhysiqueModal, setShowPhysiqueModal] = useState(false);
+  const [showInjuryModal, setShowInjuryModal] = useState(false);
 
   useEffect(() => {
     apiClient<{ profile: UserProfile }>('/api/profile')
@@ -115,6 +118,23 @@ export const ProfilePage: React.FC = () => {
   return (
     <div className="flex flex-col gap-6 font-sans max-w-2xl mx-auto w-full pb-24">
       <InjuryStatusCard />
+      <button
+        type="button"
+        onClick={() => setShowInjuryModal(true)}
+        className="flex items-center gap-3 rounded-lg border border-[#1F2937] bg-[#0D1C2D] p-4 text-left transition-colors hover:border-[#D4F684]/50"
+      >
+        <div className="flex h-9 w-9 items-center justify-center rounded-[4px] border border-[#FF6B35]/30 bg-[#FF6B35]/10 text-[#FF6B35]">
+          <AlertTriangle className="h-4 w-4" />
+        </div>
+        <div>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-[#D4F684]">
+            Injury tracker
+          </span>
+          <div className="text-sm font-bold text-[#D4E4FA]">
+            Registrar ou acompanhar dores
+          </div>
+        </div>
+      </button>
       <div className="flex items-center justify-between border-b border-[#1F2937] pb-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-[#D4E4FA] uppercase tracking-wide">
@@ -414,6 +434,10 @@ export const ProfilePage: React.FC = () => {
           setShowPhysiqueModal(false);
           navigate('/strength');
         }}
+      />
+      <InjuryTrackerModal
+        open={showInjuryModal}
+        onClose={() => setShowInjuryModal(false)}
       />
     </div>
   );
