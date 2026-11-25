@@ -3,6 +3,8 @@ import type {
   WeeklyScheduleDTO,
   UpdateWeeklyScheduleDayInput,
   UpdateWeeklyScheduleInput,
+  GenerateAIScheduleInput,
+  GeneratedWeeklyScheduleDTO,
 } from '@pacelog/shared';
 
 const BASE = '/api/schedule';
@@ -25,5 +27,11 @@ export const scheduleApi = {
   activateDeload: () =>
     apiClient<WeeklyScheduleDTO>(`${BASE}/deload`, {
       method: 'POST',
+    }),
+
+  generateWithAI: (input: GenerateAIScheduleInput) =>
+    apiClient<GeneratedWeeklyScheduleDTO>(`${BASE}/ai-generate`, {
+      method: 'POST',
+      body: JSON.stringify(input),
     }),
 };

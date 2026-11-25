@@ -15,6 +15,7 @@ import {
   Pencil,
   Check,
   AlertTriangle,
+  Wrench,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Link, useNavigate } from 'react-router-dom';
@@ -342,6 +343,27 @@ export const ProfilePage: React.FC = () => {
         </div>
         <ChevronRight className="w-4 h-4 text-[#A855F7] shrink-0" />
       </button>
+
+      {/* Atalho Tracker de Equipamentos */}
+      <Link
+        to="/gear"
+        className="w-full p-4 rounded-[4px] bg-[#0D1C2D] border border-[#D4F684]/40 hover:border-[#D4F684] flex items-center justify-between gap-3 text-left transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-[4px] bg-[#D4F684]/15 border border-[#D4F684]/40 flex items-center justify-center text-[#D4F684] shrink-0">
+            <Wrench className="h-5 w-5" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-display text-sm font-bold text-[#D4E4FA] uppercase">
+              Tracker de Equipamentos
+            </span>
+            <span className="font-mono text-[10px] text-[#8F9380]">
+              Tênis de corrida, luvas de boxe, kimonos e componentes de bike
+            </span>
+          </div>
+        </div>
+        <ChevronRight className="w-4 h-4 text-[#D4F684] shrink-0" />
+      </Link>
 
       <div className="grid grid-cols-1 gap-4">
         <h2 className="font-mono text-[10px] text-[#C5C8B4] uppercase tracking-widest mt-2">

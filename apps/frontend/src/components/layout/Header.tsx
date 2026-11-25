@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Gauge, User, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { Gauge, User, Settings, LogOut, ChevronDown, Wrench } from 'lucide-react';
 import { clsx } from 'clsx';
 import { SyncStatusIndicator } from '../../pwa/components/SyncStatusIndicator';
 
@@ -108,6 +108,15 @@ export const Header: React.FC<HeaderProps> = () => {
                   >
                     <User className="h-4 w-4 text-[#8F9380]" aria-hidden="true" />
                     Ver perfil
+                  </Link>
+                  <Link
+                    to="/gear"
+                    role="menuitem"
+                    onClick={() => setDropdownOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 text-sm font-mono text-[#D4E4FA] hover:bg-[#161C24] transition-colors"
+                  >
+                    <Wrench className="h-4 w-4 text-[#D4F684]" aria-hidden="true" />
+                    Equipamentos
                   </Link>
                   <Link
                     to="/settings"

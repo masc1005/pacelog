@@ -3,18 +3,21 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { Card } from '../../components/ui/Card';
-import { AICoachWidget } from '../../components/ui/AICoachWidget';
+import { AIProgressInsight } from '../../components/ui/AIProgressInsight';
+import { GearUsageSummary } from '../../components/gear/GearUsageSummary';
 import { LoadSummaryCard } from '../../components/progress/LoadSummaryCard';
 import { GoalHighlightCard } from '../../components/goals/GoalHighlightCard';
 import { WeeklyScheduleCard } from '../../components/schedule/WeeklyScheduleCard';
 import { DailyReadinessCard } from '../../components/readiness/DailyReadinessCard';
-import { ArrowRight, Calendar } from 'lucide-react';
+import { ArrowRight, Calendar, Wrench } from 'lucide-react';
 import {
   type SessionSummaryDTO,
   type ProgressSummaryDTO,
+  type Gear,
 } from '@pacelog/shared';
 import { formatDuration, SPORT_LABELS } from '../../lib/utils';
 import { apiClient } from '../../lib/api';
+import { gearApi } from '../../services/gear.api';
 
 export const HomePage: React.FC = () => {
   const { user } = useAuth();
@@ -23,19 +26,22 @@ export const HomePage: React.FC = () => {
   const [sessions, setSessions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [progressSummary, setProgressSummary] = useState<ProgressSummaryDTO | null>(null);
+  const [gearList, setGearList] = useState<Gear[]>([]);
 
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const [summaryData, sessionsData, progressData] = await Promise.all([
+        const [summaryData, sessionsData, progressData, gearData] = await Promise.all([
           apiClient<SessionSummaryDTO>('/api/sessions/summary?timeframe=week').catch(() => null),
           apiClient<any[]>('/api/sessions?limit=20').catch(() => []),
           apiClient<ProgressSummaryDTO>('/api/progress/summary?weekOffset=0').catch(() => null),
+          gearApi.getGear(false).catch(() => []),
         ]);
 
         if (summaryData) setSummary(summaryData);
         if (sessionsData && Array.isArray(sessionsData)) setSessions(sessionsData);
         if (progressData) setProgressSummary(progressData);
+        if (gearData && Array.isArray(gearData)) setGearList(gearData);
       } catch {
         // Silencioso em caso de inicialização offline
       } finally {
@@ -70,12 +76,20 @@ export const HomePage: React.FC = () => {
           <span className="w-1.5 h-1.5 bg-[#D4F684] rounded-full" />
           ATLETA // {user?.name || 'SESSÃO PRINCIPAL'}
         </span>
-        <Link
-          to="/schedule"
-          className="font-mono text-[10px] text-[#D4F684] hover:underline uppercase flex items-center gap-1"
-        >
-          <Calendar className="w-3 h-3" /> Agenda
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/gear"
+            className="font-mono text-[10px] text-[#5CA9E6] hover:underline uppercase flex items-center gap-1"
+          >
+            <Wrench className="w-3 h-3" /> Equipamentos
+          </Link>
+          <Link
+            to="/schedule"
+            className="font-mono text-[10px] text-[#D4F684] hover:underline uppercase flex items-center gap-1"
+          >
+            <Calendar className="w-3 h-3" /> Agenda
+          </Link>
+        </div>
       </div>
 
       {/* Prontidão e treino de hoje: decisões primárias da Home */}
@@ -104,7 +118,10 @@ export const HomePage: React.FC = () => {
           </div>
         </section>
       )}
-      <AICoachWidget compact />
+
+      {/* Insights de IA completos na tela principal + Resumo de Equipamentos */}
+      <AIProgressInsight defaultExpanded showHistoryLink />
+      <GearUsageSummary gearList={gearList} />
 
       <section className="flex flex-col gap-3">
         <div className="flex justify-between items-baseline">

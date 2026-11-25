@@ -3,6 +3,7 @@ import { weeklyScheduleService } from './schedule.service.js';
 import type {
   UpdateWeeklyScheduleDayInput,
   UpdateWeeklyScheduleInput,
+  GenerateAIScheduleInput,
 } from '@pacelog/shared';
 
 export async function getScheduleController(
@@ -66,6 +67,24 @@ export async function activateDeloadController(
   try {
     const schedule = await weeklyScheduleService.activateDeloadMode(req.userId!);
     res.status(200).json({ success: true, data: schedule.toJSON() });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function generateAIScheduleController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.userId!;
+    const input = req.body as GenerateAIScheduleInput;
+    const generated = await weeklyScheduleService.generateScheduleWithAI(userId, input);
+    res.status(200).json({
+      success: true,
+      data: generated,
+    });
   } catch (error) {
     next(error);
   }

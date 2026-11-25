@@ -4,12 +4,14 @@ import { validate } from '../../middleware/validate.js';
 import {
   updateWeeklyScheduleDaySchema,
   updateWeeklyScheduleSchema,
+  generateAIScheduleSchema,
 } from '@pacelog/shared';
 import {
   getScheduleController,
   updateScheduleDayController,
   updateFullScheduleController,
   activateDeloadController,
+  generateAIScheduleController,
 } from './schedule.controller.js';
 
 export const scheduleRoutes = Router();
@@ -25,6 +27,12 @@ scheduleRoutes.put(
 );
 
 scheduleRoutes.post('/deload', activateDeloadController);
+
+scheduleRoutes.post(
+  '/ai-generate',
+  validate(generateAIScheduleSchema),
+  generateAIScheduleController
+);
 
 scheduleRoutes.put(
   '/',

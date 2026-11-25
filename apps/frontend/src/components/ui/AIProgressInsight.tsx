@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card } from './Card';
-import { Sparkles, BrainCircuit, TrendingUp, RotateCw, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Sparkles,
+  BrainCircuit,
+  TrendingUp,
+  RotateCw,
+  ChevronDown,
+  ChevronUp,
+  ArrowRight,
+} from 'lucide-react';
 import { apiClient } from '../../lib/api';
 import { SPORT_LABELS } from '../../lib/utils';
 import type { AIInsightDTO } from '@pacelog/shared';
@@ -19,6 +28,11 @@ type AIProgressData = {
     description: string;
   }>;
 };
+
+interface AIProgressInsightProps {
+  defaultExpanded?: boolean;
+  showHistoryLink?: boolean;
+}
 
 function parseProgressInsight(content: string): AIProgressData | null {
   const source = content.trim();
@@ -82,12 +96,15 @@ function parseProgressInsight(content: string): AIProgressData | null {
   };
 }
 
-export const AIProgressInsight: React.FC = () => {
+export const AIProgressInsight: React.FC<AIProgressInsightProps> = ({
+  defaultExpanded = false,
+  showHistoryLink = false,
+}) => {
   const [data, setData] = useState<AIProgressData | null>(null);
   const [modelUsed, setModelUsed] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   const loadInsight = async (force = false) => {
     try {
@@ -141,7 +158,7 @@ export const AIProgressInsight: React.FC = () => {
       variant="watch"
       className="relative overflow-hidden bg-[#0D1C2D] border-[#5CA9E6]/30 rounded-xl p-0"
     >
-      {/* Banner recolhível de 1 linha */}
+      {/* Cabeçalho recolhível */}
       <div
         role="button"
         tabIndex={0}
@@ -157,11 +174,21 @@ export const AIProgressInsight: React.FC = () => {
       >
         <Sparkles className="h-4 w-4 shrink-0 text-[#5CA9E6]" />
         <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#5CA9E6] shrink-0">
-          IA
+          Insights IA
         </span>
-        <p className="font-sans text-xs text-[#D4E4FA] truncate flex-1 min-w-0">
+        <p className="font-sans text-xs font-semibold text-[#D4E4FA] truncate flex-1 min-w-0">
           {data.headline}
         </p>
+
+        {showHistoryLink && (
+          <Link
+            to="/progress/insights"
+            onClick={(e) => e.stopPropagation()}
+            className="hidden sm:inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-[#D4F684] hover:underline shrink-0"
+          >
+            Histórico <ArrowRight className="h-3 w-3" />
+          </Link>
+        )}
 
         <button
           type="button"
@@ -219,11 +246,24 @@ export const AIProgressInsight: React.FC = () => {
             </div>
           )}
 
-          {modelUsed && (
-            <div className="font-mono text-[9px] text-[#8F9380] uppercase tracking-wider">
-              Motor Gemini IA • {modelUsed}
-            </div>
-          )}
+          <div className="flex items-center justify-between gap-2 pt-1">
+            {modelUsed ? (
+              <div className="font-mono text-[9px] text-[#8F9380] uppercase tracking-wider">
+                Motor Gemini IA • {modelUsed}
+              </div>
+            ) : (
+              <div />
+            )}
+
+            {showHistoryLink && (
+              <Link
+                to="/progress/insights"
+                className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-[#D4F684] hover:underline"
+              >
+                Ver todos os insights <ArrowRight className="h-3 w-3" />
+              </Link>
+            )}
+          </div>
         </div>
       )}
     </Card>

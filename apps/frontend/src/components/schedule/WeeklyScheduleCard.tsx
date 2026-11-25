@@ -21,6 +21,7 @@ import {
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
+import { AIScheduleBuilderModal } from './AIScheduleBuilderModal';
 import { scheduleApi } from '../../services/schedule.api';
 import { strengthApi } from '../../services/strength.api';
 import { useToast } from '../../contexts/ToastContext';
@@ -454,6 +455,14 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Assistente IA para montar o cronograma semanal */}
+      <AIScheduleBuilderModal
+        onScheduleApplied={(updated) => {
+          setSchedule(updated);
+          setIsAddingWorkout(false);
+        }}
+      />
 
       {/* Barra dos 7 dias da semana */}
       <div className="grid grid-cols-7 gap-1.5">

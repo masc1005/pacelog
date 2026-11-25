@@ -649,6 +649,36 @@ export const updateWeeklyScheduleSchema = z.object({
 export type UpdateWeeklyScheduleInput = z.infer<typeof updateWeeklyScheduleSchema>;
 
 // ==========================================
+// GERADOR DE CRONOGRAMA SEMANAL COM IA
+// ==========================================
+
+export const aiScheduleActivityPreferenceSchema = z.object({
+  sportKey: z.enum(SPORT_KEYS),
+  sessionsPerWeek: z.number().int().min(1).max(14),
+  fixedWeekdays: z.array(z.number().int().min(0).max(6)).max(7).default([]),
+  targetDurationMinutes: z.number().int().min(10).max(360).optional(),
+  plannedTime: z.string().max(10).optional(),
+});
+export type AIScheduleActivityPreference = z.infer<typeof aiScheduleActivityPreferenceSchema>;
+
+export const generateAIScheduleSchema = z.object({
+  activities: z
+    .array(aiScheduleActivityPreferenceSchema)
+    .min(1, 'Selecione pelo menos uma atividade para a semana')
+    .max(12),
+  restWeekdays: z.array(z.number().int().min(0).max(6)).max(6).default([]),
+  allowDoubleSessions: z.boolean().default(true),
+  notes: z.string().max(300).optional(),
+});
+export type GenerateAIScheduleInput = z.infer<typeof generateAIScheduleSchema>;
+
+export interface GeneratedWeeklyScheduleDTO {
+  rationale: string;
+  modelUsed?: string;
+  days: WeeklyScheduleDayPlan[];
+}
+
+// ==========================================
 // MÓDULO DE CHECK-IN DIÁRIO DE PRONTIDÃO (DAILY READINESS)
 // ==========================================
 
