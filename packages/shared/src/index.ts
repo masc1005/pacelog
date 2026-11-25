@@ -134,6 +134,8 @@ export interface FutevoleiMetrics {
   serves?: number;
   partnerName?: string;
   courtType?: 'sand_beach' | 'sand_court';
+  /** Fundamentos e técnicas praticadas na sessão (ex: Shark Attack, Pingifongo, Recepção de Peito) */
+  techniquesFocus?: string[];
   notes?: string;
 }
 
@@ -145,6 +147,8 @@ export interface BoxingMetrics {
   punchesThrownEstimate?: number;
   sparring?: boolean;
   focusArea?: 'bag_work' | 'sparring' | 'pad_work' | 'technique' | 'conditioning';
+  /** Combinações, esquivas e fundamentos praticados na sessão */
+  techniquesFocus?: string[];
   /** Luvas vinculadas. null = nenhuma. */
   gearId?: string | null;
   notes?: string;
@@ -157,6 +161,7 @@ export interface LegacyStrengthSet {
   weightKg: number;
   rpe?: number;
   isWarmup?: boolean;
+  type?: 'working' | 'warmup' | 'prep' | 'drop' | 'failure' | 'amrap';
 }
 
 /** @deprecated Use StrengthExerciseEntry from strength/strength.types instead */
@@ -335,6 +340,22 @@ export interface WeeklyTrendPoint {
   sportVolume?: number; // km ou kg ou rounds
 }
 
+export interface TechniqueRepertoireStat {
+  name: string;
+  count: number;
+  lastPracticedAt: string;
+  daysSinceLastPractice: number;
+  isNeglected: boolean; // true se > 14 dias sem praticar
+}
+
+export interface TechniqueRepertoireSummary {
+  totalTaggedSessions: number;
+  uniqueTechniquesCount: number;
+  mostPracticed: TechniqueRepertoireStat[];
+  neglected: TechniqueRepertoireStat[];
+  allTechniques: TechniqueRepertoireStat[];
+}
+
 export interface SportProgressDTO {
   sportKey: SportKey;
   totalSessions: number;
@@ -342,6 +363,7 @@ export interface SportProgressDTO {
   totalSessionalLoad: number;
   weeklyTrend: WeeklyTrendPoint[];
   sportSpecificHighlights: Record<string, any>;
+  techniqueRepertoire?: TechniqueRepertoireSummary;
 }
 
 export interface PersonalRecordItem {

@@ -6,6 +6,7 @@ import { useToast } from '../../../contexts/ToastContext';
 import { useSettings } from '../../../hooks/useSettings';
 import { Bookmark, Check, Clock } from 'lucide-react';
 import { detectForgottenTimer } from '../utils/strengthOptimistic.utils';
+import { normalizePrimarySetType } from './SetRow';
 
 interface SessionSummaryProps {
   session: CompletedStrengthSession;
@@ -182,14 +183,34 @@ export const SessionSummary: React.FC<SessionSummaryProps> = ({
           const completedSets = exercise.sets.filter(
             (s) => s.status === 'completed'
           );
+          const warmupCount = completedSets.filter((s) => normalizePrimarySetType(s.type) === 'warmup').length;
+          const prepCount = completedSets.filter((s) => normalizePrimarySetType(s.type) === 'prep').length;
+          const workingCount = completedSets.filter((s) => normalizePrimarySetType(s.type) === 'working').length;
           return (
-            <div key={exercise.id} className="flex items-center justify-between p-4 bg-[#161C24] border border-[#1F2937] rounded-[4px]">
+            <div key={exercise.id} className="flex items-center justify-between p-4 bg-[#161C24] border border-[#1F2937] rounded-[4px] flex-wrap gap-2">
               <span className="font-display font-bold text-[#D4E4FA]">
                 {exercise.exerciseNameSnapshot}
               </span>
-              <span className="font-mono text-sm text-[#D4F684]">
-                {completedSets.length} séries
-              </span>
+              <div className="flex items-center gap-2 font-mono text-xs">
+                {warmupCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-[2px] bg-[#FFB800]/15 text-[#FFB800] border border-[#FFB800]/40 text-[10px]">
+                    {warmupCount} AQ
+                  </span>
+                )}
+                {prepCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-[2px] bg-[#5CA9E6]/15 text-[#5CA9E6] border border-[#5CA9E6]/40 text-[10px]">
+                    {prepCount} PR
+                  </span>
+                )}
+                {workingCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-[2px] bg-[#D4F684]/15 text-[#D4F684] border border-[#D4F684]/40 text-[10px]">
+                    {workingCount} VL
+                  </span>
+                )}
+                <span className="text-[#D4F684] font-bold">
+                  {completedSets.length} séries
+                </span>
+              </div>
             </div>
           );
         })}

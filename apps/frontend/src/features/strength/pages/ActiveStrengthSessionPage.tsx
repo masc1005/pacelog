@@ -15,7 +15,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { toLocalInputDateTime } from '../../../lib/utils';
 import { Clock } from 'lucide-react';
 import { detectForgottenTimer } from '../utils/strengthOptimistic.utils';
-import type { Exercise, StrengthSet, GeneratedStrengthWorkoutDTO } from '@pacelog/shared';
+import type { Exercise, StrengthSet, StrengthSetType, GeneratedStrengthWorkoutDTO } from '@pacelog/shared';
 
 export const ActiveStrengthSessionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -121,13 +121,13 @@ export const ActiveStrengthSessionPage: React.FC = () => {
     }
   }
 
-  async function handleAddSet(exerciseId: string) {
+  async function handleAddSet(exerciseId: string, setType: StrengthSetType = 'working') {
     const exercise = session?.exercises.find((e) => e.id === exerciseId);
     const lastSet = exercise?.sets.filter((s) => s.status === 'completed').at(-1);
 
     await mutations.addSet({
       exerciseId,
-      type: 'working',
+      type: setType,
       reps: lastSet?.reps,
       load: lastSet?.load,
       loadUnit: lastSet?.loadUnit ?? 'kg',

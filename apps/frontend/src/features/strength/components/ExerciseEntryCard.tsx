@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import type { StrengthExerciseEntry, StrengthSet } from '@pacelog/shared';
+import type { StrengthExerciseEntry, StrengthSet, StrengthSetType } from '@pacelog/shared';
 import { SetRow } from './SetRow';
 
 interface ExerciseEntryCardProps {
   exercise: StrengthExerciseEntry;
-  onAddSet: (exerciseId: string) => void;
+  onAddSet: (exerciseId: string, setType?: StrengthSetType) => void;
   onCompleteSet: (
     exerciseId: string,
     setId: string,
@@ -81,8 +81,8 @@ export const ExerciseEntryCard: React.FC<ExerciseEntryCardProps> = ({
 
       <div className="flex flex-col p-2 gap-1">
         {/* Linha de cabeçalho */}
-        <div className="grid grid-cols-[3rem_1fr_1fr_3rem] gap-2 px-2 py-1 mb-1 font-mono text-[10px] uppercase tracking-widest text-[#8F9380]" aria-hidden="true">
-          <span className="text-center">Série</span>
+        <div className="grid grid-cols-[4.5rem_1fr_1fr_3.5rem] gap-2 px-2 py-1 mb-1 font-mono text-[10px] uppercase tracking-widest text-[#8F9380]" aria-hidden="true">
+          <span className="text-center">Série / Tipo</span>
           <span className="text-center">Reps</span>
           <span className="text-center">Carga</span>
           <span></span>
@@ -103,14 +103,36 @@ export const ExerciseEntryCard: React.FC<ExerciseEntryCardProps> = ({
         ))}
       </div>
 
-      <div className="p-2 border-t border-[#1F2937]/50 bg-[#0D1C2D]">
-        <button
-          id={`btn-add-set-${exercise.id}`}
-          className="w-full py-2 font-mono text-xs uppercase font-bold tracking-widest text-[#C5C8B4] hover:text-[#D4E4FA] hover:bg-[#161C24] rounded-[2px] transition-colors"
-          onClick={() => onAddSet(exercise.id)}
-        >
-          + Adicionar série
-        </button>
+      <div className="p-2 border-t border-[#1F2937]/50 bg-[#0D1C2D] flex flex-col gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5">
+          <button
+            type="button"
+            id={`btn-add-warmup-set-${exercise.id}`}
+            className="py-1.5 px-2 font-mono text-[10px] uppercase font-bold tracking-wider text-[#FFB800] bg-[#FFB800]/10 border border-[#FFB800]/30 hover:bg-[#FFB800]/20 rounded-[3px] transition-colors"
+            onClick={() => onAddSet(exercise.id, 'warmup')}
+          >
+            + Aquecimento
+          </button>
+          <button
+            type="button"
+            id={`btn-add-prep-set-${exercise.id}`}
+            className="py-1.5 px-2 font-mono text-[10px] uppercase font-bold tracking-wider text-[#5CA9E6] bg-[#5CA9E6]/10 border border-[#5CA9E6]/30 hover:bg-[#5CA9E6]/20 rounded-[3px] transition-colors"
+            onClick={() => onAddSet(exercise.id, 'prep')}
+          >
+            + Preparação
+          </button>
+          <button
+            type="button"
+            id={`btn-add-set-${exercise.id}`}
+            className="py-1.5 px-2 font-mono text-[10px] uppercase font-bold tracking-wider text-[#D4F684] bg-[#D4F684]/10 border border-[#D4F684]/30 hover:bg-[#D4F684]/20 rounded-[3px] transition-colors"
+            onClick={() => onAddSet(exercise.id, 'working')}
+          >
+            + Válida
+          </button>
+        </div>
+        <p className="font-mono text-[9px] text-[#8F9380] text-center">
+          Dica: Toque na tag da série (<span className="text-[#FFB800]">AQ</span> • <span className="text-[#5CA9E6]">PR</span> • <span className="text-[#D4F684]">VL</span>) para alternar o tipo a qualquer momento
+        </p>
       </div>
     </div>
   );

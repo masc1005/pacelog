@@ -704,6 +704,7 @@ export class StrengthSessionService {
                 ? Math.round((s.load ?? 0) * 0.45359237 * 100) / 100
                 : (s.load ?? 0),
             rpe: s.rpe,
+            type: s.type ?? 'working',
             isWarmup: s.type === 'warmup',
           })),
       }));

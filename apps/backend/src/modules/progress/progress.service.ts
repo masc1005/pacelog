@@ -10,6 +10,8 @@ import type {
   SportKey,
   ProgressOverviewDTO,
   SportProgressDTO,
+  TechniqueRepertoireSummary,
+  TechniqueRepertoireStat,
   PersonalRecordItem,
   AcwrReadout,
   AcwrStatus,
@@ -79,6 +81,71 @@ function buildSportLabel(sportKey: SportKey): string {
     jiujitsu: 'Jiu-Jitsu',
   };
   return labels[sportKey] || sportKey;
+}
+
+function computeTechniqueRepertoire(
+  sessions: Array<{ startedAt: Date | string; metrics?: Record<string, any> }>,
+  nowMs: number = Date.now()
+): TechniqueRepertoireSummary | undefined {
+  const map = new Map<string, { displayName: string; count: number; lastMs: number }>();
+  let totalTaggedSessions = 0;
+
+  for (const s of sessions) {
+    const raw = s.metrics?.techniquesFocus;
+    const list: string[] = Array.isArray(raw)
+      ? raw.map((t) => String(t).trim()).filter(Boolean)
+      : typeof raw === 'string'
+        ? raw.split(',').map((t) => t.trim()).filter(Boolean)
+        : [];
+
+    if (list.length === 0) continue;
+    totalTaggedSessions += 1;
+    const sMs = new Date(s.startedAt).getTime();
+
+    const uniqueInSession = new Set<string>();
+    for (const tech of list) {
+      const key = tech.toLowerCase();
+      if (uniqueInSession.has(key)) continue;
+      uniqueInSession.add(key);
+
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, { displayName: tech, count: 1, lastMs: sMs });
+      } else {
+        existing.count += 1;
+        if (sMs >= existing.lastMs) {
+          existing.lastMs = sMs;
+          existing.displayName = tech;
+        }
+      }
+    }
+  }
+
+  const allTechniques: TechniqueRepertoireStat[] = Array.from(map.values())
+    .map((entry) => {
+      const daysSince = Math.max(0, Math.floor((nowMs - entry.lastMs) / (24 * 60 * 60 * 1000)));
+      return {
+        name: entry.displayName,
+        count: entry.count,
+        lastPracticedAt: new Date(entry.lastMs).toISOString(),
+        daysSinceLastPractice: daysSince,
+        isNeglected: daysSince >= 14,
+      };
+    })
+    .sort((a, b) => b.count - a.count || a.daysSinceLastPractice - b.daysSinceLastPractice);
+
+  const mostPracticed = allTechniques.slice(0, 6);
+  const neglected = allTechniques
+    .filter((t) => t.isNeglected)
+    .sort((a, b) => b.daysSinceLastPractice - a.daysSinceLastPractice);
+
+  return {
+    totalTaggedSessions,
+    uniqueTechniquesCount: allTechniques.length,
+    mostPracticed,
+    neglected,
+    allTechniques,
+  };
 }
 
 // ==========================================
@@ -896,13 +963,28 @@ export class ProgressService {
   ): Promise<SportProgressDTO> {
     const now = new Date();
     const startDate = new Date(now.getTime() - weeksCount * 7 * 24 * 60 * 60 * 1000);
+    const repertoireStartDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
 
-    const sessions = await SessionModel.find({
-      userId,
-      sportKey,
-      status: 'completed',
-      startedAt: { $gte: startDate },
-    }).sort({ startedAt: 1 }).exec();
+    const [sessions, repertoireSessions] = await Promise.all([
+      SessionModel.find({
+        userId,
+        sportKey,
+        status: 'completed',
+        startedAt: { $gte: startDate },
+      }).sort({ startedAt: 1 }).exec(),
+      ['jiujitsu', 'boxing', 'futevolei'].includes(sportKey)
+        ? SessionModel.find({
+            userId,
+            sportKey,
+            status: 'completed',
+            startedAt: { $gte: repertoireStartDate },
+          })
+            .select('startedAt metrics')
+            .sort({ startedAt: 1 })
+            .lean()
+            .exec()
+        : Promise.resolve([]),
+    ]);
 
     let totalSessions = 0;
     let totalDurationSeconds = 0;
@@ -992,7 +1074,19 @@ export class ProgressService {
       sportSpecificHighlights.totalAssists = sessions.reduce((acc, s) => acc + (s.metrics?.assists || 0), 0);
     }
 
-    return { sportKey, totalSessions, totalDurationSeconds, totalSessionalLoad, weeklyTrend, sportSpecificHighlights };
+    const techniqueRepertoire = ['jiujitsu', 'boxing', 'futevolei'].includes(sportKey)
+      ? computeTechniqueRepertoire(repertoireSessions as any[], now.getTime())
+      : undefined;
+
+    return {
+      sportKey,
+      totalSessions,
+      totalDurationSeconds,
+      totalSessionalLoad,
+      weeklyTrend,
+      sportSpecificHighlights,
+      ...(techniqueRepertoire ? { techniqueRepertoire } : {}),
+    };
   }
 
   /**

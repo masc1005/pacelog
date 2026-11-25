@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, AlertTriangle, AlertCircle, Info } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, AlertTriangle, AlertCircle, Info, BookOpen, Clock, CheckCircle2 } from 'lucide-react';
 import { apiClient } from '../../lib/api';
 import type { SportProgressDTO, SportProgressV2 } from '@pacelog/shared';
 import { SPORT_LABELS, formatDuration } from '../../lib/utils';
@@ -325,6 +325,137 @@ export const EvolutionBySportPage: React.FC = () => {
           <p className="font-mono text-[9px] text-[#4A5568] mt-3">
             Carga e volume são métricas de esportes diferentes — nunca somadas entre modalidades.
           </p>
+        </Card>
+      )}
+
+      {/* ==========================================
+          DIÁRIO TÉCNICO & REPERTÓRIO DE FUNDAMENTOS
+          (Jiu-Jitsu, Boxe, Futevôlei)
+      ========================================== */}
+      {sportKey && ['jiujitsu', 'boxing', 'futevolei'].includes(sportKey) && (
+        <Card className="p-6 border-[#1F2937] bg-[#0D1C2D] flex flex-col gap-5">
+          <div className="flex items-start justify-between flex-wrap gap-3 border-b border-[#1F2937] pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-[3px] bg-[#161C24] border border-[#1F2937] flex items-center justify-center">
+                <BookOpen className="h-4 w-4 text-[#D4F684]" />
+              </div>
+              <div>
+                <h2 className="font-display text-base font-bold text-[#D4E4FA] uppercase tracking-wide">
+                  Diário Técnico & Repertório de Fundamentos
+                </h2>
+                <p className="font-mono text-[10px] text-[#8F9380] uppercase">
+                  Frequência de prática e radar de fundamentos esquecidos (últimos 180 dias)
+                </p>
+              </div>
+            </div>
+
+            {data?.techniqueRepertoire && (
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] px-2.5 py-1 rounded-[3px] bg-[#161C24] border border-[#1F2937] text-[#C5C8B4]">
+                  <strong className="text-[#D4F684]">{data.techniqueRepertoire.uniqueTechniquesCount}</strong> fundamentos mapeados
+                </span>
+                <span className="font-mono text-[10px] px-2.5 py-1 rounded-[3px] bg-[#161C24] border border-[#1F2937] text-[#C5C8B4]">
+                  <strong className="text-[#5CA9E6]">{data.techniqueRepertoire.totalTaggedSessions}</strong> treinos com tags
+                </span>
+              </div>
+            )}
+          </div>
+
+          {!data?.techniqueRepertoire || data.techniqueRepertoire.uniqueTechniquesCount === 0 ? (
+            <div className="flex flex-col items-center justify-center p-6 bg-[#161C24] border border-dashed border-[#1F2937] rounded-[4px] gap-2 text-center">
+              <p className="font-mono text-xs text-[#C5C8B4] uppercase">
+                Nenhum fundamento registrado ainda em {sportName}
+              </p>
+              <p className="font-sans text-xs text-[#8F9380] max-w-md">
+                Ao registrar ou editar uma sessão de {sportName}, marque os chips dos fundamentos praticados no <strong className="text-[#D4F684]">Diário Técnico</strong> para acompanhar sua frequência e identificar posições negligenciadas.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Fundamentos Mais Afiados */}
+              <div className="flex flex-col gap-3 p-4 bg-[#161C24] border border-[#1F2937] rounded-[4px]">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-[#D4F684]" />
+                  <h3 className="font-mono text-[11px] font-bold text-[#D4F684] uppercase tracking-wider">
+                    Mais Praticados (Arsenal Principal)
+                  </h3>
+                </div>
+
+                <div className="flex flex-col gap-2.5">
+                  {data.techniqueRepertoire.mostPracticed.map((tech) => {
+                    const maxCount = Math.max(
+                      1,
+                      data.techniqueRepertoire?.mostPracticed[0]?.count || 1
+                    );
+                    const pct = Math.max(12, Math.round((tech.count / maxCount) * 100));
+                    return (
+                      <div key={tech.name} className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-sans font-medium text-[#D4E4FA] truncate">
+                            {tech.name}
+                          </span>
+                          <span className="font-mono text-[10px] text-[#8F9380]">
+                            <strong className="text-[#D4F684]">{tech.count}x</strong> •{' '}
+                            {tech.daysSinceLastPractice === 0
+                              ? 'hoje'
+                              : `há ${tech.daysSinceLastPractice}d`}
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-[#0D1C2D] rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-[#D4F684] rounded-full transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Fundamentos Negligenciados (> 14 dias sem praticar) */}
+              <div className="flex flex-col gap-3 p-4 bg-[#161C24] border border-[#1F2937] rounded-[4px]">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-[#FFB800]" />
+                  <h3 className="font-mono text-[11px] font-bold text-[#FFB800] uppercase tracking-wider">
+                    Radar de Manutenção (&gt;14 dias sem treino)
+                  </h3>
+                </div>
+
+                {data.techniqueRepertoire.neglected.length === 0 ? (
+                  <div className="flex flex-col justify-center flex-1 p-3 bg-[#0D1C2D] border border-[#1F2937] rounded-[3px]">
+                    <p className="font-mono text-xs text-[#D4F684]">
+                      Repertório em dia!
+                    </p>
+                    <p className="font-sans text-xs text-[#8F9380] mt-1">
+                      Todos os fundamentos registrados foram praticados nos últimos 14 dias.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {data.techniqueRepertoire.neglected.slice(0, 6).map((tech) => (
+                      <div
+                        key={tech.name}
+                        className="flex items-center justify-between p-2.5 bg-[#0D1C2D] border border-[#FFB800]/30 rounded-[3px]"
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-sans text-xs font-medium text-[#D4E4FA]">
+                            {tech.name}
+                          </span>
+                          <span className="font-mono text-[10px] text-[#8F9380]">
+                            Praticado {tech.count}x no total
+                          </span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-[2px] bg-[#FFB800]/15 text-[#FFB800] border border-[#FFB800]/40 font-mono text-[10px] font-bold">
+                          há {tech.daysSinceLastPractice} dias
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </Card>
       )}
 

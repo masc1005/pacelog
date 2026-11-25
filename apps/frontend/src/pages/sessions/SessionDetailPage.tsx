@@ -8,7 +8,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useSettings } from '../../hooks/useSettings';
 import type { SessionDTO, SportKey } from '@pacelog/shared';
 import { formatDuration } from '../../lib/utils';
-import { Activity, Zap, Sun, Dumbbell, Flame, Pencil, Trash2, ArrowLeft, Sparkles, RefreshCw, Waves, Bike, Shield } from 'lucide-react';
+import { Activity, Zap, Sun, Dumbbell, Flame, Pencil, Trash2, ArrowLeft, Sparkles, RefreshCw, Waves, Bike, Shield, BookOpen } from 'lucide-react';
 import type { AIInsightDTO } from '@pacelog/shared';
 
 const sportMeta: Record<SportKey, { name: string; color: string; icon: any; badge: 'cyan'|'amber'|'crimson'|'purple'|'green'|'blue' }> = {
@@ -433,11 +433,23 @@ export const SessionDetailPage: React.FC = () => {
                 </div>
               )}
               {Array.isArray(session.metrics.techniquesFocus) && session.metrics.techniquesFocus.length > 0 && (
-                <div className="flex flex-col gap-1 border-l-2 border-[#E11D48] pl-3 col-span-2">
-                  <span className="font-mono text-[9px] text-[#8F9380] uppercase">Foco Técnico / Posições</span>
-                  <span className="font-display text-sm text-[#D4E4FA]">
-                    {session.metrics.techniquesFocus.join(', ')}
-                  </span>
+                <div className="flex flex-col gap-2 border-l-2 border-[#E11D48] pl-3 col-span-2 mt-1">
+                  <div className="flex items-center gap-1.5">
+                    <BookOpen className="h-3.5 w-3.5 text-[#E11D48]" />
+                    <span className="font-mono text-[9px] text-[#8F9380] uppercase tracking-wider">
+                      Diário Técnico • Fundamentos Praticados
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {session.metrics.techniquesFocus.map((tech: string) => (
+                      <span
+                        key={tech}
+                        className="px-2.5 py-0.5 rounded-[3px] bg-[#E11D48]/15 border border-[#E11D48]/40 text-[#D4E4FA] font-mono text-xs"
+                      >
+                        {tech}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </>}
@@ -460,6 +472,26 @@ export const SessionDetailPage: React.FC = () => {
                 <div className="flex flex-col gap-1 border-l-2 border-[#FF6B35] pl-3">
                   <span className="font-mono text-[9px] text-[#8F9380] uppercase">Sparring</span>
                   <span className="font-display text-xl font-bold text-[#FF6B35]">Sim</span>
+                </div>
+              )}
+              {Array.isArray(session.metrics.techniquesFocus) && session.metrics.techniquesFocus.length > 0 && (
+                <div className="flex flex-col gap-2 border-l-2 border-[#FF6B35] pl-3 col-span-2 mt-1">
+                  <div className="flex items-center gap-1.5">
+                    <BookOpen className="h-3.5 w-3.5 text-[#FF6B35]" />
+                    <span className="font-mono text-[9px] text-[#8F9380] uppercase tracking-wider">
+                      Diário Técnico • Fundamentos Praticados
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {session.metrics.techniquesFocus.map((tech: string) => (
+                      <span
+                        key={tech}
+                        className="px-2.5 py-0.5 rounded-[3px] bg-[#FF6B35]/15 border border-[#FF6B35]/40 text-[#D4E4FA] font-mono text-xs"
+                      >
+                        {tech}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </>}
@@ -554,6 +586,26 @@ export const SessionDetailPage: React.FC = () => {
                 <div className="flex flex-col gap-1 border-l-2 border-[#FFB800] pl-3">
                   <span className="font-mono text-[9px] text-[#8F9380] uppercase">Dupla</span>
                   <span className="font-display text-sm font-bold text-[#FFB800] truncate">{session.metrics.partnerName}</span>
+                </div>
+              )}
+              {Array.isArray(session.metrics.techniquesFocus) && session.metrics.techniquesFocus.length > 0 && (
+                <div className="flex flex-col gap-2 border-l-2 border-[#FFB800] pl-3 col-span-2 mt-1">
+                  <div className="flex items-center gap-1.5">
+                    <BookOpen className="h-3.5 w-3.5 text-[#FFB800]" />
+                    <span className="font-mono text-[9px] text-[#8F9380] uppercase tracking-wider">
+                      Diário Técnico • Fundamentos Praticados
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {session.metrics.techniquesFocus.map((tech: string) => (
+                      <span
+                        key={tech}
+                        className="px-2.5 py-0.5 rounded-[3px] bg-[#FFB800]/15 border border-[#FFB800]/40 text-[#D4E4FA] font-mono text-xs"
+                      >
+                        {tech}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </>}

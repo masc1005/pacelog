@@ -8,6 +8,7 @@ import { SPORT_KEYS, type SportKey, type SessionDTO } from '@pacelog/shared';
 import { apiClient, ApiError } from '../../lib/api';
 import { Activity, Zap, Sun, Flame, CheckCircle, ChevronRight, ChevronLeft, ChevronDown, Waves, Bike, Shield } from 'lucide-react';
 import { GearPicker } from '../../components/gear/GearPicker';
+import { TechniqueSelector } from '../../components/sessions/TechniqueSelector';
 import { toLocalInputDateTime } from '../../lib/utils';
 import { RpeSelector } from '../../components/ui/RpeSelector';
 import { useSyncQueue } from '../../pwa/hooks/useSyncQueue';
@@ -598,14 +599,12 @@ export const NewSessionPage: React.FC = () => {
                   </select>
                 </div>
 
-                <div className="col-span-2 sm:col-span-3">
-                  <Input
-                    label="Foco Técnico / Posições (ex: Raspagem de gancho, Passagem emborcada)"
-                    type="text"
-                    value={Array.isArray(metrics.techniquesFocus) ? metrics.techniquesFocus.join(', ') : (metrics.techniquesFocus || '')}
-                    onChange={e => setMetrics({...metrics, techniquesFocus: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean)})}
-                  />
-                </div>
+                <TechniqueSelector
+                  sportKey="jiujitsu"
+                  selected={Array.isArray(metrics.techniquesFocus) ? metrics.techniquesFocus : []}
+                  onChange={(techniquesFocus) => setMetrics({ ...metrics, techniquesFocus })}
+                  accentColor="#E11D48"
+                />
 
                 <GearPicker
                   categories={metrics.gi === false ? ['rashguard'] : ['jiujitsu_gi']}
@@ -673,6 +672,13 @@ export const NewSessionPage: React.FC = () => {
                     <option value="true">Sim</option>
                   </select>
                 </div>
+
+                <TechniqueSelector
+                  sportKey="boxing"
+                  selected={Array.isArray(metrics.techniquesFocus) ? metrics.techniquesFocus : []}
+                  onChange={(techniquesFocus) => setMetrics({ ...metrics, techniquesFocus })}
+                  accentColor="#FF6B35"
+                />
 
                 <GearPicker
                   categories={['boxing_gloves']}
@@ -844,6 +850,13 @@ export const NewSessionPage: React.FC = () => {
                     <option value="sand_court">Quadra (Areia Dura)</option>
                   </select>
                 </div>
+
+                <TechniqueSelector
+                  sportKey="futevolei"
+                  selected={Array.isArray(metrics.techniquesFocus) ? metrics.techniquesFocus : []}
+                  onChange={(techniquesFocus) => setMetrics({ ...metrics, techniquesFocus })}
+                  accentColor="#FFB800"
+                />
               </div>
             )}
 

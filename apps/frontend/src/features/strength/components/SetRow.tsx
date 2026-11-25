@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { StrengthSet } from '@pacelog/shared';
+import type { StrengthSet, StrengthSetType } from '@pacelog/shared';
 
 interface SetRowProps {
   set: StrengthSet;
@@ -8,6 +8,46 @@ interface SetRowProps {
   onComplete: (setId: string, data: { reps?: number; load?: number }) => void;
   onEdit: (setId: string, data: Partial<StrengthSet>) => void;
   onRemove: (setId: string) => void;
+}
+
+export const SET_TYPE_META: Record<
+  'warmup' | 'prep' | 'working',
+  {
+    shortLabel: string;
+    label: string;
+    badgeClass: string;
+    next: 'warmup' | 'prep' | 'working';
+  }
+> = {
+  warmup: {
+    shortLabel: 'AQ',
+    label: 'Aquecimento',
+    badgeClass:
+      'bg-[#FFB800]/15 text-[#FFB800] border-[#FFB800]/40 hover:bg-[#FFB800]/25',
+    next: 'prep',
+  },
+  prep: {
+    shortLabel: 'PR',
+    label: 'Preparação',
+    badgeClass:
+      'bg-[#5CA9E6]/15 text-[#5CA9E6] border-[#5CA9E6]/40 hover:bg-[#5CA9E6]/25',
+    next: 'working',
+  },
+  working: {
+    shortLabel: 'VL',
+    label: 'Série Válida',
+    badgeClass:
+      'bg-[#D4F684]/15 text-[#D4F684] border-[#D4F684]/40 hover:bg-[#D4F684]/25',
+    next: 'warmup',
+  },
+};
+
+export function normalizePrimarySetType(
+  type?: StrengthSetType
+): 'warmup' | 'prep' | 'working' {
+  if (type === 'warmup') return 'warmup';
+  if (type === 'prep') return 'prep';
+  return 'working';
 }
 
 export const SetRow: React.FC<SetRowProps> = React.memo(({
@@ -36,6 +76,14 @@ export const SetRow: React.FC<SetRowProps> = React.memo(({
   const isCompleted = set.status === 'completed';
   const isSkipped = set.status === 'skipped';
 
+  const currentTypeKey = normalizePrimarySetType(set.type);
+  const typeMeta = SET_TYPE_META[currentTypeKey];
+
+  function handleCycleType() {
+    const nextType = typeMeta.next;
+    onEdit(set.id, { type: nextType });
+  }
+
   function handleComplete() {
     onComplete(set.id, {
       reps: reps ? Number(reps) : undefined,
@@ -49,16 +97,27 @@ export const SetRow: React.FC<SetRowProps> = React.memo(({
 
   return (
     <div
-      className={`grid grid-cols-[3rem_1fr_1fr_3rem] gap-2 items-center px-2 py-1 rounded-[2px] transition-colors ${
+      className={`grid grid-cols-[4.5rem_1fr_1fr_3.5rem] gap-2 items-center px-2 py-1.5 rounded-[4px] transition-colors ${
         isCompleted ? 'bg-[#D4F684]/10' : isSkipped ? 'opacity-50' : ''
       }`}
       id={`set-${set.id}`}
       role="row"
     >
-      {/* Número da série */}
-      <span className="font-mono text-xs font-bold text-center text-[#8F9380]" aria-label={`Série ${set.setNumber}`}>
-        {set.type === 'warmup' ? 'W' : set.setNumber}
-      </span>
+      {/* Número e Tipo da Série (clicável para alternar Aquecimento / Preparação / Válida) */}
+      <div className="flex items-center justify-center">
+        <button
+          type="button"
+          id={`btn-set-type-${set.id}`}
+          onClick={handleCycleType}
+          title={`Tipo: ${typeMeta.label} — Toque para alternar (Aquecimento → Preparação → Válida)`}
+          aria-label={`Série ${set.setNumber}, tipo ${typeMeta.label}. Toque para alternar tipo de série`}
+          className={`inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded-[3px] border font-mono text-[10px] font-bold uppercase tracking-wider transition-all select-none w-full ${typeMeta.badgeClass}`}
+        >
+          <span className="opacity-75">{set.setNumber}</span>
+          <span>•</span>
+          <span>{typeMeta.shortLabel}</span>
+        </button>
+      </div>
 
       {/* Repetições */}
       <div className="flex justify-center">

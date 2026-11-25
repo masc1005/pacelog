@@ -7,6 +7,7 @@ import { useSettings } from '../../../hooks/useSettings';
 import { useActiveStrengthSession } from '../hooks/useActiveStrengthSession';
 import { formatDuration } from '../hooks/useSessionTimer';
 import { StrengthInsightCard } from '../components/StrengthInsightCard';
+import { SET_TYPE_META, normalizePrimarySetType } from '../components/SetRow';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { Trash2, ArrowLeft, Pencil, Bookmark, Play, Check } from 'lucide-react';
@@ -402,20 +403,29 @@ export const StrengthSessionDetailsPage: React.FC = () => {
 
               {exercise.sets
                 .filter((s) => s.status === 'completed')
-                .map((set) => (
-                  <div key={set.id} className="grid grid-cols-4 px-4 py-3 bg-[#161C24] border-b border-[#1F2937]/50 font-mono text-sm text-[#D4E4FA] last:border-0">
-                    <span className="text-[#8F9380]">{set.setNumber}</span>
-                    <span>{set.reps ?? '—'}</span>
-                    <span>
-                      {set.loadUnit === 'bodyweight'
-                        ? 'Peso corp.'
-                        : set.load != null
-                        ? `${set.load} ${set.loadUnit}`
-                        : '—'}
-                    </span>
-                    <span>{set.rpe ?? '—'}</span>
-                  </div>
-                ))}
+                .map((set) => {
+                  const typeKey = normalizePrimarySetType(set.type);
+                  const typeMeta = SET_TYPE_META[typeKey];
+                  return (
+                    <div key={set.id} className="grid grid-cols-4 items-center px-4 py-3 bg-[#161C24] border-b border-[#1F2937]/50 font-mono text-sm text-[#D4E4FA] last:border-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[#8F9380]">{set.setNumber}</span>
+                        <span className={`px-1.5 py-0.5 rounded-[2px] border font-mono text-[9px] font-bold uppercase ${typeMeta.badgeClass}`}>
+                          {typeMeta.shortLabel}
+                        </span>
+                      </div>
+                      <span>{set.reps ?? '—'}</span>
+                      <span>
+                        {set.loadUnit === 'bodyweight'
+                          ? 'Peso corp.'
+                          : set.load != null
+                          ? `${set.load} ${set.loadUnit}`
+                          : '—'}
+                      </span>
+                      <span>{set.rpe ?? '—'}</span>
+                    </div>
+                  );
+                })}
             </div>
           </div>
         ))}
